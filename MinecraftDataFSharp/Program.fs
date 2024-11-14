@@ -16,19 +16,14 @@ let minecraftDataPath = "minecraft-data"
 
 type ProtocolNode =
     { ProtocolVersion: int
-      MinVersion: SemVersion
-      MaxVersion: SemVersion
+      MinVersion: string
+      MaxVersion: string
       JsonProtocol: JsonNode }
 
 let dataPaths =
     Path.Combine(minecraftDataPath, "data", "dataPaths.json")
     |> File.ReadAllText
     |> JsonObject.Parse
-
-
-
-
-
 
 let getProtocolVersion (node: JsonNode) : int =
     let verPath = (node.AsObject()["version"]).ToString()
@@ -48,46 +43,37 @@ let getJsonProtocol (node: JsonNode) : JsonNode =
     |> File.ReadAllText
     |> JsonObject.Parse
 
-
-
-
 let toProtocols (dataPaths: JsonObject) =
 
-    let protoMin = SemVersion.Parse "1.12.2"
-
-    let se =
+    let grouped =
         dataPaths
-        |> Seq.where (fun x -> (SemVersion.TryParse x.Key) |> fst)
-        |> Seq.map (fun x -> (SemVersion.Parse x.Key, x.Value) |> KeyValuePair.Create)
-        |> Seq.where (_.Key.IsRelease)
-        |> Seq.where (fun x -> x.Key.ComparePrecedenceTo(protoMin) >= 0)
-
-
-    let grouped = se |> Seq.groupBy (fun x -> getProtocolVersion x.Value)
-
-
+        |> Seq.groupBy (fun x -> getProtocolVersion x.Value)
+        |> Seq.where (fun x -> x |> fst >= 340)
 
     [ for tuple in grouped do
-          let versions = snd tuple
           let protoVer = fst tuple
+          let versions = snd tuple
+          let protocolNode = versions |> Seq.map (_.Value) |> Seq.head |> getJsonProtocol
+          
+          
           let onlyVersions = versions |> Seq.map (_.Key) |> Seq.toArray
           let minVersion = onlyVersions |> Array.head
           let maxVersion = onlyVersions[onlyVersions.Length - 1]
-          let protocolNode = versions |> Seq.map (_.Value) |> Seq.head |> getJsonProtocol
+          
 
           let node: ProtocolNode =
               { ProtocolVersion = protoVer
                 MinVersion = minVersion
                 MaxVersion = maxVersion
                 JsonProtocol = protocolNode }
-
-          yield node ]
+          if protoVer <= 768 then yield node
+    ]
 
 
 
 type VerAndPacket = { Version: int; JsonPacket: JsonNode }
 
-let toTestPacket (node: ProtocolNode,packetName:String) : VerAndPacket =
+let toTestPacket (node: ProtocolNode, packetName: String) : VerAndPacket =
     try
         let a = node.JsonProtocol["play"]["toServer"]["types"][packetName][1]
 
@@ -102,6 +88,8 @@ let allServerboundPackets = HashSet<string>()
 
 let protocols = dataPaths["pc"].AsObject() |> toProtocols
 
+protocols |> Seq.iter (fun x -> printfn "%d" x.ProtocolVersion)
+
 protocols
 |> Seq.map (fun x -> x.JsonProtocol["play"]["toServer"]["types"])
 |> Seq.iter (fun x ->
@@ -113,9 +101,10 @@ protocols
 
 Directory.CreateDirectory("packets") |> ignore
 
-for packet in allServerboundPackets do       
+for packet in allServerboundPackets do
 
-    let listPackets = protocols |> Seq.map (fun t -> toTestPacket(t, packet)) |> Seq.toArray
+    let listPackets =
+        protocols |> Seq.map (fun t -> toTestPacket (t, packet)) |> Seq.toArray
 
     let mutable old = listPackets[0]
     let mutable firstVer = old.Version
@@ -136,7 +125,7 @@ for packet in allServerboundPackets do
 
             let clone = old.JsonPacket.DeepClone()
             obj.Add(key, clone)
-            firstVer <- toVer
+            firstVer <- curr.Version
             old <- curr
 
     let fromVer = old.Version
@@ -151,4 +140,4 @@ for packet in allServerboundPackets do
     obj.Add(key, old.JsonPacket.DeepClone())
 
     let resultJson = obj.ToJsonString(JsonSerializerOptions(WriteIndented = true))
-    File.WriteAllText(Path.Combine("packets",$"{packet}.json"), resultJson)
+    File.WriteAllText(Path.Combine("packets", $"{packet}.json"), resultJson)
