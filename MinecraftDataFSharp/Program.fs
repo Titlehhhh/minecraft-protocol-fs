@@ -88,7 +88,7 @@ let allServerboundPackets = HashSet<string>()
 
 let protocols = dataPaths["pc"].AsObject() |> toProtocols
 
-protocols |> Seq.iter (fun x -> printfn "%d" x.ProtocolVersion)
+//protocols |> Seq.iter (fun x -> printfn "%d" x.ProtocolVersion)
 
 protocols
 |> Seq.map (fun x -> x.JsonProtocol["play"]["toServer"]["types"])
