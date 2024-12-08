@@ -4,6 +4,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MinecraftDataFSharp", "Mine
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{207C87D4-70A3-4EC9-BFBC-7D0768D3C480}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ConsoleApp2", "ConsoleApp2\ConsoleApp2.fsproj", "{D2A41307-5929-45A4-B4DB-20D3CB185FBF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{207C87D4-70A3-4EC9-BFBC-7D0768D3C480}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{207C87D4-70A3-4EC9-BFBC-7D0768D3C480}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{207C87D4-70A3-4EC9-BFBC-7D0768D3C480}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D2A41307-5929-45A4-B4DB-20D3CB185FBF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D2A41307-5929-45A4-B4DB-20D3CB185FBF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D2A41307-5929-45A4-B4DB-20D3CB185FBF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D2A41307-5929-45A4-B4DB-20D3CB185FBF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
