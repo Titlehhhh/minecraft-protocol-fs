@@ -2,6 +2,9 @@
 open System.Collections.Generic
 open System.IO
 open System.Linq
+open System.Net.Http
+open System.Net.Http.Json
+open System.Text
 open System.Text.Json
 open System.Text.Json.Nodes
 open Microsoft.FSharp.Collections
@@ -9,14 +12,9 @@ open Microsoft.FSharp.Core
 open MinecraftDataFSharp
 open MinecraftDataFSharp.MinecraftDataParser
 open MinecraftDataFSharp.Models
+open OllamaSharp
+open OllamaSharp.Models
 open Semver
-
-
-// For more information see https://aka.ms/fsharp-console-apps
-
-
-
-
 
 
 let protocols = MinecraftDataParser.getPcProtocols
@@ -30,7 +28,7 @@ type VerAndPacket = { Version: int; JsonPacket: JsonNode }
 
 let toTestPacket (node: ProtocolVersionEntry, packetName: String) : VerAndPacket =
     try
-        let a = node.JsonProtocol["play"]["toServer"]["types"][packetName][1]
+        let a = node.JsonProtocol["play"]["toClient"]["types"][packetName][1]
 
         { Version = node.ProtocolVersion
           JsonPacket = a }
@@ -44,7 +42,7 @@ let allServerboundPackets = HashSet<string>()
 
 
 protocols
-|> Seq.map (fun x -> x.JsonProtocol["play"]["toServer"]["types"])
+|> Seq.map (fun x -> x.JsonProtocol["play"]["toClient"]["types"])
 |> Seq.iter (fun x ->
     x.AsObject()
     |> Seq.where (_.Key.StartsWith("packet_"))
@@ -52,7 +50,7 @@ protocols
 
 
 
-Directory.CreateDirectory("packets") |> ignore
+Directory.CreateDirectory("toClientPackets") |> ignore
 
 for packet in allServerboundPackets do
 
@@ -90,7 +88,6 @@ for packet in allServerboundPackets do
         else
             $"{fromVer}-{toVer}"
 
-    obj.Add(key, old.JsonPacket.DeepClone())    
+    obj.Add(key, old.JsonPacket.DeepClone())
     let resultJson = obj.ToJsonString(JsonSerializerOptions(WriteIndented = true))
-    File.WriteAllText(Path.Combine("packets", $"{packet}.json"), resultJson)
-
+    File.WriteAllText(Path.Combine("toClientPackets", $"{packet}.json"), resultJson)

@@ -1,0 +1,80 @@
+﻿# Main task
+Generate code for Minecraft protocol library in C# based on provided JSON.
+
+# Data format
+JSON format:
+{
+    “<Minecraft protocol version range>": <What the type looked like on this range. If empty, it means there was no this data type>
+}
+
+# Generation Requirements
+
+1. main components:
+- Extension methods for reading data for class MinecraftPrimitiveReader
+- Extension methods for writing data for class MinecraftPrimitiveWriter
+- Required classes/structures
+- All extension methods must be written to one single Extensions class, which must be labeled as partial
+
+2. Multiverse API:
+- Must have mandatory read and write methods for all versions.
+- Methods for specific version ranges
+- Ability to simplify for obvious cases. Simplify if the data type has the same names in all versions, also remove unnecessary methods.
+
+3. Naming rules and structure rules:
+- Using PascalCase
+- Location of extension methods in a separate Extensions class
+- Separate files for data types
+
+4. Documentation:
+- XML documentation (///) for all public methods and classes
+- No comments inside the code
+- In English
+
+# Limitations
+- No additional explanation in the output
+- No skipping fields when writing (use default values)
+- No additional public methods
+- No nested static classes
+- You cannot generate methods for reading and writing primitive types such as varint, int, long, and so on. They are already in the MinecraftPrimitiveReader/Writer classes
+- It is forbidden to create extension methods for reading and writing arrays. Do it through for.
+- No Generate types: "container" and "option". The "container" just means a class, "option" is optional, which means that you need to read the bool first.
+
+# Output format
+1. Generated code
+2. List of created classes and methods
+
+# Data for generation
+Type name: packet_use_item
+Structure: 
+{
+  "340-758": [
+    {
+      "name": "hand",
+      "type": "varint"
+    }
+  ],
+  "759-766": [
+    {
+      "name": "hand",
+      "type": "varint"
+    },
+    {
+      "name": "sequence",
+      "type": "varint"
+    }
+  ],
+  "767": [
+    {
+      "name": "hand",
+      "type": "varint"
+    },
+    {
+      "name": "sequence",
+      "type": "varint"
+    },
+    {
+      "name": "rotation",
+      "type": "vec2f"
+    }
+  ]
+}

@@ -6,10 +6,11 @@ open System.Text.Json.Nodes
 open Microsoft.FSharp.Core
 open MinecraftDataFSharp.Models
 open Models
+
 let generateVersionedTypeMap(protocols: ProtocolVersionEntry seq) =
     let allTypes = HashSet()
     
-    let jsons = protocols |> Seq.map(_.JsonProtocol.AsObject())
+    let jsons = protocols |> Seq.map(_.JsonProtocol["types"].AsObject())
     for proto in jsons do
         proto
         |> Seq.where(fun x-> x.Value.ToString() <> "native")
@@ -27,10 +28,10 @@ let generateVersionedTypeMap(protocols: ProtocolVersionEntry seq) =
     for protoType in allTypes do
         let mutable current = protocols[0]    
         let verTypesDict: JsonObject = JsonObject()
-        for i=1 to protocols.Length do
+        for i=1 to protocols.Length-1 do
             let proto = protocols[i]
-            let typeFirst = getType(current.JsonProtocol, protoType)
-            let typeSec = getType(proto.JsonProtocol, protoType)
+            let typeFirst = getType(current.JsonProtocol["types"], protoType)
+            let typeSec = getType(proto.JsonProtocol["types"], protoType)
             if not (JsonObject.DeepEquals(typeFirst, typeSec)) then
                 let fromVer = current.ProtocolVersion
                 let toVer = protocols[i-1].ProtocolVersion
@@ -41,7 +42,7 @@ let generateVersionedTypeMap(protocols: ProtocolVersionEntry seq) =
         let fromVer = current.ProtocolVersion
         let toVer = (protocols |> Array.last).ProtocolVersion
         let key = verRangeToStr fromVer toVer
-        verTypesDict.Add(key, getType(current.JsonProtocol, protoType))
+        verTypesDict.Add(key, getType(current.JsonProtocol["types"], protoType))
         
         let path = Path.Combine("types",$"{protoType}.json")
         

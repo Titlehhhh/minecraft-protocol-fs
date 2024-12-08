@@ -1,42 +1,39 @@
 ﻿module MinecraftDataFSharp.MinecraftDataParser
-
 open System.IO
 open System.Text.Json.Nodes
 open MinecraftDataFSharp.Models
 
-
-
 [<Literal>]
 let minecraftDataRootPath = "minecraft-data"
 
+let private getProtocolVersion (node: JsonNode) : int =
+    let verPath = (node.AsObject()["version"]).ToString()
+
+    let version =
+        (Path.Combine(minecraftDataRootPath, "data", verPath, "version.json")
+         |> File.ReadAllText
+         |> JsonObject.Parse)
+            .AsObject()
+
+    (version["version"]).ToString() |> int
+
+let private getJsonProtocol (node: JsonNode) : JsonNode =
+    let protoPath = (node.AsObject()["protocol"]).ToString()
+
+    Path.Combine(minecraftDataRootPath, "data", protoPath, "protocol.json")
+    |> File.ReadAllText
+    |> JsonObject.Parse
+
 let getPcProtocols =
-
-    let getProtocolVersion (node: JsonNode) : int =
-        let verPath = (node["pc"].AsObject()["version"]).ToString()
-
-        let version =
-            (Path.Combine(minecraftDataRootPath, "data", verPath, "version.json")
-             |> File.ReadAllText
-             |> JsonObject.Parse)
-                .AsObject()
-
-        (version["version"]).ToString() |> int
-
     let dataPaths =
         Path.Combine(minecraftDataRootPath, "data", "dataPaths.json")
         |> File.ReadAllText
         |> JsonObject.Parse
-
-    let getJsonProtocol (node: JsonNode) : JsonNode =
-        let protoPath = (node.AsObject()["protocol"]).ToString()
-
-        Path.Combine(minecraftDataRootPath, "data", protoPath, "protocol.json")
-        |> File.ReadAllText
-        |> JsonObject.Parse
-
+    
+    let dataPaths = dataPaths["pc"].AsObject()
 
     let grouped =
-        dataPaths.AsObject()
+        dataPaths
         |> Seq.groupBy (fun x -> getProtocolVersion x.Value)
         |> Seq.where (fun x -> x |> fst >= 340)
 
@@ -57,3 +54,4 @@ let getPcProtocols =
 
           if protoVer <= 768 then
               yield node ]
+    
