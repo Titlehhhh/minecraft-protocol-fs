@@ -21,12 +21,15 @@ let protocols = MinecraftDataParser.getPcProtocols
 
 ProtocolTypeMapper.generateVersionedTypeMap protocols
 
+let answer = QwenService.Predict ("Quick sort in C#","You C# Programmer") |> Async.RunSynchronously
 
-
+match answer with
+| Some x -> printfn "%s" x
+| None -> printfn "None"
 
 type VerAndPacket = { Version: int; JsonPacket: JsonNode }
 
-let toTestPacket (node: ProtocolVersionEntry, packetName: String) : VerAndPacket =
+let toTestPacket (node: ProtocolVersionEntry, packetName: string) : VerAndPacket =
     try
         let a = node.JsonProtocol["play"]["toClient"]["types"][packetName][1]
 

@@ -10,7 +10,8 @@
               CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="Models.fs"/>
+        <Compile Include="QwenService.fs" />
+        <Compile Include="Models.fs"/>        
         <Compile Include="MinecraftDataParser.fs"/>
         <Compile Include="ProtocolTypeMapper.fs"/>
         <Compile Include="Program.fs"/>
@@ -18,6 +19,7 @@
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
         <Content Include="gg.md"/>
+        
     </ItemGroup>
 
     <ItemGroup>

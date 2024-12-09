@@ -42,7 +42,7 @@ let getPcProtocols =
           let versions = snd tuple
           let protocolNode = (versions |> Seq.head).Value |> getJsonProtocol
 
-          let onlyVersions = versions |> Seq.map (_.Key) |> Seq.toArray
+          let onlyVersions = versions |> Seq.map _.Key |> Seq.toArray
           let minVersion = onlyVersions |> Array.head
           let maxVersion = onlyVersions[onlyVersions.Length - 1]
 
