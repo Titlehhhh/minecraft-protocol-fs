@@ -10,22 +10,29 @@
               CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="QwenService.fs" />
+        <Compile Include="PromtCreator.fs" />
+        <Compile Include="LLMService.fs" />
         <Compile Include="Models.fs"/>        
         <Compile Include="MinecraftDataParser.fs"/>
         <Compile Include="ProtocolTypeMapper.fs"/>
         <Compile Include="Program.fs"/>
+        
+        
         <Content Include="BasePromt.txt">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
         <Content Include="gg.md"/>
+       
         
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="System.Net.ServerSentEvents" Version="9.0.0" />
+        <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0" />
         <PackageReference Include="Semver" Version="3.0.0"/>
         <PackageReference Include="OllamaSharp" Version="4.0.7"/>
         <PackageReference Include="FSharp.Control.AsyncSeq" Version="3.2.1"/>
+        <PackageReference Include="FSharp.Control.AsyncSeq" Version="3.2.1" />
     </ItemGroup>
 
 </Project>

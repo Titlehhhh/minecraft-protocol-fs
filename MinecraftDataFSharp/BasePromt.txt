@@ -40,41 +40,11 @@ JSON format:
 - No Generate types: "container" and "option". The "container" just means a class, "option" is optional, which means that you need to read the bool first.
 
 # Output format
-1. Generated code
+1. Generated code without ` symbols
 2. List of created classes and methods
 
 # Data for generation
-Type name: packet_use_item
+Packet id: %packet_id%
+Packet name: %packet_name%
 Structure: 
-{
-  "340-758": [
-    {
-      "name": "hand",
-      "type": "varint"
-    }
-  ],
-  "759-766": [
-    {
-      "name": "hand",
-      "type": "varint"
-    },
-    {
-      "name": "sequence",
-      "type": "varint"
-    }
-  ],
-  "767": [
-    {
-      "name": "hand",
-      "type": "varint"
-    },
-    {
-      "name": "sequence",
-      "type": "varint"
-    },
-    {
-      "name": "rotation",
-      "type": "vec2f"
-    }
-  ]
-}
+%packet_json%

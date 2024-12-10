@@ -7,31 +7,31 @@ open System.Net.Http.Json
 open System.Text
 open System.Text.Json
 open System.Text.Json.Nodes
+open FSharp.Control
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Core
 open MinecraftDataFSharp
 open MinecraftDataFSharp.MinecraftDataParser
 open MinecraftDataFSharp.Models
+open MinecraftDataFSharp.PromtCreator
 open OllamaSharp
 open OllamaSharp.Models
 open Semver
+open PromtCreator
 
 
 let protocols = MinecraftDataParser.getPcProtocols
 
 ProtocolTypeMapper.generateVersionedTypeMap protocols
 
-let answer = QwenService.Predict ("Quick sort in C#","You C# Programmer") |> Async.RunSynchronously
-
-match answer with
-| Some x -> printfn "%s" x
-| None -> printfn "None"
 
 type VerAndPacket = { Version: int; JsonPacket: JsonNode }
 
+let side = "toServer"
+
 let toTestPacket (node: ProtocolVersionEntry, packetName: string) : VerAndPacket =
     try
-        let a = node.JsonProtocol["play"]["toClient"]["types"][packetName][1]
+        let a = node.JsonProtocol["play"][side]["types"][packetName][1]
 
         { Version = node.ProtocolVersion
           JsonPacket = a }
@@ -45,15 +45,25 @@ let allServerboundPackets = HashSet<string>()
 
 
 protocols
-|> Seq.map (fun x -> x.JsonProtocol["play"]["toClient"]["types"])
+|> Seq.map (fun x -> x.JsonProtocol["play"][side]["types"])
 |> Seq.iter (fun x ->
     x.AsObject()
-    |> Seq.where (_.Key.StartsWith("packet_"))
+    |> Seq.where _.Key.StartsWith("packet_")
     |> Seq.iter (fun g -> allServerboundPackets.Add(g.Key) |> ignore))
 
 
 
-Directory.CreateDirectory("toClientPackets") |> ignore
+
+
+//List PromtInfo
+let promts = List<PromtInfo>()
+
+Directory.CreateDirectory("toServerPackets") |> ignore
+
+// print all serverbound packets
+printfn "Print all serverbound packets"
+for packet in allServerboundPackets do
+    printfn "%s" packet
 
 for packet in allServerboundPackets do
 
@@ -93,4 +103,39 @@ for packet in allServerboundPackets do
 
     obj.Add(key, old.JsonPacket.DeepClone())
     let resultJson = obj.ToJsonString(JsonSerializerOptions(WriteIndented = true))
-    File.WriteAllText(Path.Combine("toClientPackets", $"{packet}.json"), resultJson)
+    let filePath = Path.Combine("toServerPackets", $"{packet}_0.json")
+    File.WriteAllText(filePath, resultJson)
+    promts.Add(
+        { PacketId = packet
+          PacketName = packet
+          Structure = resultJson }
+    )
+
+
+
+// Get 10 first
+let firt10Promts = promts |> Seq.take 10 |> Seq.map (fun x -> createPromt x)
+
+let systemMessage = "You C# code generator for Minecraft protocol library"
+Directory.CreateDirectory("packets") |> ignore
+printfn "Start generation"
+
+promts
+|> Seq.take 10
+|> Seq.map (fun info ->
+    let promt = createPromt info
+    //printfn "%s" promt
+    async {
+        
+        let! result = LLMService.Predict(promt, systemMessage)
+        
+        
+        let filePath = Path.Combine("packets", $"{info.PacketName}.cs")
+
+        match result with
+        | Some x -> return! File.WriteAllTextAsync(filePath, x) |> Async.AwaitTask
+        | None -> return ()
+    })
+|> Async.Parallel
+|> Async.RunSynchronously
+|> ignore

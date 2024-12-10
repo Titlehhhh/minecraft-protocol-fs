@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="System.Net.ServerSentEvents" Version="9.0.0" />
         <PackageReference Include="Jint" Version="4.1.0"/>
       <PackageReference Include="OllamaSharp" Version="4.0.7" />
     </ItemGroup>
