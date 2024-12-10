@@ -1,4 +1,6 @@
-﻿public class MinecraftPrimitiveWriter : IMinecraftPrimitiveWriter
+﻿using System.Numerics;
+
+public class MinecraftPrimitiveWriter : IMinecraftPrimitiveWriter
 {
     public void Dispose()
     {
@@ -101,6 +103,11 @@
     }
 
     public MemoryOwner<byte> GetWrittenMemory()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void WriteVector2f(Vector2 o)
     {
         throw new NotImplementedException();
     }
