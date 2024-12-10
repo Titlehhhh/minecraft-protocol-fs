@@ -10,9 +10,11 @@
               CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
     <ItemGroup>
+        <Compile Include="Models.fs"/>
+        <Compile Include="JsonPacketGenerator.fs" />
         <Compile Include="PromtCreator.fs" />
         <Compile Include="LLMService.fs" />
-        <Compile Include="Models.fs"/>        
+              
         <Compile Include="MinecraftDataParser.fs"/>
         <Compile Include="ProtocolTypeMapper.fs"/>
         <Compile Include="Program.fs"/>

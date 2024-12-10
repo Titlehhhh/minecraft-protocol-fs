@@ -1,16 +1,14 @@
 ﻿module MinecraftDataFSharp.PromtCreator
 
 open System.IO
+open MinecraftDataFSharp.Models
 
-type PromtInfo =
-    { PacketId: string
-      PacketName: string
-      Structure: string }
+
 
 let private basePromt = File.ReadAllText "BasePromt.txt"
 
-let createPromt (info: PromtInfo) : string =
+let createPromt (packet: PacketMetadata) : string =
     basePromt
-        .Replace("%packet_name%", info.PacketName)
-        .Replace("%packet_json%", info.Structure)
-        .Replace("%packet_id%", info.PacketId)
+        .Replace("%packet_name%", packet.PacketName)
+        .Replace("%packet_json%", packet.Structure)
+        .Replace("%packet_id%", packet.PacketId)

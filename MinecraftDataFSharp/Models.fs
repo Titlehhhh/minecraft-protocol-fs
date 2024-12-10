@@ -7,3 +7,10 @@ type ProtocolVersionEntry =
       MinVersion: string
       MaxVersion: string
       JsonProtocol: JsonNode }
+
+type PacketMetadata =
+    { PacketId: string
+      PacketName: string
+      Structure: string }
+
+type VerAndPacket = { Version: int; JsonStructure: JsonNode }

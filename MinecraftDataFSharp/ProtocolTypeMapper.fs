@@ -27,7 +27,7 @@ let generateVersionedTypeMap (protocols: ProtocolVersionEntry seq) =
 
     let verRangeToStr f t = if f = t then $"{f}" else $"{f}-{t}"
     Directory.CreateDirectory("types") |> ignore
-
+    
     for protoType in allTypes do
         let mutable current = protocols[0]
         let verTypesDict: JsonObject = JsonObject()
