@@ -30,7 +30,7 @@ packets
 |> Seq.iter (fun x ->
     let filePath = Path.Combine("toServer", $"{x.PacketName}.json")
     File.WriteAllText(filePath, x.Structure))
-
+printfn "Stop"
 exit 0
 // Get 10 first
 let firt10Packets = packets |> Seq.take 10 |> Seq.map (fun x -> createPromt x)

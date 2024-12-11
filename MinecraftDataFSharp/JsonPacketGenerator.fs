@@ -15,9 +15,9 @@ let findRanges (input: VerAndPacket array) =
     |> List.fold (fun acc current ->
         match acc with
         | [] -> [{ Version = current.Version; JsonStructure = current.JsonStructure }, current.Version, current.Version]
-        | (lastObj, startVer, _) :: rest when 
+        | (lastObj, startVer, _) :: tail when 
             JsonNode.DeepEquals(lastObj.JsonStructure, current.JsonStructure) ->            
-            (lastObj, startVer, current.Version) :: rest
+            (lastObj, startVer, current.Version) :: tail
         | _ ->
             ({ Version = current.Version; JsonStructure = current.JsonStructure }, current.Version, current.Version) :: acc
     ) []
