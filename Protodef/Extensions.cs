@@ -1,5 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Reflection.Metadata.Ecma335;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Protodef.Converters;
 using Protodef.Enumerable;
 using Protodef.Primitive;
 
@@ -7,6 +10,26 @@ namespace Protodef;
 
 public static class Extensions
 {
+    public static bool IsPrimitive(JsonObject jsonObject)
+    {
+        JsonSerializerOptions options= new();
+        options.Converters.Add(new DataTypeConverter());
+        foreach (var (key, value) in jsonObject)
+        {
+            if (value is JsonArray arr)
+            {
+                List<ProtodefContainerField> fields = arr.Deserialize<List<ProtodefContainerField>>(options)!;
+                
+                ProtodefContainer container = new ProtodefContainer(fields);
+
+                if (container.IsAllFieldsSimple(_ => true) == false)
+                    return false;
+            }
+        }
+
+        return true;
+    }
+    
     public static bool IsVarLong(this ProtodefType type)
     {
         return type is ProtodefVarLong;

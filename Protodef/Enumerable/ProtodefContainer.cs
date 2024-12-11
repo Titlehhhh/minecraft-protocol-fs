@@ -2,8 +2,7 @@
 
 namespace Protodef.Enumerable;
 
-public sealed class ProtodefContainer : ProtodefType, IPathTypeEnumerable,
-    IJsonOnDeserialized
+public sealed class ProtodefContainer : ProtodefType, IPathTypeEnumerable
 {
     public List<ProtodefContainerField> Fields { get; set; } = new();
 
@@ -12,6 +11,8 @@ public sealed class ProtodefContainer : ProtodefType, IPathTypeEnumerable,
     {
         Fields = fields;
     }
+
+   
 
     private ProtodefContainer(ProtodefContainer other)
     {
