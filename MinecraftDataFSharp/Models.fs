@@ -11,6 +11,7 @@ type ProtocolVersionEntry =
 type PacketMetadata =
     { PacketId: string
       PacketName: string
-      Structure: string }
+      Structure: JsonObject
+       }
 
 type VerAndPacket = { Version: int; JsonStructure: JsonNode }

@@ -22,7 +22,18 @@ public static class Extensions
                 
                 ProtodefContainer container = new ProtodefContainer(fields);
 
-                if (container.IsAllFieldsSimple(_ => true) == false)
+                if (container.IsAllFieldsSimple(x =>
+                    {
+                        if(x.Type.IsBuffer()) return true;
+
+                        if (x.Type is ProtodefCustomType custom)
+                        {
+                            // true is custom.Name is position, vec2f, vec3f,vec3f64, vec4f, slot, ByteArray, ingredient
+                            return custom.Name is "position" or "vec2f" or "vec3f" or "vec3f64" or "vec4f" or "slot" or "ByteArray" or "ingredient";
+                        }
+                        
+                        return false;
+                    }) == false)
                     return false;
             }
         }
@@ -100,8 +111,8 @@ public static class Extensions
                type.IsNumber() ||
                type is ProtodefPrefixedString ||
                type.IsSimpleOption() ||
-               type.IsSimpleArray() ||
-               type.IsSimpleSwitch();
+               type.IsSimpleArray();
+        //type.IsSimpleSwitch();
     }
 
     public static bool IsSimpleOption(this ProtodefType type)

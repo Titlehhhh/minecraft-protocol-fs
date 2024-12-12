@@ -1,5 +1,6 @@
 ﻿open System
 open System.Collections.Generic
+open System.Diagnostics
 open System.IO
 open System.Linq
 open System.Net.Http
@@ -13,6 +14,8 @@ open Microsoft.FSharp.Core
 open MinecraftDataFSharp
 open MinecraftDataFSharp.Models
 open MinecraftDataFSharp.PromtCreator
+open Protodef
+
 
 
 let protocols = MinecraftDataParser.getPcProtocols
@@ -22,17 +25,30 @@ ProtocolTypeMapper.generateVersionedTypeMap protocols
 
 let packets = JsonPacketGenerator.generatePackets protocols "toServer"
 
+let filterPrimitivePackets (packet: PacketMetadata) = Extensions.IsPrimitive packet.Structure
 
+// Create folder packets. In packets two folders primitive and complex. Clear primitive and complex folders. Write to two folders files
 
-Directory.CreateDirectory("toServer") |> ignore
+let packetFolders = ["primitive"; "complex"]
+packetFolders
+|> Seq.iter (fun folder ->
+    let folderPath = Path.Combine("packets", folder)
+    if Directory.Exists(folderPath) then
+        Directory.EnumerateFiles(folderPath) |> Seq.iter File.Delete
+    Directory.CreateDirectory(folderPath) |> ignore)
 
 packets
-|> Seq.iter (fun x ->
-    let filePath = Path.Combine("toServer", $"{x.PacketName}.json")
-    File.WriteAllText(filePath, x.Structure))
-printfn "Stop"
+|> Seq.iter (fun packet ->
+    let folder = if filterPrimitivePackets packet then "primitive" else "complex"
+    if packet.PacketName.Contains("tab_complete") then
+        Debugger.Break();
+    let filePath = Path.Combine("packets", folder, $"{packet.PacketName}.json")
+    File.WriteAllText(filePath, packet.Structure.ToJsonString(JsonSerializerOptions(WriteIndented = true))))
+
+
+
+
 exit 0
-// Get 10 first
 let firt10Packets = packets |> Seq.take 10 |> Seq.map (fun x -> createPromt x)
 
 let systemMessage = "You C# code generator for Minecraft protocol library"

@@ -62,12 +62,10 @@ let generatePackets (protocols: ProtocolVersionEntry list) (side: string) : Pack
             protocols |> Seq.map (fun t -> extractPacket (t, packet)) |> Seq.toArray
         
         let obj = findRanges listPackets
-        //Thread.Sleep(-1)
-        let resultJson = obj.ToJsonString(JsonSerializerOptions(WriteIndented = true))
 
         packets.Add(
             { PacketId = packet
               PacketName = packet
-              Structure = resultJson }
+              Structure = obj.DeepClone().AsObject() }
         )
     packets |> Seq.toList
