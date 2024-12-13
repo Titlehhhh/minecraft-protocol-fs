@@ -16,35 +16,33 @@ open MinecraftDataFSharp.Models
 open MinecraftDataFSharp.PromtCreator
 open Protodef
 
-
-
 let protocols = MinecraftDataParser.getPcProtocols
 
 ProtocolTypeMapper.generateVersionedTypeMap protocols
-
-
 let packets = JsonPacketGenerator.generatePackets protocols "toServer"
-
 let filterPrimitivePackets (packet: PacketMetadata) = Extensions.IsPrimitive packet.Structure
+let packetFolders = [ "primitive"; "complex" ]
 
-// Create folder packets. In packets two folders primitive and complex. Clear primitive and complex folders. Write to two folders files
-
-let packetFolders = ["primitive"; "complex"]
 packetFolders
 |> Seq.iter (fun folder ->
     let folderPath = Path.Combine("packets", folder)
+
     if Directory.Exists(folderPath) then
         Directory.EnumerateFiles(folderPath) |> Seq.iter File.Delete
+
     Directory.CreateDirectory(folderPath) |> ignore)
 
 packets
 |> Seq.iter (fun packet ->
-    let folder = if filterPrimitivePackets packet then "primitive" else "complex"
-    if packet.PacketName.Contains("tab_complete") then
-        Debugger.Break();
+    let folder =
+        if filterPrimitivePackets packet then
+            "primitive"
+        else
+            "complex"
     let filePath = Path.Combine("packets", folder, $"{packet.PacketName}.json")
     File.WriteAllText(filePath, packet.Structure.ToJsonString(JsonSerializerOptions(WriteIndented = true))))
 
+let primitivePackets = packets |> Seq.filter filterPrimitivePackets |> List.ofSeq
 
 
 

@@ -64,8 +64,7 @@ let generatePackets (protocols: ProtocolVersionEntry list) (side: string) : Pack
         let obj = findRanges listPackets
 
         packets.Add(
-            { PacketId = packet
-              PacketName = packet
+            { PacketName = packet
               Structure = obj.DeepClone().AsObject() }
         )
     packets |> Seq.toList

@@ -9,14 +9,20 @@ open MinecraftDataFSharp.Models
 open Models
 
 let generateVersionedTypeMap (protocols: ProtocolVersionEntry seq) =
-    let allTypes = HashSet()
+    let nonNativeTypes = HashSet()
 
-    let jsons = protocols |> Seq.map (_.JsonProtocol["types"].AsObject())
-
+    let jsons = protocols |> Seq.map _.JsonProtocol["types"].AsObject()
+    
+    let allTypes = jsons |> Seq.collect(fun x->x|> Seq.map(_.Key)) |> Set.ofSeq
+    
+    //print
+    for t in allTypes do
+        printfn "%s" t
+    
     for proto in jsons do
         proto
         |> Seq.where (fun x -> x.Value.ToString() <> "native")
-        |> Seq.iter (fun x -> x.Key |> allTypes.Add |> ignore)
+        |> Seq.iter (fun x -> x.Key |> nonNativeTypes.Add |> ignore)
 
     let protocols = protocols |> Seq.toArray
 
@@ -28,7 +34,7 @@ let generateVersionedTypeMap (protocols: ProtocolVersionEntry seq) =
     let verRangeToStr f t = if f = t then $"{f}" else $"{f}-{t}"
     Directory.CreateDirectory("types") |> ignore
     
-    for protoType in allTypes do
+    for protoType in nonNativeTypes do
         let mutable current = protocols[0]
         let verTypesDict: JsonObject = JsonObject()
 

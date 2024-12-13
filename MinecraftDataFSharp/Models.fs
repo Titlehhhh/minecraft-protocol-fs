@@ -9,9 +9,9 @@ type ProtocolVersionEntry =
       JsonProtocol: JsonNode }
 
 type PacketMetadata =
-    { PacketId: string
-      PacketName: string
-      Structure: JsonObject
-       }
+    { PacketName: string
+      Structure: JsonObject }
 
-type VerAndPacket = { Version: int; JsonStructure: JsonNode }
+type VerAndPacket =
+    { Version: int
+      JsonStructure: JsonNode }
