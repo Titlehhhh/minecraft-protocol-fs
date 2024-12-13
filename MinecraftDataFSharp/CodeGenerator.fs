@@ -118,15 +118,47 @@ let rec protodefTypeToCSharpType (t: ProtodefType) =
     | :? ProtodefBuffer -> "byte[]"
     | _ -> failwith $"unknown type: {t}"
     
-        //| :? Protodef
+
+let TypeToWriteMethodOneArg = Map [   
+        "bool", "WriteBoolean"
+        "i8", "WriteSignedByte"
+        "u8", "WriteUnsignedByte"
+        "i16", "WriteSignedShort"
+        "u16", "WriteUnsignedShort"
+        "i32", "WriteSignedInt"
+        "u32", "WriteUnsignedInt"
+        "i64", "WriteSignedLong"
+        "u64", "WriteUnsignedLong"
+        "f32", "WriteFloat"
+        "f64", "WriteDouble"
+        "UUID", "WriteUUID"
+        "restBuffer", "WriteBuffer"
+        "optvarint", "WriteVarInt"
+        "varint", "WriteVarInt"
+        "varlong", "WriteVarLong"
+        "string", "WriteString"
+        "pstring", "WriteString"
+]
     
+let generateInstruct(field:  ProtodefContainerField)=
+    let argName = field.Name.Camelize()
+    
+    ignore
+
+let generateSerialization (container: ProtodefContainer) =
+    ignore
+  
 let generateMethod (range: VersionRange, container: ProtodefContainer) =
     let parameters = container.Fields |> Seq.map (fun x ->
-        let pascalCase = x.Name.Pascalize()
+        let pascalCase = x.Name.Camelize()
         let csharpType = protodefTypeToCSharpType x.Type
         SyntaxFactory.Parameter(SyntaxFactory.Identifier(pascalCase))
             .WithType(SyntaxFactory.ParseTypeName(csharpType))
         )
+    let identifier = SyntaxFactory.Identifier (range.ToString())
+    
+    
+      
     
     ignore
 
