@@ -22,17 +22,15 @@ let protocols = MinecraftDataParser.getPcProtocols
 
 //ProtocolTypeMapper.generateVersionedTypeMap protocols
 let packets = JsonPacketGenerator.generatePackets protocols "toServer"
-let filterPrimitivePackets (packet: PacketMetadata) = Extensions.IsPrimitive packet.Structure
+let filterPrimitivePackets (packet: PacketMetadata) =
+        
+    Extensions.IsPrimitive packet.Structure
 let packetFolders = [ "primitive"; "complex" ]
 
-packetFolders
-|> Seq.iter (fun folder ->
-    let folderPath = Path.Combine("packets", folder)
 
-    if Directory.Exists(folderPath) then
-        Directory.EnumerateFiles(folderPath) |> Seq.iter File.Delete
+Directory.EnumerateFiles("packets", "*.*", SearchOption.AllDirectories)
+|> Seq.iter (fun filePath -> try File.Delete(filePath) with _ -> ())
 
-    Directory.CreateDirectory(folderPath) |> ignore)
 
 packets
 |> Seq.iter (fun packet ->

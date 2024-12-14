@@ -24,22 +24,42 @@ public static class Extensions
 
                 if (container.IsAllFieldsSimple(x =>
                     {
-                        if(x.Type.IsBuffer()) return true;
-
-                        if (x.Type is ProtodefCustomType custom)
+                        bool IsSimpleLocal(ProtodefType type)
                         {
-                            // true is custom.Name is position, vec2f, vec3f,vec3f64, vec4f, slot, ByteArray, ingredient
-                            return custom.Name is "position" 
-                                or "vec2f" 
-                                or "vec3f"
-                                or "vec3f64" 
-                                or "vec4f" 
-                                or "slot" 
-                                or "ByteArray" 
-                                or "ingredient";
+                            if(type.IsBuffer()) return true;
+
+                            if (type is ProtodefCustomType custom)
+                            {
+                                // true is custom.Name is position, vec2f, vec3f,vec3f64, vec4f, slot, ByteArray, ingredient
+                                return custom.Name is "position" 
+                                    or "vec2f" 
+                                    or "vec3f"
+                                    or "vec3f64" 
+                                    or "vec4f" 
+                                    or "slot" 
+                                    or "ByteArray" 
+                                    or "ingredient"
+                                    or "UUID"
+                                    or "restBuffer"
+                                    or "Slot";
+                            }
+
+                            return false;
                         }
                         
-                        return false;
+                        if(x.Type is ProtodefOption option)
+                        {
+                            return IsSimpleLocal(option.Type);
+                        }
+                        
+                        if(x.Type is ProtodefArray arr)
+                        {
+                            return IsSimpleLocal(arr.Type);
+                        }
+
+                       return IsSimpleLocal(x.Type);
+                        
+                        
                     }) == false)
                     return false;
             }

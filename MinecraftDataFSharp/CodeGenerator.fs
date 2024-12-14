@@ -52,6 +52,7 @@ let packetMetadataToProtodefPacket (packet: PacketMetadata) =
 
     let dict = Dictionary<VersionRange, ProtodefContainer>()
     let options = JsonSerializerOptions()
+    
     options.Converters.Add(DataTypeConverter())
 
     packet.Structure
@@ -200,6 +201,9 @@ let generateInstruct (field: ProtodefContainerField) =
                 "WriteVarInt" |> wi $"{argName}.Length"
                 "WriteBuffer" |> wi name
             | "slot" -> "WriteSlot" |> wiP name
+            | "Slot" -> "WriteSlot" |> wiP name
+            | "restBuffer" -> "WriteBuffer" |> wi name            
+            | "UUID" -> "WriteUUID" |> wi name            
             | _ -> failwith $"unknown custom type: {custom.Name}"
 
     generateWriteInstruction field.Type argName
