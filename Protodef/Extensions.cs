@@ -29,7 +29,14 @@ public static class Extensions
                         if (x.Type is ProtodefCustomType custom)
                         {
                             // true is custom.Name is position, vec2f, vec3f,vec3f64, vec4f, slot, ByteArray, ingredient
-                            return custom.Name is "position" or "vec2f" or "vec3f" or "vec3f64" or "vec4f" or "slot" or "ByteArray" or "ingredient";
+                            return custom.Name is "position" 
+                                or "vec2f" 
+                                or "vec3f"
+                                or "vec3f64" 
+                                or "vec4f" 
+                                or "slot" 
+                                or "ByteArray" 
+                                or "ingredient";
                         }
                         
                         return false;
