@@ -2,12 +2,16 @@
 
 open System
 open System.Collections.Generic
+open System.IO
 open System.Text
 open System.Text.Json
 open Humanizer
+open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
+open Microsoft.CodeAnalysis.CSharp.Syntax
 open MinecraftDataFSharp.Models
 open Protodef
+open Protodef.Converters
 open Protodef.Enumerable
 open Protodef.Primitive
 
@@ -41,15 +45,19 @@ type Packet =
 
     member this.IsFullPacket = this.EmptyRanges.IsEmpty
 
+
+
 let packetMetadataToProtodefPacket (packet: PacketMetadata) =
     let packetName = packet.PacketName
 
     let dict = Dictionary<VersionRange, ProtodefContainer>()
+    let options = JsonSerializerOptions()
+    options.Converters.Add(DataTypeConverter())
 
     packet.Structure
-    |> Seq.filter (fun x -> x.Value.ToJsonString() <> "empty")
+    |> Seq.filter (fun x -> x.Value.GetValueKind() <> JsonValueKind.String)
     |> Seq.map (fun x ->
-        let fields = x.Value.Deserialize<List<ProtodefContainerField>>()
+        let fields = x.Value.Deserialize<List<ProtodefContainerField>>(options)
         let container = ProtodefContainer(fields)
         let versionRange = VersionRange.Parse x.Key
         versionRange, container)
@@ -107,7 +115,9 @@ let rec protodefTypeToCSharpType (t: ProtodefType) =
     match t with
     | :? ProtodefNumericType as p -> p.NetName
     | :? ProtodefCustomType as p -> NameToCSharpType[p.Name]
-    | :? ProtodefOption as p -> NameToCSharpType[protodefTypeToCSharpType (p.Type)] + "?"
+    | :? ProtodefOption as p ->
+        let deb = protodefTypeToCSharpType (p.Type)
+        deb + "?"
     | :? ProtodefArray as p -> NameToCSharpType[protodefTypeToCSharpType (p.Type)] + "[]"
     | :? ProtodefVarInt -> "int"
     | :? ProtodefVarLong -> "long"
@@ -142,12 +152,18 @@ let TypeToWriteMethodOneArg =
 
 let generateInstruct (field: ProtodefContainerField) =
     let argName = field.Name.Camelize()
-    let sb = StringBuilder()
-    
-    
-    let wi (m: string) (a: string) = $"writer.{m}({a});" |> sb.AppendLine |> ignore
-    let wiP (m: string) (a: string) = $"writer.{m}({a}, _protocolVersion);" |> sb.AppendLine |> ignore
-   
+
+    let list = List<StatementSyntax>()
+
+    let add (m: string) =
+        SyntaxFactory.ParseStatement(m) |> list.Add
+
+    let wi (m: string) (a: string) =
+        SyntaxFactory.ParseStatement($"writer.{a}({m});") |> list.Add
+
+    let wiP (m: string) (a: string) =
+        SyntaxFactory.ParseStatement($"writer.{a}({m}, _protocolVersion);") |> list.Add
+
 
 
     let rec generateWriteInstruction (t: ProtodefType) (name: string) : unit =
@@ -162,15 +178,16 @@ let generateInstruct (field: ProtodefContainerField) =
             if b.Rest = true then
                 TypeToWriteMethodOneArg["restBuffer"] |> wi name
             else
-                "WriteVarInt" |> wi $"{argName}.Length" 
+                "WriteVarInt" |> wi $"{argName}.Length"
                 "WriteBuffer" |> wi name
         | :? ProtodefArray as a ->
             "WriteVarInt" |> wi $"{argName}.Length"
-            sb.AppendLine $"foreach (var {argName}_item in {argName})" |> ignore
+
+            $"foreach (var {argName}_item in {argName})" |> add
             generateWriteInstruction a.Type $"{argName}_item"
         | :? ProtodefOption as o ->
-            "WriteBoolean" |> wi $"{argName} != null"
-            sb.AppendLine $"if ({argName} is not null)" |> ignore
+            "WriteBoolean" |> wi $"{argName} is not null"
+            $"if ({argName} is not null)" |> add
             generateWriteInstruction o.Type $"{argName}!"
         | :? ProtodefCustomType as custom ->
             match custom.Name with
@@ -182,13 +199,15 @@ let generateInstruct (field: ProtodefContainerField) =
             | "ByteArray" ->
                 "WriteVarInt" |> wi $"{argName}.Length"
                 "WriteBuffer" |> wi name
-            | "slot" -> "WriteSlot" |> wiP name            
+            | "slot" -> "WriteSlot" |> wiP name
             | _ -> failwith $"unknown custom type: {custom.Name}"
-    
-    generateWriteInstruction field.Type argName
-    sb.ToString()
 
-let generateSerialization (container: ProtodefContainer) = ignore
+    generateWriteInstruction field.Type argName
+
+    list
+
+let generateBody (container: ProtodefContainer) =
+    container.Fields |> Seq.collect generateInstruct |> Array.ofSeq
 
 let generateMethod (range: VersionRange, container: ProtodefContainer) =
     let parameters =
@@ -200,20 +219,59 @@ let generateMethod (range: VersionRange, container: ProtodefContainer) =
             SyntaxFactory
                 .Parameter(SyntaxFactory.Identifier(pascalCase))
                 .WithType(SyntaxFactory.ParseTypeName(csharpType)))
+        |> Array.ofSeq
 
-    let identifier = SyntaxFactory.Identifier(range.ToString())
+    let identifier =
+        SyntaxFactory.Identifier("Send" + range.ToString().Replace("-", "_"))
 
 
+    let ser = generateBody container
+    let blockSyntax = SyntaxFactory.Block(ser)
+
+    SyntaxFactory
+        .MethodDeclaration(SyntaxFactory.ParseTypeName("void"), identifier)
+        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+        .AddParameterListParameters(parameters)
+        .WithBody(blockSyntax)
+
+let generateMethods (packet: Packet) =
+    let methods =
+        packet.Structure
+        |> Seq.map (fun x -> generateMethod (x.Key, x.Value))
+        |> Array.ofSeq
 
 
-    ignore
-
-let generateMethods (packet: Packet) = ignore
+    methods
 
 let generatePrimitive (packets: PacketMetadata list) =
     let protodefPackets =
         packets
         |> Seq.where (fun x -> Extensions.IsPrimitive x.Structure)
         |> Seq.map packetMetadataToProtodefPacket
+
+    Directory.CreateDirectory(Path.Combine("packets", "generated")) |> ignore
+
+    for p in protodefPackets do
+        let methods = generateMethods p
+
+        let members =
+            methods |> Seq.map (fun x -> x :> MemberDeclarationSyntax) |> Array.ofSeq
+
+        let packetName = p.PacketName
+
+        let filePath = Path.Combine("packets", "generated", $"{packetName}.cs")
+
+        let cl =
+            SyntaxFactory
+                .ClassDeclaration(packetName.Pascalize())
+                .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+                .AddMembers(members)
+
+        let ns =
+            SyntaxFactory
+                .NamespaceDeclaration(SyntaxFactory.ParseName("MinecraftDataFSharp"))
+                .AddMembers(cl)
+
+        File.WriteAllText(filePath, ns.NormalizeWhitespace().ToFullString())
 
     ignore

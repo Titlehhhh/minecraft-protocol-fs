@@ -16,9 +16,11 @@ open MinecraftDataFSharp.Models
 open MinecraftDataFSharp.PromtCreator
 open Protodef
 
+
+
 let protocols = MinecraftDataParser.getPcProtocols
 
-ProtocolTypeMapper.generateVersionedTypeMap protocols
+//ProtocolTypeMapper.generateVersionedTypeMap protocols
 let packets = JsonPacketGenerator.generatePackets protocols "toServer"
 let filterPrimitivePackets (packet: PacketMetadata) = Extensions.IsPrimitive packet.Structure
 let packetFolders = [ "primitive"; "complex" ]
@@ -44,7 +46,7 @@ packets
 
 let primitivePackets = packets |> Seq.filter filterPrimitivePackets |> List.ofSeq
 
-
+CodeGenerator.generatePrimitive primitivePackets |> ignore
 
 exit 0
 let firt10Packets = packets |> Seq.take 10 |> Seq.map (fun x -> createPromt x)
