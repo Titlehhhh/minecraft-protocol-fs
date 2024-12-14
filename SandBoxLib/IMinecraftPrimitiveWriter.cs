@@ -1,4 +1,6 @@
-﻿public interface IMinecraftPrimitiveWriter : IDisposable
+﻿namespace SandBoxLib;
+
+public interface IMinecraftPrimitiveWriter : IDisposable
 {
     void WriteBoolean(bool value);
     void WriteSignedByte(sbyte value);

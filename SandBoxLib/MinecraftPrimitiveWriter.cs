@@ -1,5 +1,7 @@
 ﻿using System.Numerics;
 
+namespace SandBoxLib;
+
 public class MinecraftPrimitiveWriter : IMinecraftPrimitiveWriter
 {
     public void Dispose()

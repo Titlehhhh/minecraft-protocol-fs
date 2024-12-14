@@ -8,6 +8,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ConsoleApp2", "ConsoleApp2\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Protodef", "Protodef\Protodef.csproj", "{FE2EE226-3B52-45A3-AE83-D5B1208F4A1A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SandBoxLib", "SandBoxLib\SandBoxLib.csproj", "{1CD94B39-60A0-4D13-9848-417CDD34AC7E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +32,9 @@ Global
 		{FE2EE226-3B52-45A3-AE83-D5B1208F4A1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FE2EE226-3B52-45A3-AE83-D5B1208F4A1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FE2EE226-3B52-45A3-AE83-D5B1208F4A1A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1CD94B39-60A0-4D13-9848-417CDD34AC7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CD94B39-60A0-4D13-9848-417CDD34AC7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CD94B39-60A0-4D13-9848-417CDD34AC7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CD94B39-60A0-4D13-9848-417CDD34AC7E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
