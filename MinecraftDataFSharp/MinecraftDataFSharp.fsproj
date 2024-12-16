@@ -14,9 +14,13 @@
         <Compile Include="JsonPacketGenerator.fs" />
         <Compile Include="PromtCreator.fs" />
         <Compile Include="LLMService.fs" />
-        <Compile Include="CodeGenerator.fs" />
         <Compile Include="MinecraftDataParser.fs"/>
         <Compile Include="ProtocolTypeMapper.fs"/>
+        <Compile Include="CodeGeneration\Shared.fs" />
+        <Compile Include="CodeGeneration\CodeGeneratorWrite.fs" />
+        <Compile Include="CodeGeneration\CodeGeneratorRead.fs" />
+        
+        
         <Compile Include="Program.fs"/>
         
         
@@ -24,6 +28,7 @@
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
         <Content Include="gg.md"/>
+        
        
         
     </ItemGroup>

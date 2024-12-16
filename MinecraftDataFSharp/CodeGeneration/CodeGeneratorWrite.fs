@@ -1,9 +1,8 @@
-﻿module MinecraftDataFSharp.CodeGenerator
+﻿module MinecraftDataFSharp.CodeGeneration.CodeGeneratorWrite
 
 open System
 open System.Collections.Generic
 open System.IO
-open System.Text
 open System.Text.Json
 open Humanizer
 open Microsoft.CodeAnalysis
@@ -14,122 +13,23 @@ open Protodef
 open Protodef.Converters
 open Protodef.Enumerable
 open Protodef.Primitive
-
-type VersionRange =
-    { MinVersion: int
-      MaxVersion: int }
-
-    static member Parse(s: string) =
-        let parts = s.Split('-')
-
-        if parts.Length = 1 then
-            { MinVersion = int parts.[0]
-              MaxVersion = int parts.[0] }
-        elif parts.Length = 2 then
-            { MinVersion = int parts.[0]
-              MaxVersion = int parts.[1] }
-        else
-            invalidArg "s" "Invalid version range format"
-
-    override this.ToString() =
-        if this.MinVersion = this.MaxVersion then
-            this.MinVersion.ToString()
-        else
-            sprintf "%d-%d" this.MinVersion this.MaxVersion
-
-
-type Packet =
-    { PacketName: string
-      Structure: Dictionary<VersionRange, ProtodefContainer>
-      EmptyRanges: VersionRange list }
-
-    member this.IsFullPacket = this.EmptyRanges.IsEmpty
-
-
-
-let packetMetadataToProtodefPacket (packet: PacketMetadata) =
-    let packetName = packet.PacketName
-
-    let dict = Dictionary<VersionRange, ProtodefContainer>()
-    let options = JsonSerializerOptions()
-    
-    options.Converters.Add(DataTypeConverter())
-
-    packet.Structure
-    |> Seq.filter (fun x -> x.Value.GetValueKind() <> JsonValueKind.String)
-    |> Seq.map (fun x ->
-        let fields = x.Value.Deserialize<List<ProtodefContainerField>>(options)
-        let container = ProtodefContainer(fields)
-        let versionRange = VersionRange.Parse x.Key
-        versionRange, container)
-    |> Seq.iter (fun (versionRange, container) -> dict.Add(versionRange, container))
-
-    let emptyRanges =
-        packet.Structure
-        |> Seq.filter (fun x -> x.Value.ToJsonString() = "empty")
-        |> Seq.map (fun x -> VersionRange.Parse x.Key)
-        |> List.ofSeq
-
-    { PacketName = packetName
-      Structure = dict
-      EmptyRanges = emptyRanges }
+open Shared
 
 
 
 
-let NameToCSharpType =
-    Map["ByteArray", "byte[]"
-        "Slot", "Slot"
-        "UUID", "Guid"
-        "anonOptionalNbt", "NbtTag?"
-        "anonymousNbt", "NbtTag"
-        "bool", "bool"
-        "buffer", "byte[]"
-        "f32", "float"
-        "f64", "double"
-        "i16", "short"
-        "i32", "int"
-        "i64", "long"
-        "i8", "sbyte"
-        "nbt", "NbtTag"
-        "optionalNbt", "NbtTag?"
-        "optvarint", "int?"
-        "position", "Position"
-        "pstring", "string"
-        "restBuffer", "byte[]"
-        "slot", "Slot"
-        "string", "string"
-        "u16", "ushort"
-        "u32", "uint"
-        "u64", "ulong"
-        "u8", "byte"
-        "varint", "int"
-        "varlong", "long"
-        "vec2f", "Vector2"
-        "vec3f", "Vector3"
-        "vec3f64", "Vector3F64"
-        "vec4f", "Vector4"]
-
-let returnType = SyntaxFactory.ParseTypeName("ValueTask")
-
-let rec protodefTypeToCSharpType (t: ProtodefType) =
-    match t with
-    | :? ProtodefNumericType as p -> p.NetName
-    | :? ProtodefCustomType as p -> NameToCSharpType[p.Name]
-    | :? ProtodefOption as p ->
-        let deb = protodefTypeToCSharpType (p.Type)
-        deb + "?"
-    | :? ProtodefArray as p -> NameToCSharpType[protodefTypeToCSharpType (p.Type)] + "[]"
-    | :? ProtodefVarInt -> "int"
-    | :? ProtodefVarLong -> "long"
-    | :? ProtodefPrefixedString -> "string"
-    | :? ProtodefString -> "string"
-    | :? ProtodefBool -> "bool"
-    | :? ProtodefBuffer -> "byte[]"
-    | _ -> failwith $"unknown type: {t}"
 
 
-let TypeToWriteMethodOneArg =
+
+
+
+
+let private returnType = SyntaxFactory.ParseTypeName("ValueTask")
+
+
+
+
+let private TypeToWriteMethodOneArg =
     Map
         [ "bool", "WriteBoolean"
           "i8", "WriteSignedByte"
@@ -151,7 +51,7 @@ let TypeToWriteMethodOneArg =
 
 
 
-let generateInstruct (field: ProtodefContainerField) =
+let private generateInstruct (field: ProtodefContainerField) =
     let argName = field.Name.Camelize()
 
     let list = List<StatementSyntax>()
@@ -194,6 +94,7 @@ let generateInstruct (field: ProtodefContainerField) =
             match custom.Name with
             | "vec2f" -> "WriteVector2" |> wiP name
             | "vec3f" -> "WriteVector3" |> wiP name
+            | "vec3f64" -> "WriteVector364" |> wiP name
             | "vec4f" -> "WriteVector4" |> wiP name
             | "uuid" -> "WriteUUID" |> wi name
             | "position" -> "WritePosition" |> wiP name
@@ -202,18 +103,18 @@ let generateInstruct (field: ProtodefContainerField) =
                 "WriteBuffer" |> wi name
             | "slot" -> "WriteSlot" |> wiP name
             | "Slot" -> "WriteSlot" |> wiP name
-            | "restBuffer" -> "WriteBuffer" |> wi name            
-            | "UUID" -> "WriteUUID" |> wi name            
+            | "restBuffer" -> "WriteBuffer" |> wi name
+            | "UUID" -> "WriteUUID" |> wi name
             | _ -> failwith $"unknown custom type: {custom.Name}"
 
     generateWriteInstruction field.Type argName
 
     list
 
-let generateBody (container: ProtodefContainer) =
+let private generateBody (container: ProtodefContainer) =
     container.Fields |> Seq.collect generateInstruct |> Array.ofSeq
 
-let generateMethod (range: VersionRange, container: ProtodefContainer) =
+let private generateMethod (range: VersionRange, container: ProtodefContainer) =
     let parameters =
         container.Fields
         |> Seq.map (fun x ->
@@ -238,7 +139,7 @@ let generateMethod (range: VersionRange, container: ProtodefContainer) =
         .AddParameterListParameters(parameters)
         .WithBody(blockSyntax)
 
-let generateMethods (packet: Packet) =
+let private generateMethods (packet: Packet) =
     let methods =
         packet.Structure
         |> Seq.map (fun x -> generateMethod (x.Key, x.Value))
@@ -247,13 +148,11 @@ let generateMethods (packet: Packet) =
 
     methods
 
-let generatePrimitive (packets: PacketMetadata list) =
-    let protodefPackets =
-        packets
-        |> Seq.where (fun x -> Extensions.IsPrimitive x.Structure)
-        |> Seq.map packetMetadataToProtodefPacket
+let generatePrimitive (packets: PacketMetadata list, folder: string) =
+    let protodefPackets = packets |> Seq.map packetMetadataToProtodefPacket
 
-    Directory.CreateDirectory(Path.Combine("packets", "generated")) |> ignore
+    Directory.CreateDirectory(Path.Combine("packets", folder, "generated"))
+    |> ignore
 
     for p in protodefPackets do
         let methods = generateMethods p
@@ -263,7 +162,7 @@ let generatePrimitive (packets: PacketMetadata list) =
 
         let packetName = p.PacketName
 
-        let filePath = Path.Combine("packets", "generated", $"{packetName}.cs")
+        let filePath = Path.Combine("packets", folder, "generated", $"{packetName}.cs")
 
         let cl =
             SyntaxFactory
