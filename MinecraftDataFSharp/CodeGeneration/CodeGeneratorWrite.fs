@@ -18,17 +18,6 @@ open Shared
 
 
 
-
-
-
-
-
-
-let private returnType = SyntaxFactory.ParseTypeName("ValueTask")
-
-
-
-
 let private TypeToWriteMethodOneArg =
     Map
         [ "bool", "WriteBoolean"

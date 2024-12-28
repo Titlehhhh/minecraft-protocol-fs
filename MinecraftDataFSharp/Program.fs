@@ -11,19 +11,21 @@ open Protodef
 
 let protocols = MinecraftDataParser.getPcProtocols
 
-let generate (side: string) =
-    let packets = JsonPacketGenerator.generatePackets protocols side
-
-    let filterPrimitivePackets (packet: PacketMetadata) =
-        Extensions.IsPrimitive packet.Structure
-        
-    if Directory.Exists("packets") then
+if Directory.Exists("packets") then
         Directory.EnumerateFiles("packets", "*.*", SearchOption.AllDirectories)
         |> Seq.iter (fun filePath ->
             try
                 File.Delete(filePath)
             with _ ->
                 ())
+
+let generate (side: string) =
+    let packets = JsonPacketGenerator.generatePackets protocols side
+
+    let filterPrimitivePackets (packet: PacketMetadata) =
+        Extensions.IsPrimitive packet.Structure
+        
+    
     let packetFolders = [ "primitive"; "complex" ]
     packetFolders |> Seq.iter (fun folder ->
         let dirPath = Path.Combine("packets", side, folder)
@@ -42,8 +44,10 @@ let generate (side: string) =
         File.WriteAllText(filePath, packet.Structure.ToJsonString(JsonSerializerOptions(WriteIndented = true))))
 
     let primitivePackets = packets |> Seq.filter filterPrimitivePackets |> List.ofSeq
-
-    CodeGeneratorWrite.generatePrimitive (primitivePackets, side) |> ignore
+    if side = "toServer" then
+        CodeGeneratorWrite.generatePrimitive (primitivePackets, side) |> ignore
+    else
+        CodeGeneratorRead.generatePrimitive (primitivePackets, side) |> ignore
 
 
 generate "toServer"
