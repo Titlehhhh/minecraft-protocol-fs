@@ -5,11 +5,9 @@
 
 # Основная идея
 
-Это API находится в разработке
-
 ## Отправка пакетов
 
-Например, для пакета UseItem будет сгенерировано следующее:
+Например, для пакета [UseItem](https://minecraft.wiki/w/Minecraft_Wiki:Projects/wiki.vg_merge/Protocol#Use_Item) будет сгенерировано следующее:
 
 ```csharp
 public partial struct UseItemSender
