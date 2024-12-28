@@ -1,5 +1,8 @@
-﻿open System.IO
+﻿open System.Collections.Generic
+open System.IO
+open System.Text
 open System.Text.Json
+open Humanizer
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Core
 open MinecraftDataFSharp
@@ -11,23 +14,50 @@ open Protodef
 
 let protocols = MinecraftDataParser.getPcProtocols
 
+let allPackets = HashSet<string>()
+
+let generateIds (protocol) (side: string) (protocolVersion: int) =
+    let obj =
+        (protocol.JsonProtocol["play"][side]["types"]["packet"][1][0]["type"][1]["mappings"])
+            .AsObject()
+
+    let name = if side = "toServer" then "ClientPacket" else "ServerPacket"
+
+    for KeyValue(k, v) in obj do
+        allPackets.Add(v.ToString().Pascalize()) |> ignore
+        printfn $"{{Combine({name}.{v.ToString().Pascalize()},{protocolVersion}), {k}}},"
+
+
+
+
+protocols |> Seq.iter (fun x -> generateIds x "toClient" x.ProtocolVersion)
+
+printfn ""
+
+allPackets |> Seq.iteri (fun i x ->  printfn $"%s{x} = %d{i},")
+
+
+
+exit 0
+
 if Directory.Exists("packets") then
-        Directory.EnumerateFiles("packets", "*.*", SearchOption.AllDirectories)
-        |> Seq.iter (fun filePath ->
-            try
-                File.Delete(filePath)
-            with _ ->
-                ())
+    Directory.EnumerateFiles("packets", "*.*", SearchOption.AllDirectories)
+    |> Seq.iter (fun filePath ->
+        try
+            File.Delete(filePath)
+        with _ ->
+            ())
 
 let generate (side: string) =
     let packets = JsonPacketGenerator.generatePackets protocols side
 
-    let filterPrimitivePackets (packet: PacketMetadata) =
-        Extensions.IsPrimitive packet.Structure
-        
-    
+    let filterPrimitivePackets (packet: PacketMetadata) = Extensions.IsPrimitive packet.Structure
+
+
     let packetFolders = [ "primitive"; "complex" ]
-    packetFolders |> Seq.iter (fun folder ->
+
+    packetFolders
+    |> Seq.iter (fun folder ->
         let dirPath = Path.Combine("packets", side, folder)
         Directory.CreateDirectory(dirPath) |> ignore)
 
@@ -44,6 +74,7 @@ let generate (side: string) =
         File.WriteAllText(filePath, packet.Structure.ToJsonString(JsonSerializerOptions(WriteIndented = true))))
 
     let primitivePackets = packets |> Seq.filter filterPrimitivePackets |> List.ofSeq
+
     if side = "toServer" then
         CodeGeneratorWrite.generatePrimitive (primitivePackets, side) |> ignore
     else
