@@ -108,7 +108,7 @@ public class MinecraftPrimitiveWriter : IMinecraftPrimitiveWriter
     {
         throw new NotImplementedException();
     }
-    
+
     public void WriteNbt(NbtTag value, bool anon)
     {
         throw new NotImplementedException();
@@ -117,7 +117,7 @@ public class MinecraftPrimitiveWriter : IMinecraftPrimitiveWriter
     {
         throw new NotImplementedException();
     }
-    
+
     public void WriteVector3f(Vector3 o)
     {
         throw new NotImplementedException();
@@ -129,14 +129,14 @@ public class MinecraftPrimitiveWriter : IMinecraftPrimitiveWriter
 
     public void WritePosition(Position pos)
     {
-        
+
     }
-    
-    public void WriteVector3F64 (Vector3F4 o)
+
+    public void WriteVector3F64(Vector3F4 o)
     {
-        
+
     }
-    
+
     public MemoryOwner<byte> GetWrittenMemory()
     {
         throw new NotImplementedException();

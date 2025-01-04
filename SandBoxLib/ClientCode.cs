@@ -25,7 +25,7 @@ public class ClientUseItemPacket : Packet1
 
     internal override void Serialize(Stream stream)
     {
-       
+
     }
 }
 

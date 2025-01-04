@@ -19,7 +19,7 @@ public static class MinecraftProtocolExtensions
     {
         Console.WriteLine("print enum: " + T.Id);
         return protocol.OnPacket
-            .Select(x => new PacketWrapper<T>(x,protocol.ProtocolVersion))
+            .Select(x => new PacketWrapper<T>(x, protocol.ProtocolVersion))
             .Where(x =>
             {
                 var id = PacketIdHelper.GetPacketId(protocol.ProtocolVersion, T.Id);
@@ -40,7 +40,7 @@ public struct PacketWrapper<T> where T : IPacket, new()
         get
         {
             T packet = new T();
-            packet.Serialize(_packet.Data,_protocolVersion);
+            packet.Serialize(_packet.Data, _protocolVersion);
             return packet;
         }
     }

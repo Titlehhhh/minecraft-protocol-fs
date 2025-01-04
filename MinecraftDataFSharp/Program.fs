@@ -1,4 +1,4 @@
-﻿open System.Collections.Generic
+open System.Collections.Generic
 open System.IO
 open System.Text
 open System.Text.Json
@@ -9,8 +9,16 @@ open MinecraftDataFSharp
 open MinecraftDataFSharp.CodeGeneration
 open MinecraftDataFSharp.Models
 open Protodef
+open Microsoft.CodeAnalysis.CSharp
+open Microsoft.CodeAnalysis
 
 
+let a = SyntaxFactory.ParseStatement("var g = reader.ReadBool();")
+
+printfn $"{a.GetType()}"
+printfn $"{a}"
+
+exit 0
 
 let protocols = MinecraftDataParser.getPcProtocols
 
@@ -30,15 +38,13 @@ let generateIds (protocol) (side: string) (protocolVersion: int) =
 
 
 
-protocols |> Seq.iter (fun x -> generateIds x "toClient" x.ProtocolVersion)
+//protocols |> Seq.iter (fun x -> generateIds x "toClient" x.ProtocolVersion)
 
-printfn ""
+//printfn ""
 
-allPackets |> Seq.iteri (fun i x ->  printfn $"%s{x} = %d{i},")
+//allPackets |> Seq.iteri (fun i x ->  printfn $"%s{x} = %d{i},")
 
-
-
-exit 0
+printfn "adf"
 
 if Directory.Exists("packets") then
     Directory.EnumerateFiles("packets", "*.*", SearchOption.AllDirectories)

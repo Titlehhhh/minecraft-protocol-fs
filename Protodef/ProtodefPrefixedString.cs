@@ -39,4 +39,5 @@ public sealed class ProtodefPrefixedString : ProtodefType
     {
         return CountType.GetHashCode();
     }
+    public override string ToString() => "pstring";
 }

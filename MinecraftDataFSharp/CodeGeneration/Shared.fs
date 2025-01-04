@@ -1,4 +1,4 @@
-﻿module MinecraftDataFSharp.CodeGeneration.Shared
+module MinecraftDataFSharp.CodeGeneration.Shared
 
 open System.Collections.Generic
 open System.Text.Json
@@ -72,7 +72,7 @@ let NameToCSharpType =
         "vec3f", "Vector3"
         "vec3f64", "Vector3F64"
         "vec4f", "Vector4"]
-    
+
 let rec protodefTypeToCSharpType (t: ProtodefType) =
     match t with
     | :? ProtodefNumericType as p -> p.NetName

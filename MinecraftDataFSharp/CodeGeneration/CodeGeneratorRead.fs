@@ -1,4 +1,4 @@
-﻿module MinecraftDataFSharp.CodeGeneration.CodeGeneratorRead
+module MinecraftDataFSharp.CodeGeneration.CodeGeneratorRead
 
 open System.IO
 open FSharp.Control
@@ -9,6 +9,77 @@ open Microsoft.CodeAnalysis.CSharp.Syntax
 open MinecraftDataFSharp.CodeGeneration.Shared
 open MinecraftDataFSharp.Models
 open Protodef.Enumerable
+open Protodef.Primitive
+open Protodef
+
+let private TypeToReadMethodMap =
+    Map
+        [ "bool", "ReadBoolean()"
+          "i8", "ReadSignedByte()"
+          "u8", "ReadUnsignedByte()"
+          "i16", "ReadSignedShort()"
+          "u16", "ReadUnsignedShort()"
+          "i32", "ReadSignedInt()"
+          "u32", "ReadUnsignedInt()"
+          "i64", "ReadSignedLong()"
+          "u64", "ReadUnsignedLong()"
+          "f32", "ReadFloat()"
+          "f64", "ReadDouble()"
+          "UUID", "ReadUUID()"
+          "restBuffer", "ReadToEnd()"
+          "varint", "ReadVarInt()"
+          "varlong", "ReadVarLong()"
+          "string", "ReadString()"
+          "pstring", "ReadString()" ]
+
+
+
+
+
+let generateReadInstruct (field: ProtodefContainerField) =
+    let csharpType = field.Type |> protodefTypeToCSharpType
+    let name = field.Name.Camelize()
+    let instructions = ResizeArray()
+
+    let add (s: string) =
+        SyntaxFactory.ParseStatement(s) |> instructions.Add
+
+    let wi argName a =
+        SyntaxFactory.ParseStatement($"reader.{a}();") |> instructions.Add
+
+    let wiP m a =
+        SyntaxFactory.ParseStatement($"reader.{a}(_protocolVersion);") |> instructions.Add
+
+    let tmap = TypeToReadMethodMap
+    let typeToMethod (t: ProtodefType) =
+        tmap.TryFind(t.ToString())
+
+
+    let rec generateInstruct (t: ProtodefType) (depth: int) =
+        match typeToMethod t with
+        | Some s -> s
+        | None ->
+            match t with
+            | :? ProtodefOption as op ->
+                let typeSharp = op |> protodefTypeToCSharpType
+                let r = generateInstruct op.Type (depth + 1)
+                let rName = $"r_{depth}"
+                $"ReadOptional<{typeSharp}>({rName} => {rName}.{r})"
+            | :? ProtodefBuffer as b ->
+                if b.Rest = true then
+                    "ReadToEnd()"
+                else
+                    "ReadBuffer()"
+            | :? ProtodefArray as arr ->
+                let typeSharp = arr.Type |> protodefTypeToCSharpType
+
+            | _ -> failwith $"Unknown type {t}"
+
+
+    ignore
+
+let generateReadMethod (container: ProtodefContainer) =
+    ignore
 
 
 let createProperty (``type``: string) (name: string) =

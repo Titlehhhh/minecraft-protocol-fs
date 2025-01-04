@@ -1,4 +1,4 @@
-﻿namespace Protodef.Primitive;
+namespace Protodef.Primitive;
 
 public sealed class ProtodefNumericType : ProtodefType
 {
@@ -20,7 +20,7 @@ public sealed class ProtodefNumericType : ProtodefType
 
     public override string ToString()
     {
-        return NetName;
+        return OriginalName;
     }
 
     public override string? GetNetType()
