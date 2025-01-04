@@ -5074,11 +5074,8 @@ public static class PacketIdHelper
             { Combine(ServerPacket.Tags, 767), 0x78 },
         }.ToFrozenDictionary();
 
-    public static int GetPacketId(int protocol, ClientPacket packet)
-    {
-        int packetAsInt = (int)packet;
-        return ClientPacketIdMap[Combine(packetAsInt, protocol)];
-    }
+    public static int GetPacketId(int protocol, ServerPacket packet) => ServerPacketIdMap[Combine(packet, protocol)];
+    public static int GetPacketId(int protocol, ClientPacket packet) => ClientPacketIdMap[Combine(packet, protocol)];
 
     private static long Combine(ServerPacket a, int b)
     {

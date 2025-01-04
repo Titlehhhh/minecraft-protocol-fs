@@ -30,7 +30,16 @@ let private TypeToReadMethodMap =
           "varint", "ReadVarInt()"
           "varlong", "ReadVarLong()"
           "string", "ReadString()"
-          "pstring", "ReadString()" ]
+          "pstring", "ReadString()"
+          "vec2f", "ReadVector2(_protocolVersion)"
+          "vec3f", "ReadVector3(_protocolVersion)"
+          "vec3f64", "ReadVector364(_protocolVersion)"
+          "vec4f", "ReadVector4(_protocolVersion)"
+          "uuid", "ReadUUID()"
+          "position", "ReadPosition(_protocolVersion)"
+          "ByteArray", "ReadBuffer()"
+          "slot", "ReadSlot(_protocolVersion)"
+          "Slot", "ReadSlot(_protocolVersion)" ]
 
 
 
@@ -39,20 +48,8 @@ let private TypeToReadMethodMap =
 let generateReadInstruct (field: ProtodefContainerField) =
     let csharpType = field.Type |> protodefTypeToCSharpType
     let name = field.Name.Camelize()
-    let instructions = ResizeArray()
-
-    let add (s: string) =
-        SyntaxFactory.ParseStatement(s) |> instructions.Add
-
-    let wi argName a =
-        SyntaxFactory.ParseStatement($"reader.{a}();") |> instructions.Add
-
-    let wiP m a =
-        SyntaxFactory.ParseStatement($"reader.{a}(_protocolVersion);") |> instructions.Add
-
     let tmap = TypeToReadMethodMap
-    let typeToMethod (t: ProtodefType) =
-        tmap.TryFind(t.ToString())
+    let typeToMethod (t: ProtodefType) = tmap.TryFind(t.ToString())
 
 
     let rec generateInstruct (t: ProtodefType) (depth: int) =
@@ -69,17 +66,29 @@ let generateReadInstruct (field: ProtodefContainerField) =
                 if b.Rest = true then
                     "ReadToEnd()"
                 else
-                    "ReadBuffer()"
+                    "ReadBuffer(LengthDelegates.VarInt)"
             | :? ProtodefArray as arr ->
                 let typeSharp = arr.Type |> protodefTypeToCSharpType
-
+                let r = generateInstruct arr.Type (depth + 1)
+                let rName = $"r_{depth}"
+                $"ReadArray<{typeSharp}, int>(LengthDelegates.VarInt,{rName} => {rName}.{r})"
+            | :? ProtodefCustomType as c -> failwith $"unknown custom type: {c.Name}"
             | _ -> failwith $"Unknown type {t}"
 
 
-    ignore
+    let generated = generateInstruct field.Type 0
+    $"{csharpType} {name} = reader.{generated};" |> SyntaxFactory.ParseStatement
 
 let generateReadMethod (container: ProtodefContainer) =
-    ignore
+    SyntaxFactory
+        .MethodDeclaration(SyntaxFactory.ParseTypeName("void"), SyntaxFactory.Identifier("Read"))
+        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+        .AddParameterListParameters(
+            SyntaxFactory
+                .Parameter(SyntaxFactory.Identifier("_protocolVersion"))
+                .WithType(SyntaxFactory.ParseTypeName("int"))
+        )
+        .AddBodyStatements(container.Fields |> Seq.map generateReadInstruct |> Array.ofSeq)
 
 
 let createProperty (``type``: string) (name: string) =
@@ -133,16 +142,20 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
     |> ignore
 
     for p in protodefPackets do
-        let classes =
-            p |> generateClasses |> Seq.cast<MemberDeclarationSyntax> |> Seq.toArray
-
         let packetName = p.PacketName
         let filePath = Path.Combine("packets", folder, "generated", $"{packetName}.cs")
+        let classes = p |> generateClasses |> Seq.toArray
+        let methods = p.Structure.Values |> Seq.map generateReadMethod |> Seq.toArray
+
+        for i = 0 to classes.Length-1 do
+            let cl = classes.[i]
+            let method = methods.[i]
+            classes[i] <- cl.AddMembers(method)
 
         let ns =
             SyntaxFactory
                 .NamespaceDeclaration(SyntaxFactory.ParseName("MinecraftDataFSharp"))
-                .AddMembers(classes)
+                .AddMembers(classes |> Seq.cast<MemberDeclarationSyntax> |> Array.ofSeq)
 
         File.WriteAllText(filePath, ns.NormalizeWhitespace().ToFullString())
 

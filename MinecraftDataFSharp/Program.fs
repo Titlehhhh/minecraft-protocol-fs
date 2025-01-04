@@ -9,17 +9,6 @@ open MinecraftDataFSharp
 open MinecraftDataFSharp.CodeGeneration
 open MinecraftDataFSharp.Models
 open Protodef
-open Microsoft.CodeAnalysis.CSharp
-open Microsoft.CodeAnalysis
-
-
-let a = SyntaxFactory.ParseStatement("var g = reader.ReadBool();")
-
-printfn $"{a.GetType()}"
-printfn $"{a}"
-
-exit 0
-
 let protocols = MinecraftDataParser.getPcProtocols
 
 let allPackets = HashSet<string>()
