@@ -56,7 +56,9 @@ public static class Extensions
                                     or "PositionUpdateRelatives"
                                     or "optionalNbt"
                                     or "anonymousNbt"
-                                    or "nbt")
+                                    or "nbt"
+                                    or "anonOptionalNbt"
+                                    or "ContainerID")
                                 {
                                     return true;
                                 }

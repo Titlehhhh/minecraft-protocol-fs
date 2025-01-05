@@ -39,7 +39,14 @@ let private TypeToReadMethodMap =
           "position", "ReadPosition(_protocolVersion)"
           "ByteArray", "ReadBuffer()"
           "slot", "ReadSlot(_protocolVersion)"
-          "Slot", "ReadSlot(_protocolVersion)" ]
+          "Slot", "ReadSlot(_protocolVersion)"
+          "anonymousNbt", "ReadNbtTag(false)"
+          "anonOptionalNbt", "ReadOptionalNbt(false)"
+          "nbt", "ReadNbtTag(true)"
+          "optionalNbt", "ReadOptionalNbt(true)"
+          "MovementFlags", "ReadUnsignedByte()"
+          "PositionUpdateRelatives", "ReadUnsignedInt()"
+          "ContainerID", "ReadVarInt()" ]
 
 
 
