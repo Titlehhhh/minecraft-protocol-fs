@@ -10,15 +10,9 @@ open Models
 
 let generateVersionedTypeMap (protocols: ProtocolVersionEntry seq) =
     let nonNativeTypes = HashSet()
-
-    let jsons = protocols |> Seq.map _.JsonProtocol["types"].AsObject()
     
-    let allTypes = jsons |> Seq.collect(fun x->x|> Seq.map(_.Key)) |> Set.ofSeq
     
-    //print
-    for t in allTypes do
-        printfn "%s" t
-    
+    let jsons = protocols |> Seq.map _.JsonProtocol["types"].AsObject() 
     for proto in jsons do
         proto
         |> Seq.where (fun x -> x.Value.ToString() <> "native")

@@ -12,6 +12,7 @@ open MinecraftDataFSharp.Models
 open Protodef
 let protocols = MinecraftDataParser.getPcProtocols
 
+ProtocolTypeMapper.generateVersionedTypeMap protocols
 let allPackets = HashSet<string>()
 
 let generateIds (protocol) (side: string) (protocolVersion: int) =
