@@ -52,6 +52,6 @@ let getPcProtocols =
                 MaxVersion = maxVersion
                 JsonProtocol = protocolNode }
 
-          if protoVer <= 768 then
+          if protoVer <= 769 then
               yield node ]
     

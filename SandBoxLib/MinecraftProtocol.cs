@@ -17,6 +17,9 @@ public static class MinecraftProtocolExtensions
 {
     public static IObservable<T> OnPacket<T>(this MinecraftProtocol protocol) where T : IPacket, new()
     {
+        int a = 1;
+        int b = 2;
+        
         Console.WriteLine("print enum: " + T.Id);
         return protocol.OnPacket
             .Select(x => new PacketWrapper<T>(x, protocol.ProtocolVersion))

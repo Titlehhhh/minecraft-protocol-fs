@@ -8,36 +8,38 @@ using Protodef.Primitive;
 
 namespace Protodef;
 
+
 public static class Extensions
 {
+
     public static bool IsPrimitive(JsonObject jsonObject)
     {
-        JsonSerializerOptions options= new();
+        JsonSerializerOptions options = new();
         options.Converters.Add(new DataTypeConverter());
         foreach (var (key, value) in jsonObject)
         {
             if (value is JsonArray arr)
             {
                 List<ProtodefContainerField> fields = arr.Deserialize<List<ProtodefContainerField>>(options)!;
-                
+
                 ProtodefContainer container = new ProtodefContainer(fields);
 
                 if (container.IsAllFieldsSimple(x =>
                     {
                         bool IsSimpleLocal(ProtodefType type)
                         {
-                            if(type.IsBuffer()) return true;
+                            if (type.IsBuffer()) return true;
 
                             if (type is ProtodefCustomType custom)
                             {
                                 // true is custom.Name is position, vec2f, vec3f,vec3f64, vec4f, slot, ByteArray, ingredient
-                                return custom.Name is "position" 
-                                    or "vec2f" 
+                                return custom.Name is "position"
+                                    or "vec2f"
                                     or "vec3f"
-                                    or "vec3f64" 
-                                    or "vec4f" 
-                                    or "slot" 
-                                    or "ByteArray" 
+                                    or "vec3f64"
+                                    or "vec4f"
+                                    or "slot"
+                                    or "ByteArray"
                                     or "ingredient"
                                     or "UUID"
                                     or "restBuffer"
@@ -46,20 +48,18 @@ public static class Extensions
 
                             return false;
                         }
-                        
-                        if(x.Type is ProtodefOption option)
+
+                        if (x.Type is ProtodefOption option)
                         {
                             return IsSimpleLocal(option.Type);
                         }
-                        
-                        if(x.Type is ProtodefArray arr)
+
+                        if (x.Type is ProtodefArray arr)
                         {
                             return IsSimpleLocal(arr.Type);
                         }
 
-                       return IsSimpleLocal(x.Type);
-                        
-                        
+                        return IsSimpleLocal(x.Type);
                     }) == false)
                     return false;
             }
@@ -67,7 +67,7 @@ public static class Extensions
 
         return true;
     }
-    
+
     public static bool IsVarLong(this ProtodefType type)
     {
         return type is ProtodefVarLong;
@@ -193,8 +193,6 @@ public static class Extensions
             {
                 if (!container.IsAllFieldsSimple(custom))
                 {
-                    
-
                     keys.Add(name);
                 }
             }

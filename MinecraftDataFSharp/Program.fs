@@ -1,4 +1,5 @@
 open System.Collections.Generic
+open System.Diagnostics
 open System.IO
 open System.Text
 open System.Text.Json
@@ -33,7 +34,6 @@ let generateIds (protocol) (side: string) (protocolVersion: int) =
 
 //allPackets |> Seq.iteri (fun i x ->  printfn $"%s{x} = %d{i},")
 
-printfn "adf"
 
 if Directory.Exists("packets") then
     Directory.EnumerateFiles("packets", "*.*", SearchOption.AllDirectories)
@@ -46,7 +46,11 @@ if Directory.Exists("packets") then
 let generate (side: string) =
     let packets = JsonPacketGenerator.generatePackets protocols side
 
-    let filterPrimitivePackets (packet: PacketMetadata) = Extensions.IsPrimitive packet.Structure
+    let filterPrimitivePackets (packet: PacketMetadata) =
+        if packet.PacketName.Contains("position") then
+            Debugger.Break()
+            
+        Extensions.IsPrimitive packet.Structure
 
 
     let packetFolders = [ "primitive"; "complex" ]
