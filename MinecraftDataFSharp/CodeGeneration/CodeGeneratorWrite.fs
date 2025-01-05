@@ -36,7 +36,10 @@ let private TypeToWriteMethodOneArg =
           "varint", "WriteVarInt"
           "varlong", "WriteVarLong"
           "string", "WriteString"
-          "pstring", "WriteString" ]
+          "pstring", "WriteString"
+          
+          "MovementFlags", "WriteUnsignedByte"
+          "PositionUpdateRelatives", "WriteUnsignedInt" ]
 
 
 
@@ -94,6 +97,8 @@ let private generateInstruct (field: ProtodefContainerField) =
             | "Slot" -> "WriteSlot" |> wiP name
             | "restBuffer" -> "WriteBuffer" |> wi name
             | "UUID" -> "WriteUUID" |> wi name
+            | "MovementFlags" -> "WriteUnsignedByte" |> wi name
+            | "PositionUpdateRelatives" -> "WriteUnsignedInt" |> wi name
             | _ -> failwith $"unknown custom type: {custom.Name}"
 
     generateWriteInstruction field.Type argName

@@ -46,9 +46,7 @@ if Directory.Exists("packets") then
 let generate (side: string) =
     let packets = JsonPacketGenerator.generatePackets protocols side
 
-    let filterPrimitivePackets (packet: PacketMetadata) =
-        if packet.PacketName.Contains("position") then
-            Debugger.Break()
+    let filterPrimitivePackets (packet: PacketMetadata) =   
             
         Extensions.IsPrimitive packet.Structure
 
@@ -82,6 +80,9 @@ let generate (side: string) =
 
 generate "toServer"
 generate "toClient"
+
+
+Extensions.PrintUnknownTypes()
 
 // let firt10Packets = packets |> Seq.take 10 |> Seq.map (fun x -> createPromt x)
 //

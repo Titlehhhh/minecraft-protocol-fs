@@ -8,10 +8,18 @@ using Protodef.Primitive;
 
 namespace Protodef;
 
-
 public static class Extensions
 {
+    private static readonly HashSet<string> UnknownTypes = new();
 
+    public static void PrintUnknownTypes()
+    {
+        foreach (var item in UnknownTypes)
+        {
+            Console.WriteLine(item);
+        }
+    }
+    
     public static bool IsPrimitive(JsonObject jsonObject)
     {
         JsonSerializerOptions options = new();
@@ -33,7 +41,7 @@ public static class Extensions
                             if (type is ProtodefCustomType custom)
                             {
                                 // true is custom.Name is position, vec2f, vec3f,vec3f64, vec4f, slot, ByteArray, ingredient
-                                return custom.Name is "position"
+                                if (custom.Name is "position"
                                     or "vec2f"
                                     or "vec3f"
                                     or "vec3f64"
@@ -43,8 +51,19 @@ public static class Extensions
                                     or "ingredient"
                                     or "UUID"
                                     or "restBuffer"
-                                    or "Slot";
+                                    or "Slot"
+                                    or "MovementFlags"
+                                    or "PositionUpdateRelatives"
+                                    or "optionalNbt"
+                                    or "anonymousNbt"
+                                    or "nbt")
+                                {
+                                    return true;
+                                }
+
+                                UnknownTypes.Add(custom.Name);
                             }
+
 
                             return false;
                         }

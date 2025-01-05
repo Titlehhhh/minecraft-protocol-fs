@@ -71,7 +71,9 @@ let NameToCSharpType =
         "vec2f", "Vector2"
         "vec3f", "Vector3"
         "vec3f64", "Vector3F64"
-        "vec4f", "Vector4"]
+        "vec4f", "Vector4"
+        "MovementFlags", "byte"
+        "PositionUpdateRelatives", "uint"]
 
 let rec protodefTypeToCSharpType (t: ProtodefType) =
     match t with
