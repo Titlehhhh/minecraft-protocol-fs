@@ -4,12 +4,16 @@ open System.IO
 open System.Text
 open System.Text.Json
 open Humanizer
+open Microsoft.CodeAnalysis.CSharp
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Core
 open MinecraftDataFSharp
 open MinecraftDataFSharp.CodeGeneration
 open MinecraftDataFSharp.Models
 open Protodef
+
+
+
 let protocols = MinecraftDataParser.getPcProtocols
 
 ProtocolTypeMapper.generateVersionedTypeMap protocols
@@ -48,7 +52,6 @@ let generate (side: string) =
     let packets = JsonPacketGenerator.generatePackets protocols side
 
     let filterPrimitivePackets (packet: PacketMetadata) =   
-            
         Extensions.IsPrimitive packet.Structure
 
 

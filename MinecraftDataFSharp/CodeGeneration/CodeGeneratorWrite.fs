@@ -2,6 +2,7 @@ module MinecraftDataFSharp.CodeGeneration.CodeGeneratorWrite
 
 open System
 open System.Collections.Generic
+open System.Diagnostics
 open System.IO
 open System.Text.Json
 open Humanizer
@@ -14,8 +15,6 @@ open Protodef.Converters
 open Protodef.Enumerable
 open Protodef.Primitive
 open Shared
-
-
 
 
 let private TypeToWriteMethodOneArg =
@@ -37,8 +36,6 @@ let private TypeToWriteMethodOneArg =
           "varlong", "WriteVarLong"
           "string", "WriteString"
           "pstring", "WriteString" ]
-
-
 
 let private generateInstruct (field: ProtodefContainerField) =
     let argName = field.Name.Camelize()
@@ -124,6 +121,7 @@ let private generateMethod (range: VersionRange, container: ProtodefContainer) =
 
 
     let ser = generateBody container
+
     let blockSyntax = SyntaxFactory.Block(ser)
 
     SyntaxFactory
@@ -141,6 +139,112 @@ let private generateMethods (packet: Packet) =
 
     methods
 
+let isAllEquivalent (classes: (VersionRange * ClassDeclarationSyntax) list) =
+    match classes with
+    | []
+    | [ _ ] -> true // Пустой список или список с одним элементом
+    | (_, firstClass) :: rest -> rest |> List.forall (fun (_, cl) -> cl.IsEquivalentTo(firstClass))
+
+let getCommonProperties (classes: ClassDeclarationSyntax list) =
+
+    let getProperties (classDecl: ClassDeclarationSyntax) =
+        classDecl.Members
+        |> Seq.choose (fun mem ->
+            match mem with
+            | :? PropertyDeclarationSyntax as prop -> Some prop
+            | _ -> None)
+        |> Seq.toList
+
+    // Получаем список всех свойств для каждого класса
+    let allProperties = classes |> List.map getProperties
+
+    // Если список классов пустой, возвращаем пустой результат
+    match allProperties with
+    | [] -> []
+    | firstProps :: rest ->
+        // Находим свойства, которые эквивалентны во всех классах
+        firstProps
+        |> List.filter (fun prop ->
+            rest
+            |> List.forall (fun props -> props |> List.exists (fun otherProp -> prop.IsEquivalentTo(otherProp))))
+
+let containsProperty (mem: MemberDeclarationSyntax) (props: MemberDeclarationSyntax list) =
+    props
+    |> List.exists (fun x ->
+        let deb = x.IsEquivalentTo(mem)
+
+        x.IsEquivalentTo(mem))
+
+let private generateClasses (packet: Packet) =
+    let name = packet.PacketName.Substring("packet_".Length).Pascalize()
+
+    let classes =
+        packet.Structure
+        |> Seq.map (fun x -> x.Key, generateClass x.Value "EmptyClass")
+        |> Seq.toList
+
+
+    let eq = isAllEquivalent classes
+
+    let baseList = SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName(name))
+
+    if eq && packet.EmptyRanges.IsEmpty then
+        let f = classes |> Seq.head
+        let fClass = snd f
+        [| fClass.WithIdentifier(SyntaxFactory.Identifier(name)) |]
+    else
+        let internalClasses =
+            classes
+            |> Seq.map (fun x ->
+                let newName = (fst x).ToString().Replace("-", "_")
+                let newName = $"V{newName}"
+
+                let modifiers =
+                    SyntaxTokenList(
+                        [| SyntaxFactory.Token(SyntaxKind.PublicKeyword)
+                           SyntaxFactory.Token(SyntaxKind.SealedKeyword) |]
+                    )
+
+                (snd x)
+                    .WithIdentifier(SyntaxFactory.Identifier(newName))
+                    .AddBaseListTypes(baseList)
+                    .WithModifiers(modifiers))
+
+
+        let generalProperties =
+            getCommonProperties (internalClasses |> Seq.toList)
+            |> List.map (fun p -> p :> MemberDeclarationSyntax)
+
+
+
+        let internalClasses =
+            internalClasses
+            |> Seq.map (fun c ->
+                let newMembers =
+                    c.Members
+                    |> Seq.where (fun p ->
+
+                        not (containsProperty p generalProperties))
+                    |> Seq.toArray
+
+                c.WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers))
+
+
+
+        let membersWrap =
+            generalProperties
+            @ (internalClasses |> Seq.cast<MemberDeclarationSyntax> |> Seq.toList)
+
+        let modifiers = SyntaxTokenList([| SyntaxFactory.Token(SyntaxKind.PublicKeyword) |])
+
+        let wrapper =
+            SyntaxFactory
+                .ClassDeclaration(SyntaxFactory.Identifier(name))
+                .AddMembers(membersWrap |> Array.ofSeq)
+                .WithModifiers(modifiers)
+
+        [| wrapper |]
+
 let generatePrimitive (packets: PacketMetadata list, folder: string) =
     let protodefPackets = packets |> Seq.map packetMetadataToProtodefPacket
 
@@ -148,25 +252,18 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
     |> ignore
 
     for p in protodefPackets do
-        let methods = generateMethods p
-
         let members =
-            methods |> Seq.map (fun x -> x :> MemberDeclarationSyntax) |> Array.ofSeq
+            (generateClasses p) |> Seq.cast<MemberDeclarationSyntax> |> Seq.toArray
 
         let packetName = p.PacketName
 
         let filePath = Path.Combine("packets", folder, "generated", $"{packetName}.cs")
 
-        let cl =
-            SyntaxFactory
-                .ClassDeclaration(packetName.Pascalize())
-                .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
-                .AddMembers(members)
 
         let ns =
             SyntaxFactory
                 .NamespaceDeclaration(SyntaxFactory.ParseName("MinecraftDataFSharp"))
-                .AddMembers(cl)
+                .AddMembers(members)
 
         File.WriteAllText(filePath, ns.NormalizeWhitespace().ToFullString())
 

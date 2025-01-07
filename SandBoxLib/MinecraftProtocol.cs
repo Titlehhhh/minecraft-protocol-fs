@@ -1,5 +1,6 @@
 ﻿using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading.Channels;
 
 namespace SandBoxLib;
@@ -9,51 +10,134 @@ public class MinecraftProtocol
     private Subject<Packet> _packetSubject = new Subject<Packet>();
     public UseItemSender SendUseItem { get; }
 
+    public ValueTask SendPacket(MemoryOwner<byte> data)
+    {
+        throw new NotImplementedException();
+    }
+
     public IObservable<Packet> OnPacket => _packetSubject;
     public int ProtocolVersion { get; set; }
 }
 
-public static class MinecraftProtocolExtensions
+public class Test
 {
-    public static IObservable<T> OnPacket<T>(this MinecraftProtocol protocol) where T : IPacket, new()
+    public async Task A()
     {
-        int a = 1;
-        int b = 2;
-        
-        Console.WriteLine("print enum: " + T.Id);
-        return protocol.OnPacket
-            .Select(x => new PacketWrapper<T>(x, protocol.ProtocolVersion))
-            .Where(x =>
-            {
-                var id = PacketIdHelper.GetPacketId(protocol.ProtocolVersion, T.Id);
-                return x.Id == id;
-            })
-            .Select(x => x.MainPacket);
+        MinecraftProtocol protocol = new MinecraftProtocol();
+
+        //protocol.OnPacket<ChatMessageServerPacket.V1>();
+
+        if (protocol.TrySend<ChatPacketClient.V1>(out var sender))
+        {
+            sender.Packet.Message = "Hello World!";
+            await sender.Send();
+        }
     }
 }
 
-public struct PacketWrapper<T> where T : IPacket, new()
-{
-    private Packet _packet;
-    private int _protocolVersion;
-    public int Id => _packet.Id;
+#region Send
 
-    public T MainPacket
+public struct PacketSender<T> where T : IClientPacket, new()
+{
+    public PacketSender(MinecraftProtocol protocol)
     {
-        get
+        _protocol = protocol;
+    }
+
+    private MinecraftProtocol _protocol;
+    public T Packet { get; set; } = new();
+
+    public ValueTask Send()
+    {
+        //Check null
+        if (Packet is null)
         {
-            T packet = new T();
-            packet.Serialize(_packet.Data, _protocolVersion);
-            return packet;
+            throw new ArgumentNullException(nameof(Packet));
+        }
+        
+        return _protocol.SendPacket(Packet);
+    }
+}
+
+public static class WriteExtensions
+{
+    public static bool TrySend<T>(this MinecraftProtocol protocol, out PacketSender<T> sender) where T : IClientPacket,new()
+    {
+        if (T.SupportedVersion(protocol.ProtocolVersion))
+        {
+            sender = new PacketSender<T>(protocol);
+            return true;
+        }
+
+        sender = default;
+        return false;
+    }
+
+    public static ValueTask SendPacket<T>(this MinecraftProtocol protocol, T packet) where T : IClientPacket
+    {
+        if (T.SupportedVersion(protocol.ProtocolVersion))
+        {
+            using MinecraftPrimitiveWriter writer = new MinecraftPrimitiveWriter();
+            int packetId = PacketIdHelper.GetPacketId(protocol.ProtocolVersion, T.Id);
+            writer.WriteVarInt(packetId);
+            packet.Serialize(writer, protocol.ProtocolVersion);
+            return protocol.SendPacket(writer.GetWrittenMemory());
+        }
+
+        throw new ProtocolNotSupportException(nameof(T.Id), protocol.ProtocolVersion);
+    }
+}
+
+public interface IClientPacket
+{
+    public void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion);
+
+    public virtual static ClientPacket Id => throw new NotImplementedException();
+
+    public virtual static bool SupportedVersion(int protocolVersion) => throw new NotImplementedException();
+}
+
+public class ChatPacketClient : IClientPacket
+{
+    public string Message { get; set; }
+    
+    public static bool SupportedVersion(int protocolVersion)
+    {
+        return protocolVersion is >= 340 and <= 768;
+    }
+
+    public sealed class V1 : ChatPacketClient
+    {
+        public new static bool SupportedVersion(int protocolVersion)
+        {
+            return protocolVersion <= 560;
         }
     }
 
-    public PacketWrapper(Packet packet, int protocolVersion)
+    public sealed class V2 : ChatPacketClient
     {
-        _packet = packet;
-        _protocolVersion = protocolVersion;
+        public new static bool SupportedVersion(int protocolVersion)
+        {
+            return protocolVersion > 560;
+        }
+    }
+
+
+    public void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+    {
     }
 }
+
+#endregion
+
+#region Read
+
+public static class MinecraftProtocolExtensions
+{
+    
+}
+
+
 
 public struct Packet
 {
@@ -65,25 +149,68 @@ public struct Packet
     }
 }
 
-public interface IPacket
+public interface IServerPacket
 {
-    public void Serialize(Memory<byte> data, int protocolVersion);
-    public static virtual ClientPacket Id { get; }
+    public void Deserialize(Memory<byte> data, int protocolVersion);
+
+
+    public static virtual ServerPacket Id => throw new NotImplementedException();
+    public static virtual IServerPacket Create(int protocolVersion) => throw new NotImplementedException();
+    public static virtual bool VersionSupported(int protocolVersion) => throw new NotImplementedException();
 }
 
-public class ChatMessagePacket : IPacket
+public abstract class ChatMessageServerPacket : IServerPacket
 {
-    public void Serialize(Memory<byte> data, int protocolVersion)
+    public abstract void Deserialize(Memory<byte> data, int protocolVersion);
+
+    public static IServerPacket Create(int protocolVersion)
     {
-        throw new NotImplementedException();
+        if (protocolVersion >= 340)
+            return new V1();
+        return new V2();
+    }
+
+    public static bool VersionSupported(int protocolVersion)
+    {
+        Console.WriteLine("All");
+        return protocolVersion >= 340 && protocolVersion <= 768;
     }
 
     public static ClientPacket Id => ClientPacket.Chat;
 
     public string Message { get; }
 
-    public sealed class _340_765 : ChatMessagePacket
+    public sealed class V1 : ChatMessageServerPacket
     {
+        public new static bool VersionSupported(int protocolVersion)
+        {
+            Console.WriteLine("V1");
+            return protocolVersion >= 340 && protocolVersion <= 768;
+        }
+
         public int SequenceId { get; }
+
+        public override void Deserialize(Memory<byte> data, int protocolVersion)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class V2 : ChatMessageServerPacket
+    {
+        public new static bool VersionSupported(int protocolVersion)
+        {
+            Console.WriteLine("V2");
+            return protocolVersion >= 340 && protocolVersion <= 768;
+        }
+
+        public int SomeProp { get; }
+
+        public override void Deserialize(Memory<byte> data, int protocolVersion)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
+
+#endregion

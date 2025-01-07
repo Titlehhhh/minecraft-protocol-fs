@@ -98,34 +98,7 @@ let generateReadMethod (container: ProtodefContainer) =
         .AddBodyStatements(container.Fields |> Seq.map generateReadInstruct |> Array.ofSeq)
 
 
-let createProperty (``type``: string) (name: string) =
-    SyntaxFactory
-        .PropertyDeclaration(SyntaxFactory.ParseTypeName(``type``), name)
-        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
-        .AddAccessorListAccessors(
-            SyntaxFactory
-                .AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
-            SyntaxFactory
-                .AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
-                .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-        )
-    :> MemberDeclarationSyntax
 
-let generateClass (container: ProtodefContainer) (name: string) =
-    let fields =
-        container.Fields
-        |> Seq.map (fun x ->
-            let type' = x.Type |> protodefTypeToCSharpType
-            let name = x.Name.Pascalize()
-            createProperty type' name)
-        |> Array.ofSeq
-
-
-    SyntaxFactory
-        .ClassDeclaration(SyntaxFactory.Identifier(name))
-        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
-        .AddMembers(fields)
 
 let generateClasses (packet: Packet) =
     let name = packet.PacketName.Substring("packet_".Length).Pascalize()

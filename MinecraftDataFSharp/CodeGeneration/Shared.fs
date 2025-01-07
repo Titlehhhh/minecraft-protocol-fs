@@ -1,16 +1,20 @@
 module MinecraftDataFSharp.CodeGeneration.Shared
 
 open System.Collections.Generic
+open System.Diagnostics
 open System.Text.Json
+open Microsoft.CodeAnalysis.CSharp
+open Microsoft.CodeAnalysis.CSharp.Syntax
 open MinecraftDataFSharp.Models
 open Protodef
 open Protodef.Converters
 open Protodef.Enumerable
 open Protodef.Primitive
+open Humanizer
 
 let packetMetadataToProtodefPacket (packet: PacketMetadata) =
     let packetName = packet.PacketName
-
+    
     let dict = Dictionary<VersionRange, ProtodefContainer>()
     let options = JsonSerializerOptions()
 
@@ -27,7 +31,7 @@ let packetMetadataToProtodefPacket (packet: PacketMetadata) =
 
     let emptyRanges =
         packet.Structure
-        |> Seq.filter (fun x -> x.Value.ToJsonString() = "empty")
+        |> Seq.filter (fun x -> x.Value.GetValueKind() = JsonValueKind.String)
         |> Seq.map (fun x -> VersionRange.Parse x.Key)
         |> List.ofSeq
 
@@ -96,3 +100,30 @@ let rec protodefTypeToCSharpType (t: ProtodefType) =
     | :? ProtodefBool -> "bool"
     | :? ProtodefBuffer -> "byte[]"
     | _ -> failwith $"unknown type: {t}"
+    
+let createProperty (``type``: string) (name: string) =
+    SyntaxFactory
+        .PropertyDeclaration(SyntaxFactory.ParseTypeName(``type``), name)
+        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+        .AddAccessorListAccessors(
+            SyntaxFactory
+                .AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
+            SyntaxFactory
+                .AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
+        )
+    :> MemberDeclarationSyntax
+
+let generateClass (container: ProtodefContainer) (name: string) =
+    let fields =
+        container.Fields
+        |> Seq.map (fun x ->
+            let type' = x.Type |> protodefTypeToCSharpType
+            let name = x.Name.Pascalize()
+            createProperty type' name)
+        |> Array.ofSeq
+    SyntaxFactory
+        .ClassDeclaration(SyntaxFactory.Identifier(name))
+        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+        .AddMembers(fields)
