@@ -50,7 +50,7 @@ let private generateInstruct (field: ProtodefContainerField) =
         SyntaxFactory.ParseStatement($"writer.{a}({m});") |> list.Add
 
     let wiP (m: string) (a: string) =
-        SyntaxFactory.ParseStatement($"writer.{a}({m}, _protocolVersion);") |> list.Add
+        SyntaxFactory.ParseStatement($"writer.{a}({m}, protocolVersion);") |> list.Add
 
 
 
@@ -105,7 +105,7 @@ let private generateInstruct (field: ProtodefContainerField) =
 let private generateBody (container: ProtodefContainer) =
     container.Fields |> Seq.collect generateInstruct |> Array.ofSeq
 
-let private generateMethod (range: VersionRange, container: ProtodefContainer) =
+let private generateSerializeInternalMethod (container: ProtodefContainer) =
     let parameters =
         container.Fields
         |> Seq.map (fun x ->
@@ -115,10 +115,21 @@ let private generateMethod (range: VersionRange, container: ProtodefContainer) =
             SyntaxFactory
                 .Parameter(SyntaxFactory.Identifier(pascalCase))
                 .WithType(SyntaxFactory.ParseTypeName(csharpType)))
-        |> Array.ofSeq
+        |> Seq.toList
 
-    let identifier =
-        SyntaxFactory.Identifier("Send" + range.ToString().Replace("-", "_"))
+    let writerParameter =
+        SyntaxFactory
+            .Parameter(SyntaxFactory.Identifier("writer"))
+            .WithType(SyntaxFactory.ParseTypeName("MinecraftPrimitiveWriter"))
+            
+    let protocolParameter =
+        SyntaxFactory
+            .Parameter(SyntaxFactory.Identifier("protocolVersion"))
+            .WithType(SyntaxFactory.ParseTypeName("int"))
+
+    let parameters = (writerParameter :: protocolParameter :: parameters) |> Seq.toArray
+
+    let identifier = SyntaxFactory.Identifier("SerializeInternal")
 
 
     let ser = generateBody container
@@ -127,23 +138,40 @@ let private generateMethod (range: VersionRange, container: ProtodefContainer) =
 
     SyntaxFactory
         .MethodDeclaration(SyntaxFactory.ParseTypeName("void"), identifier)
-        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+        .AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword))
         .AddParameterListParameters(parameters)
         .WithBody(blockSyntax)
 
-let private generateMethods (packet: Packet) =
-    let methods =
-        packet.Structure
-        |> Seq.map (fun x -> generateMethod (x.Key, x.Value))
-        |> Array.ofSeq
+let private generateSerializeMethod (container: ProtodefContainer) =
+    let parameters =
+        container.Fields |> Seq.map _.Name.Pascalize() |> String.concat ", "
 
 
-    methods
+    let body = $"SerializeInternal(writer, protocolVersion, {parameters});"
+
+    SyntaxFactory
+        .MethodDeclaration(SyntaxFactory.ParseTypeName("void"), "Serialize")
+        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.OverrideKeyword))
+        .AddParameterListParameters(
+            SyntaxFactory
+                .Parameter(SyntaxFactory.Identifier("writer"))
+                .WithType(SyntaxFactory.ParseTypeName("MinecraftPrimitiveWriter")),
+            SyntaxFactory
+                .Parameter(SyntaxFactory.Identifier("protocolVersion"))
+                .WithType(SyntaxFactory.ParseTypeName("int"))
+        )
+        .WithBody(SyntaxFactory.Block(SyntaxFactory.ParseStatement(body)))
+    :> MemberDeclarationSyntax
+
+
+
+
+
 
 let isAllEquivalent (classes: (VersionRange * ClassDeclarationSyntax) list) =
     match classes with
     | []
-    | [ _ ] -> true // Пустой список или список с одним элементом
+    | [ _ ] -> true
     | (_, firstClass) :: rest -> rest |> List.forall (fun (_, cl) -> cl.IsEquivalentTo(firstClass))
 
 let getCommonProperties (classes: ClassDeclarationSyntax list) =
@@ -156,14 +184,11 @@ let getCommonProperties (classes: ClassDeclarationSyntax list) =
             | _ -> None)
         |> Seq.toList
 
-    // Получаем список всех свойств для каждого класса
     let allProperties = classes |> List.map getProperties
 
-    // Если список классов пустой, возвращаем пустой результат
     match allProperties with
     | [] -> []
     | firstProps :: rest ->
-        // Находим свойства, которые эквивалентны во всех классах
         firstProps
         |> List.filter (fun prop ->
             rest
@@ -175,7 +200,7 @@ let containsProperty (mem: MemberDeclarationSyntax) (props: MemberDeclarationSyn
 let generateSupportVersionsMethod (versions: VersionRange) =
     let identifier = SyntaxFactory.Identifier("SupportedVersion")
 
-    let condtion =
+    let condition =
         SyntaxFactory.ParseStatement(
             $"return protocolVersion is >= {versions.MinVersion} and <= {versions.MaxVersion};"
         )
@@ -192,7 +217,7 @@ let generateSupportVersionsMethod (versions: VersionRange) =
                 .Parameter(SyntaxFactory.Identifier("protocolVersion"))
                 .WithType(SyntaxFactory.ParseTypeName("int"))
         )
-        .WithBody(SyntaxFactory.Block(condtion))
+        .WithBody(SyntaxFactory.Block(condition))
     :> MemberDeclarationSyntax
 
 let generateSupportVersions (classes: ClassDeclarationSyntax seq) =
@@ -230,10 +255,13 @@ let private generateClasses (packet: Packet) =
     if eq && packet.EmptyRanges.IsEmpty then
         let f = classes |> Seq.head
         let fClass = snd f
-
+        let serializeMethod = generateSerializeMethod (packet.Structure.Values |> Seq.head)
+        let serializeInternalMethod = generateSerializeInternalMethod (packet.Structure.Values |> Seq.head)
+        
         [| fClass
                .WithIdentifier(SyntaxFactory.Identifier(name))
-               .AddMembers(generateSupportVersionsMethod Models.AllVersion) |]
+               .AddMembers(generateSupportVersionsMethod AllVersion)
+               .AddMembers(serializeInternalMethod, serializeMethod) |]
     else
         let internalClasses =
             classes
@@ -265,14 +293,15 @@ let private generateClasses (packet: Packet) =
             |> Seq.map (fun x ->
                 let c = snd x
                 let supportMethod = generateSupportVersionsMethod (fst x)
-
+                let protoDef = packet.Structure.[fst x]
+                let serializeMethod = generateSerializeMethod protoDef
+                let serializeInternalMethod = generateSerializeInternalMethod protoDef
                 let newMembers =
                     c.Members
                     |> Seq.where (fun p ->
-
                         not (containsProperty p generalProperties))
                     |> Seq.toArray
-                    |> Array.append [| supportMethod |]
+                    |> Array.append [| supportMethod; serializeInternalMethod; serializeMethod;  |]
 
                 c.WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers))
 
