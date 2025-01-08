@@ -9,6 +9,7 @@ open Humanizer
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
+open MinecraftDataFSharp
 open MinecraftDataFSharp.Models
 open Protodef
 open Protodef.Converters
@@ -169,11 +170,49 @@ let getCommonProperties (classes: ClassDeclarationSyntax list) =
             |> List.forall (fun props -> props |> List.exists (fun otherProp -> prop.IsEquivalentTo(otherProp))))
 
 let containsProperty (mem: MemberDeclarationSyntax) (props: MemberDeclarationSyntax list) =
-    props
-    |> List.exists (fun x ->
-        let deb = x.IsEquivalentTo(mem)
+    props |> List.exists _.IsEquivalentTo(mem)
 
-        x.IsEquivalentTo(mem))
+let generateSupportVersionsMethod (versions: VersionRange) =
+    let identifier = SyntaxFactory.Identifier("SupportedVersion")
+
+    let condtion =
+        SyntaxFactory.ParseStatement(
+            $"return protocolVersion is >= {versions.MinVersion} and <= {versions.MaxVersion};"
+        )
+
+    SyntaxFactory
+        .MethodDeclaration(SyntaxFactory.ParseTypeName("bool"), identifier)
+        .AddModifiers(
+            SyntaxFactory.Token(SyntaxKind.PublicKeyword),
+            SyntaxFactory.Token(SyntaxKind.NewKeyword),
+            SyntaxFactory.Token(SyntaxKind.StaticKeyword)
+        )
+        .AddParameterListParameters(
+            SyntaxFactory
+                .Parameter(SyntaxFactory.Identifier("protocolVersion"))
+                .WithType(SyntaxFactory.ParseTypeName("int"))
+        )
+        .WithBody(SyntaxFactory.Block(condtion))
+    :> MemberDeclarationSyntax
+
+let generateSupportVersions (classes: ClassDeclarationSyntax seq) =
+    let versions =
+        classes
+        |> Seq.map (fun x -> $"{x.Identifier.ToFullString()}.SupportedVersion(protocolVersion)")
+        |> String.concat " || "
+
+    let returnStatement = SyntaxFactory.ParseStatement $"return {versions};"
+
+    SyntaxFactory
+        .MethodDeclaration(SyntaxFactory.ParseTypeName("bool"), "SupportedVersion")
+        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword))
+        .AddParameterListParameters(
+            SyntaxFactory
+                .Parameter(SyntaxFactory.Identifier("protocolVersion"))
+                .WithType(SyntaxFactory.ParseTypeName("int"))
+        )
+        .WithBody(SyntaxFactory.Block(returnStatement))
+    :> MemberDeclarationSyntax
 
 let private generateClasses (packet: Packet) =
     let name = packet.PacketName.Substring("packet_".Length).Pascalize()
@@ -191,7 +230,10 @@ let private generateClasses (packet: Packet) =
     if eq && packet.EmptyRanges.IsEmpty then
         let f = classes |> Seq.head
         let fClass = snd f
-        [| fClass.WithIdentifier(SyntaxFactory.Identifier(name)) |]
+
+        [| fClass
+               .WithIdentifier(SyntaxFactory.Identifier(name))
+               .AddMembers(generateSupportVersionsMethod Models.AllVersion) |]
     else
         let internalClasses =
             classes
@@ -205,6 +247,7 @@ let private generateClasses (packet: Packet) =
                            SyntaxFactory.Token(SyntaxKind.SealedKeyword) |]
                     )
 
+                fst x,
                 (snd x)
                     .WithIdentifier(SyntaxFactory.Identifier(newName))
                     .AddBaseListTypes(baseList)
@@ -212,28 +255,33 @@ let private generateClasses (packet: Packet) =
 
 
         let generalProperties =
-            getCommonProperties (internalClasses |> Seq.toList)
+            getCommonProperties (internalClasses |> Seq.map (fun x -> snd x) |> Seq.toList)
             |> List.map (fun p -> p :> MemberDeclarationSyntax)
 
 
 
         let internalClasses =
             internalClasses
-            |> Seq.map (fun c ->
+            |> Seq.map (fun x ->
+                let c = snd x
+                let supportMethod = generateSupportVersionsMethod (fst x)
+
                 let newMembers =
                     c.Members
                     |> Seq.where (fun p ->
 
                         not (containsProperty p generalProperties))
                     |> Seq.toArray
+                    |> Array.append [| supportMethod |]
 
                 c.WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers))
 
-
+        let supportMethod = generateSupportVersions internalClasses
 
         let membersWrap =
             generalProperties
             @ (internalClasses |> Seq.cast<MemberDeclarationSyntax> |> Seq.toList)
+            @ [ supportMethod ]
 
         let modifiers = SyntaxTokenList([| SyntaxFactory.Token(SyntaxKind.PublicKeyword) |])
 

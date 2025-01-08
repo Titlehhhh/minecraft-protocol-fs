@@ -4,6 +4,14 @@ open System.Collections.Generic
 open System.Text.Json.Nodes
 open Protodef.Enumerable
 
+[<Literal>]
+let MinVersionProtocol = 340
+
+[<Literal>]
+let MaxVersionProtocol = 769
+
+
+
 type ProtocolVersionEntry =
     { ProtocolVersion: int
       MinVersion: string
@@ -17,7 +25,7 @@ type PacketMetadata =
 type VerAndPacket =
     { Version: int
       JsonStructure: JsonNode }
-    
+
 type VersionRange =
     { MinVersion: int
       MaxVersion: int }
@@ -40,6 +48,9 @@ type VersionRange =
         else
             sprintf "%d-%d" this.MinVersion this.MaxVersion
 
+let AllVersion =
+    { MinVersion = MinVersionProtocol
+      MaxVersion = MaxVersionProtocol }
 
 type Packet =
     { PacketName: string
