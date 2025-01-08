@@ -211,52 +211,59 @@ let generateArgumentListForConcrete (generalProps: string seq, protodef: Protode
 let generateBodyForBase (generalProps: string seq, containers: Dictionary<VersionRange, ProtodefContainer>) =
     let rec generateIfElse (remaining: (VersionRange * ProtodefContainer) list) =
         match remaining with
-        | [] -> 
+        | [] ->
             // Последний else бросает исключение, используя ParseStatement
             Some(SyntaxFactory.ParseStatement("throw new Exception();"))
         | (k, v) :: tail ->
-            let arguments = generateArgumentListForConcrete (generalProps, v) |> String.concat ", "
+            let arguments =
+                generateArgumentListForConcrete (generalProps, v) |> String.concat ", "
+
             let className = $"V{k.ToString()}".Replace("-", "_")
+
             let condition =
-                SyntaxFactory.InvocationExpression(
-                    SyntaxFactory.MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        SyntaxFactory.IdentifierName(className),
-                        SyntaxFactory.IdentifierName("SupportedVersion")
-                    )
-                ).WithArgumentList(
-                    SyntaxFactory.ArgumentList(
-                        SyntaxFactory.SingletonSeparatedList(
-                            SyntaxFactory.Argument(SyntaxFactory.IdentifierName("protocolVersion"))
+                SyntaxFactory
+                    .InvocationExpression(
+                        SyntaxFactory.MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            SyntaxFactory.IdentifierName(className),
+                            SyntaxFactory.IdentifierName("SupportedVersion")
                         )
                     )
-                )
-            
+                    .WithArgumentList(
+                        SyntaxFactory.ArgumentList(
+                            SyntaxFactory.SingletonSeparatedList(
+                                SyntaxFactory.Argument(SyntaxFactory.IdentifierName("protocolVersion"))
+                            )
+                        )
+                    )
+
             let thenStatement =
-                SyntaxFactory.ParseStatement(
-                    $"{className}.SerializeInternal(writer, {arguments});"
-                )
-            
+                SyntaxFactory.ParseStatement($"{className}.SerializeInternal(writer, {arguments});")
+
             let elseClause = generateIfElse tail
-            
+
             let gg = SyntaxFactory.Block(elseClause.Value)
 
             // Создание if-else конструкции с использованием ParseStatement
-            Some(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(SyntaxFactory.SingletonList(thenStatement)))
-                .WithElse(SyntaxFactory.ElseClause(gg)))
+            Some(
+                SyntaxFactory
+                    .IfStatement(condition, SyntaxFactory.Block(SyntaxFactory.SingletonList(thenStatement)))
+                    .WithElse(SyntaxFactory.ElseClause(gg))
+            )
 
     // Преобразуем словарь в список для обработки
-    let containerList = containers |> Seq.map(fun x-> x.Key, x.Value) |> Seq.toList
+    let containerList = containers |> Seq.map (fun x -> x.Key, x.Value) |> Seq.toList
     (generateIfElse containerList).Value
-    
-    
+
+
 
 let generateSerializeMethodForBase (generalProps: string seq, containers: Dictionary<VersionRange, ProtodefContainer>) =
-    
+
     let identifier = SyntaxFactory.Identifier("Serialize")
 
 
-    let blockSyntax = SyntaxFactory.Block(generateBodyForBase(generalProps, containers))
+    let blockSyntax =
+        SyntaxFactory.Block(generateBodyForBase (generalProps, containers))
 
     SyntaxFactory
         .MethodDeclaration(SyntaxFactory.ParseTypeName("void"), identifier)
@@ -275,7 +282,7 @@ let generateSerializeMethodForBase (generalProps: string seq, containers: Dictio
 let containsProperty (mem: MemberDeclarationSyntax) (props: MemberDeclarationSyntax list) =
     props |> List.exists _.IsEquivalentTo(mem)
 
-let generateSupportVersionsMethod (versions: VersionRange) =
+let generateSupportVersionsMethod (versions: VersionRange, addNew: bool) =
     let identifier = SyntaxFactory.Identifier("SupportedVersion")
 
     let condition =
@@ -283,20 +290,25 @@ let generateSupportVersionsMethod (versions: VersionRange) =
             $"return protocolVersion is >= {versions.MinVersion} and <= {versions.MaxVersion};"
         )
 
-    SyntaxFactory
-        .MethodDeclaration(SyntaxFactory.ParseTypeName("bool"), identifier)
-        .AddModifiers(
-            SyntaxFactory.Token(SyntaxKind.PublicKeyword),
-            SyntaxFactory.Token(SyntaxKind.NewKeyword),
-            SyntaxFactory.Token(SyntaxKind.StaticKeyword)
-        )
-        .AddParameterListParameters(
-            SyntaxFactory
-                .Parameter(SyntaxFactory.Identifier("protocolVersion"))
-                .WithType(SyntaxFactory.ParseTypeName("int"))
-        )
-        .WithBody(SyntaxFactory.Block(condition))
-    :> MemberDeclarationSyntax
+    let method =
+        SyntaxFactory
+            .MethodDeclaration(SyntaxFactory.ParseTypeName("bool"), identifier)
+            .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+            .AddParameterListParameters(
+                SyntaxFactory
+                    .Parameter(SyntaxFactory.Identifier("protocolVersion"))
+                    .WithType(SyntaxFactory.ParseTypeName("int"))
+            )
+            .WithBody(SyntaxFactory.Block(condition))
+
+    let method =
+        if addNew then
+            method.AddModifiers(SyntaxFactory.Token(SyntaxKind.NewKeyword))
+        else
+            method
+
+    method.AddModifiers(SyntaxFactory.Token(SyntaxKind.StaticKeyword)) :> MemberDeclarationSyntax
+
 
 let generateSupportVersions (classes: ClassDeclarationSyntax seq) =
     let versions =
@@ -340,7 +352,7 @@ let private generateClasses (packet: Packet) =
 
         [| fClass
                .WithIdentifier(SyntaxFactory.Identifier(name))
-               .AddMembers(generateSupportVersionsMethod AllVersion)
+               .AddMembers(generateSupportVersionsMethod (AllVersion, false))
                .AddMembers(serializeInternalMethod, serializeMethod) |]
     else
         let internalClasses =
@@ -374,7 +386,7 @@ let private generateClasses (packet: Packet) =
             internalClasses
             |> Seq.map (fun x ->
                 let c = snd x
-                let supportMethod = generateSupportVersionsMethod (fst x)
+                let supportMethod = generateSupportVersionsMethod ((fst x), true)
                 let protoDef = packet.Structure.[fst x]
                 let serializeMethod = generateSerializeMethod protoDef
                 let serializeInternalMethod = generateSerializeInternalMethod protoDef
@@ -388,9 +400,10 @@ let private generateClasses (packet: Packet) =
                 c.WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers))
 
         let supportMethod = generateSupportVersions internalClasses
-        
-        let serializeMethod = generateSerializeMethodForBase (generalPropertiesNames, packet.Structure)
-        
+
+        let serializeMethod =
+            generateSerializeMethodForBase (generalPropertiesNames, packet.Structure)
+
         let membersWrap =
             generalProperties
             @ (internalClasses |> Seq.cast<MemberDeclarationSyntax> |> Seq.toList)
