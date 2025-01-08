@@ -12,7 +12,7 @@ public sealed class ProtodefContainer : ProtodefType, IPathTypeEnumerable
         Fields = fields;
     }
 
-   
+    public bool Contains(string name) => Fields.Exists(x => x.Name == name);
 
     private ProtodefContainer(ProtodefContainer other)
     {
@@ -52,8 +52,8 @@ public sealed class ProtodefContainer : ProtodefType, IPathTypeEnumerable
 
     public void SetPassable(string name)
     {
-        
     }
+
     public ProtodefType this[string name]
     {
         get

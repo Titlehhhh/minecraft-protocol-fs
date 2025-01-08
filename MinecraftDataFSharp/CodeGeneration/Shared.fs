@@ -127,3 +127,9 @@ let generateClass (container: ProtodefContainer) (name: string) =
         .ClassDeclaration(SyntaxFactory.Identifier(name))
         .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
         .AddMembers(fields)
+        
+let getDefaultValue (t: ProtodefType) =
+    match t with
+    | :? ProtodefNumericType-> "0"
+    | :? ProtodefCustomType -> "default"
+    | _ -> "default" 

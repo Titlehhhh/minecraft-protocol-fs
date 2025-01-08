@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open System.Diagnostics
 open System.IO
+open System.Linq.Expressions
 open System.Text.Json
 open Humanizer
 open Microsoft.CodeAnalysis
@@ -121,7 +122,7 @@ let private generateSerializeInternalMethod (container: ProtodefContainer) =
         SyntaxFactory
             .Parameter(SyntaxFactory.Identifier("writer"))
             .WithType(SyntaxFactory.ParseTypeName("MinecraftPrimitiveWriter"))
-            
+
     let protocolParameter =
         SyntaxFactory
             .Parameter(SyntaxFactory.Identifier("protocolVersion"))
@@ -194,6 +195,83 @@ let getCommonProperties (classes: ClassDeclarationSyntax list) =
             rest
             |> List.forall (fun props -> props |> List.exists (fun otherProp -> prop.IsEquivalentTo(otherProp))))
 
+let getNames (propeties: PropertyDeclarationSyntax list) = propeties |> List.map _.Identifier.Text
+
+let generateArgumentListForConcrete (generalProps: string seq, protodef: ProtodefContainer) =
+    protodef.Fields
+    |> Seq.map (fun f ->
+        let pascalCase = f.Name.Pascalize()
+
+        if generalProps |> Seq.contains pascalCase then
+            pascalCase
+        else
+            getDefaultValue f.Type)
+    |> Seq.toArray
+
+let generateBodyForBase (generalProps: string seq, containers: Dictionary<VersionRange, ProtodefContainer>) =
+    let rec generateIfElse (remaining: (VersionRange * ProtodefContainer) list) =
+        match remaining with
+        | [] -> 
+            // Последний else бросает исключение, используя ParseStatement
+            Some(SyntaxFactory.ParseStatement("throw new Exception();"))
+        | (k, v) :: tail ->
+            let arguments = generateArgumentListForConcrete (generalProps, v) |> String.concat ", "
+            let className = $"V{k.ToString()}".Replace("-", "_")
+            let condition =
+                SyntaxFactory.InvocationExpression(
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName(className),
+                        SyntaxFactory.IdentifierName("SupportedVersion")
+                    )
+                ).WithArgumentList(
+                    SyntaxFactory.ArgumentList(
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.Argument(SyntaxFactory.IdentifierName("protocolVersion"))
+                        )
+                    )
+                )
+            
+            let thenStatement =
+                SyntaxFactory.ParseStatement(
+                    $"{className}.SerializeInternal(writer, {arguments});"
+                )
+            
+            let elseClause = generateIfElse tail
+            
+            let gg = SyntaxFactory.Block(elseClause.Value)
+
+            // Создание if-else конструкции с использованием ParseStatement
+            Some(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(SyntaxFactory.SingletonList(thenStatement)))
+                .WithElse(SyntaxFactory.ElseClause(gg)))
+
+    // Преобразуем словарь в список для обработки
+    let containerList = containers |> Seq.map(fun x-> x.Key, x.Value) |> Seq.toList
+    (generateIfElse containerList).Value
+    
+    
+
+let generateSerializeMethodForBase (generalProps: string seq, containers: Dictionary<VersionRange, ProtodefContainer>) =
+    
+    let identifier = SyntaxFactory.Identifier("Serialize")
+
+
+    let blockSyntax = SyntaxFactory.Block(generateBodyForBase(generalProps, containers))
+
+    SyntaxFactory
+        .MethodDeclaration(SyntaxFactory.ParseTypeName("void"), identifier)
+        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.VirtualKeyword))
+        .AddParameterListParameters(
+            SyntaxFactory
+                .Parameter(SyntaxFactory.Identifier("writer"))
+                .WithType(SyntaxFactory.ParseTypeName("MinecraftPrimitiveWriter")),
+            SyntaxFactory
+                .Parameter(SyntaxFactory.Identifier("protocolVersion"))
+                .WithType(SyntaxFactory.ParseTypeName("int"))
+        )
+        .WithBody(blockSyntax)
+
+
 let containsProperty (mem: MemberDeclarationSyntax) (props: MemberDeclarationSyntax list) =
     props |> List.exists _.IsEquivalentTo(mem)
 
@@ -256,8 +334,10 @@ let private generateClasses (packet: Packet) =
         let f = classes |> Seq.head
         let fClass = snd f
         let serializeMethod = generateSerializeMethod (packet.Structure.Values |> Seq.head)
-        let serializeInternalMethod = generateSerializeInternalMethod (packet.Structure.Values |> Seq.head)
-        
+
+        let serializeInternalMethod =
+            generateSerializeInternalMethod (packet.Structure.Values |> Seq.head)
+
         [| fClass
                .WithIdentifier(SyntaxFactory.Identifier(name))
                .AddMembers(generateSupportVersionsMethod AllVersion)
@@ -284,9 +364,11 @@ let private generateClasses (packet: Packet) =
 
         let generalProperties =
             getCommonProperties (internalClasses |> Seq.map (fun x -> snd x) |> Seq.toList)
-            |> List.map (fun p -> p :> MemberDeclarationSyntax)
 
+        let generalPropertiesNames = getNames generalProperties
 
+        let generalProperties =
+            generalProperties |> List.map (fun x -> x :> MemberDeclarationSyntax)
 
         let internalClasses =
             internalClasses
@@ -296,21 +378,23 @@ let private generateClasses (packet: Packet) =
                 let protoDef = packet.Structure.[fst x]
                 let serializeMethod = generateSerializeMethod protoDef
                 let serializeInternalMethod = generateSerializeInternalMethod protoDef
+
                 let newMembers =
                     c.Members
-                    |> Seq.where (fun p ->
-                        not (containsProperty p generalProperties))
+                    |> Seq.where (fun p -> not (containsProperty p generalProperties))
                     |> Seq.toArray
-                    |> Array.append [| supportMethod; serializeInternalMethod; serializeMethod;  |]
+                    |> Array.append [| supportMethod; serializeInternalMethod; serializeMethod |]
 
                 c.WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers))
 
         let supportMethod = generateSupportVersions internalClasses
-
+        
+        let serializeMethod = generateSerializeMethodForBase (generalPropertiesNames, packet.Structure)
+        
         let membersWrap =
             generalProperties
             @ (internalClasses |> Seq.cast<MemberDeclarationSyntax> |> Seq.toList)
-            @ [ supportMethod ]
+            @ [ supportMethod; serializeMethod ]
 
         let modifiers = SyntaxTokenList([| SyntaxFactory.Token(SyntaxKind.PublicKeyword) |])
 

@@ -41,7 +41,8 @@ public class Position : IClientPacket
             writer.WriteUnsignedByte(flags);
         }
 
-        public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)=> SerializeInternal(writer, X, Y, Z, Flags);
+        public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion) =>
+            SerializeInternal(writer, X, Y, Z, Flags);
 
         public new static bool SupportedVersion(int protocolVersion)
         {
@@ -55,8 +56,7 @@ public class Position : IClientPacket
     {
         if (V340_767.SupportedVersion(protocolVersion)) V340_767.SerializeInternal(writer, X, Y, Z, false);
         else if (V768.SupportedVersion(protocolVersion)) V768.SerializeInternal(writer, X, Y, Z, 0);
-
-        throw new Exception();
+        else throw new Exception();
     }
 
     public static bool SupportedVersion(int protocolVersion)
