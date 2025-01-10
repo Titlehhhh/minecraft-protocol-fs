@@ -19,7 +19,7 @@ open Protodef.Primitive
 open Shared
 
 
-let private TypeToWriteMethodOneArg =
+let private TypeToWriteMethodMap =
     Map
         [ "bool", "WriteBoolean"
           "i8", "WriteSignedByte"
@@ -39,7 +39,7 @@ let private TypeToWriteMethodOneArg =
           "string", "WriteString"
           "pstring", "WriteString" ]
 
-let private generateInstruct (field: ProtodefContainerField) =
+let private generateInstructionForField (field: ProtodefContainerField) =
     let argName = field.Name.Camelize()
 
     let list = List<StatementSyntax>()
@@ -57,15 +57,15 @@ let private generateInstruct (field: ProtodefContainerField) =
 
     let rec generateWriteInstruction (t: ProtodefType) (name: string) : unit =
         match t with
-        | :? ProtodefNumericType as p -> TypeToWriteMethodOneArg[p.OriginalName] |> wi name
-        | :? ProtodefVarInt -> TypeToWriteMethodOneArg["varint"] |> wi name
-        | :? ProtodefVarLong -> TypeToWriteMethodOneArg["varlong"] |> wi name
-        | :? ProtodefString -> TypeToWriteMethodOneArg["string"] |> wi name
-        | :? ProtodefPrefixedString -> TypeToWriteMethodOneArg["pstring"] |> wi name
-        | :? ProtodefBool -> TypeToWriteMethodOneArg["bool"] |> wi name
+        | :? ProtodefNumericType as p -> TypeToWriteMethodMap[p.OriginalName] |> wi name
+        | :? ProtodefVarInt -> TypeToWriteMethodMap["varint"] |> wi name
+        | :? ProtodefVarLong -> TypeToWriteMethodMap["varlong"] |> wi name
+        | :? ProtodefString -> TypeToWriteMethodMap["string"] |> wi name
+        | :? ProtodefPrefixedString -> TypeToWriteMethodMap["pstring"] |> wi name
+        | :? ProtodefBool -> TypeToWriteMethodMap["bool"] |> wi name
         | :? ProtodefBuffer as b ->
             if b.Rest = true then
-                TypeToWriteMethodOneArg["restBuffer"] |> wi name
+                TypeToWriteMethodMap["restBuffer"] |> wi name
             else
                 "WriteVarInt" |> wi $"{argName}.Length"
                 "WriteBuffer" |> wi name
@@ -103,8 +103,21 @@ let private generateInstruct (field: ProtodefContainerField) =
 
     list
 
-let private generateBody (container: ProtodefContainer) =
-    container.Fields |> Seq.collect generateInstruct |> Array.ofSeq
+let private generateSerializationInstructions (container: ProtodefContainer) =
+    container.Fields |> Seq.collect generateInstructionForField |> Array.ofSeq
+
+
+
+let private writerParameter =
+    SyntaxFactory
+        .Parameter(SyntaxFactory.Identifier("writer"))
+        .AddModifiers(SyntaxFactory.Token(SyntaxKind.RefKeyword))
+        .WithType(SyntaxFactory.ParseTypeName("MinecraftPrimitiveWriter"))
+
+let private protocolVersionParameter =
+    SyntaxFactory
+        .Parameter(SyntaxFactory.Identifier("protocolVersion"))
+        .WithType(SyntaxFactory.ParseTypeName("int"))
 
 let private generateSerializeInternalMethod (container: ProtodefContainer) =
     let parameters =
@@ -118,22 +131,15 @@ let private generateSerializeInternalMethod (container: ProtodefContainer) =
                 .WithType(SyntaxFactory.ParseTypeName(csharpType)))
         |> Seq.toList
 
-    let writerParameter =
-        SyntaxFactory
-            .Parameter(SyntaxFactory.Identifier("writer"))
-            .WithType(SyntaxFactory.ParseTypeName("MinecraftPrimitiveWriter"))
 
-    let protocolParameter =
-        SyntaxFactory
-            .Parameter(SyntaxFactory.Identifier("protocolVersion"))
-            .WithType(SyntaxFactory.ParseTypeName("int"))
+    
 
-    let parameters = (writerParameter :: protocolParameter :: parameters) |> Seq.toArray
+    let parameters = (writerParameter :: protocolVersionParameter :: parameters) |> Seq.toArray
 
     let identifier = SyntaxFactory.Identifier("SerializeInternal")
 
 
-    let ser = generateBody container
+    let ser = generateSerializationInstructions container
 
     let blockSyntax = SyntaxFactory.Block(ser)
 
@@ -154,12 +160,8 @@ let private generateSerializeMethod (container: ProtodefContainer) =
         .MethodDeclaration(SyntaxFactory.ParseTypeName("void"), "Serialize")
         .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.OverrideKeyword))
         .AddParameterListParameters(
-            SyntaxFactory
-                .Parameter(SyntaxFactory.Identifier("writer"))
-                .WithType(SyntaxFactory.ParseTypeName("MinecraftPrimitiveWriter")),
-            SyntaxFactory
-                .Parameter(SyntaxFactory.Identifier("protocolVersion"))
-                .WithType(SyntaxFactory.ParseTypeName("int"))
+            writerParameter,
+            protocolVersionParameter
         )
         .WithBody(SyntaxFactory.Block(SyntaxFactory.ParseStatement(body)))
     :> MemberDeclarationSyntax
@@ -169,13 +171,13 @@ let private generateSerializeMethod (container: ProtodefContainer) =
 
 
 
-let isAllEquivalent (classes: (VersionRange * ClassDeclarationSyntax) list) =
+let private isAllEquivalent (classes: (VersionRange * ClassDeclarationSyntax) list) =
     match classes with
     | []
     | [ _ ] -> true
     | (_, firstClass) :: rest -> rest |> List.forall (fun (_, cl) -> cl.IsEquivalentTo(firstClass))
 
-let getCommonProperties (classes: ClassDeclarationSyntax list) =
+let private getCommonProperties (classes: ClassDeclarationSyntax list) =
 
     let getProperties (classDecl: ClassDeclarationSyntax) =
         classDecl.Members
@@ -195,9 +197,9 @@ let getCommonProperties (classes: ClassDeclarationSyntax list) =
             rest
             |> List.forall (fun props -> props |> List.exists (fun otherProp -> prop.IsEquivalentTo(otherProp))))
 
-let getNames (propeties: PropertyDeclarationSyntax list) = propeties |> List.map _.Identifier.Text
+let private getNames (propeties: PropertyDeclarationSyntax list) = propeties |> List.map _.Identifier.Text
 
-let generateArgumentListForConcrete (generalProps: string seq, protodef: ProtodefContainer) =
+let private generateArgumentListForConcrete (generalProps: string seq, protodef: ProtodefContainer) =
     protodef.Fields
     |> Seq.map (fun f ->
         let pascalCase = f.Name.Pascalize()
@@ -208,12 +210,10 @@ let generateArgumentListForConcrete (generalProps: string seq, protodef: Protode
             getDefaultValue f.Type)
     |> Seq.toArray
 
-let generateBodyForBase (generalProps: string seq, containers: Dictionary<VersionRange, ProtodefContainer>) =
+let private generateBodyForBase (generalProps: string seq, containers: Dictionary<VersionRange, ProtodefContainer>) =
     let rec generateIfElse (remaining: (VersionRange * ProtodefContainer) list) =
         match remaining with
-        | [] ->
-            // Последний else бросает исключение, используя ParseStatement
-            Some(SyntaxFactory.ParseStatement("throw new Exception();"))
+        | [] -> Some(SyntaxFactory.ParseStatement("throw new Exception();"))
         | (k, v) :: tail ->
             let arguments =
                 generateArgumentListForConcrete (generalProps, v) |> String.concat ", "
@@ -242,22 +242,21 @@ let generateBodyForBase (generalProps: string seq, containers: Dictionary<Versio
 
             let elseClause = generateIfElse tail
 
-            let gg = SyntaxFactory.Block(elseClause.Value)
 
-            // Создание if-else конструкции с использованием ParseStatement
             Some(
                 SyntaxFactory
-                    .IfStatement(condition, SyntaxFactory.Block(SyntaxFactory.SingletonList(thenStatement)))
-                    .WithElse(SyntaxFactory.ElseClause(gg))
+                    .IfStatement(condition, thenStatement)
+                    .WithElse(SyntaxFactory.ElseClause(elseClause.Value))
             )
 
-    // Преобразуем словарь в список для обработки
     let containerList = containers |> Seq.map (fun x -> x.Key, x.Value) |> Seq.toList
     (generateIfElse containerList).Value
 
 
 
-let generateSerializeMethodForBase (generalProps: string seq, containers: Dictionary<VersionRange, ProtodefContainer>) =
+let private generateSerializeMethodForBase
+    (generalProps: string seq, containers: Dictionary<VersionRange, ProtodefContainer>)
+    =
 
     let identifier = SyntaxFactory.Identifier("Serialize")
 
@@ -268,37 +267,29 @@ let generateSerializeMethodForBase (generalProps: string seq, containers: Dictio
     SyntaxFactory
         .MethodDeclaration(SyntaxFactory.ParseTypeName("void"), identifier)
         .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.VirtualKeyword))
-        .AddParameterListParameters(
-            SyntaxFactory
-                .Parameter(SyntaxFactory.Identifier("writer"))
-                .WithType(SyntaxFactory.ParseTypeName("MinecraftPrimitiveWriter")),
-            SyntaxFactory
-                .Parameter(SyntaxFactory.Identifier("protocolVersion"))
-                .WithType(SyntaxFactory.ParseTypeName("int"))
-        )
+        .AddParameterListParameters(writerParameter, protocolVersionParameter)
         .WithBody(blockSyntax)
 
 
-let containsProperty (mem: MemberDeclarationSyntax) (props: MemberDeclarationSyntax list) =
+let private containsProperty (mem: MemberDeclarationSyntax) (props: MemberDeclarationSyntax list) =
     props |> List.exists _.IsEquivalentTo(mem)
 
-let generateSupportVersionsMethod (versions: VersionRange, addNew: bool) =
+let private generateSupportVersionsMethod (versions: VersionRange, addNew: bool) =
     let identifier = SyntaxFactory.Identifier("SupportedVersion")
 
     let condition =
         SyntaxFactory.ParseStatement(
-            $"return protocolVersion is >= {versions.MinVersion} and <= {versions.MaxVersion};"
+            if versions.MaxVersion = versions.MinVersion then
+                $"return protocolVersion == {versions.MinVersion};"
+            else
+                $"return protocolVersion is >= {versions.MinVersion} and <= {versions.MaxVersion};"
         )
 
     let method =
         SyntaxFactory
             .MethodDeclaration(SyntaxFactory.ParseTypeName("bool"), identifier)
             .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
-            .AddParameterListParameters(
-                SyntaxFactory
-                    .Parameter(SyntaxFactory.Identifier("protocolVersion"))
-                    .WithType(SyntaxFactory.ParseTypeName("int"))
-            )
+            .AddParameterListParameters(protocolVersionParameter)
             .WithBody(SyntaxFactory.Block(condition))
 
     let method =
@@ -310,7 +301,7 @@ let generateSupportVersionsMethod (versions: VersionRange, addNew: bool) =
     method.AddModifiers(SyntaxFactory.Token(SyntaxKind.StaticKeyword)) :> MemberDeclarationSyntax
 
 
-let generateSupportVersions (classes: ClassDeclarationSyntax seq) =
+let private generateSupportVersions (classes: ClassDeclarationSyntax seq) =
     let versions =
         classes
         |> Seq.map (fun x -> $"{x.Identifier.ToFullString()}.SupportedVersion(protocolVersion)")
@@ -321,11 +312,7 @@ let generateSupportVersions (classes: ClassDeclarationSyntax seq) =
     SyntaxFactory
         .MethodDeclaration(SyntaxFactory.ParseTypeName("bool"), "SupportedVersion")
         .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword))
-        .AddParameterListParameters(
-            SyntaxFactory
-                .Parameter(SyntaxFactory.Identifier("protocolVersion"))
-                .WithType(SyntaxFactory.ParseTypeName("int"))
-        )
+        .AddParameterListParameters(protocolVersionParameter)
         .WithBody(SyntaxFactory.Block(returnStatement))
     :> MemberDeclarationSyntax
 
@@ -341,6 +328,9 @@ let private generateClasses (packet: Packet) =
     let eq = isAllEquivalent classes
 
     let baseList = SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName(name))
+
+    let baseInterface =
+        SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName("IClientPacket"))
 
     if eq && packet.EmptyRanges.IsEmpty then
         let f = classes |> Seq.head
@@ -416,6 +406,7 @@ let private generateClasses (packet: Packet) =
                 .ClassDeclaration(SyntaxFactory.Identifier(name))
                 .AddMembers(membersWrap |> Array.ofSeq)
                 .WithModifiers(modifiers)
+                .AddBaseListTypes(baseInterface)
 
         [| wrapper |]
 
