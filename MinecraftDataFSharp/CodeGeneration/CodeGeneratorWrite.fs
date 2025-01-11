@@ -4,16 +4,13 @@ open System
 open System.Collections.Generic
 open System.Diagnostics
 open System.IO
-open System.Linq.Expressions
-open System.Text.Json
 open Humanizer
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
-open MinecraftDataFSharp
+open Microsoft.FSharp.Collections
 open MinecraftDataFSharp.Models
 open Protodef
-open Protodef.Converters
 open Protodef.Enumerable
 open Protodef.Primitive
 open Shared
@@ -147,23 +144,31 @@ let private generateSerializeInternalMethod (container: ProtodefContainer) =
         .AddParameterListParameters(parameters)
         .WithBody(blockSyntax)
 
-let private generateSerializeMethod (container: ProtodefContainer) =
-    let parameters =
-        container.Fields |> Seq.map _.Name.Pascalize() |> String.concat ", "
+let private generateSerializeMethod (containers: (VersionRange * ProtodefContainer) list) =
+    if (containers.Length = 1) then
+        let container = snd containers.Head
+
+        let parameters =
+            container.Fields |> Seq.map _.Name.Pascalize() |> String.concat ", "
 
 
-    let body = $"SerializeInternal(ref writer, protocolVersion, {parameters});"
+        let body = $"SerializeInternal(ref writer, protocolVersion, {parameters});"
 
-    let serializeInternal =
-        (generateSerializeInternalMethod container) :> MemberDeclarationSyntax
+        let serializeInternal =
+            (generateSerializeInternalMethod container) :> MemberDeclarationSyntax
 
-    [ SyntaxFactory
-          .MethodDeclaration(SyntaxFactory.ParseTypeName("void"), "Serialize")
-          .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.OverrideKeyword))
-          .AddParameterListParameters(writerParameter, protocolVersionParameter)
-          .WithBody(SyntaxFactory.Block(SyntaxFactory.ParseStatement(body)))
-      :> MemberDeclarationSyntax
-      serializeInternal ]
+        [ SyntaxFactory
+              .MethodDeclaration(SyntaxFactory.ParseTypeName("void"), "Serialize")
+              .AddModifiers(
+                  SyntaxFactory.Token(SyntaxKind.PublicKeyword),
+                  SyntaxFactory.Token(SyntaxKind.OverrideKeyword)
+              )
+              .AddParameterListParameters(writerParameter, protocolVersionParameter)
+              .WithBody(SyntaxFactory.Block(SyntaxFactory.ParseStatement(body)))
+          :> MemberDeclarationSyntax
+          serializeInternal ]
+    else
+        []
 
 
 
@@ -249,6 +254,48 @@ let private generateSerializeMethodForBase (generalProps: string seq, packet: Pa
           .WithBody(blockSyntax)
       :> MemberDeclarationSyntax ]
 
+let private containsProperty (cl: ClassDeclarationSyntax) =
+    cl.Members |> Seq.exists (fun x -> x :? PropertyDeclarationSyntax)
+
+let private allClassesEmpty (classes: ClassDeclarationSyntax array) =
+    classes |> Array.forall containsProperty
+
+let private optimization (cl: ClassDeclarationSyntax, packet: Packet) : ClassDeclarationSyntax =
+    if packet.PacketName.ToLower().Contains("unload") then
+        Debugger.Break()
+
+    let internalClasses = ResizeArray()
+
+    for m in cl.Members do
+        match m with
+        | :? ClassDeclarationSyntax as c -> internalClasses.Add(c)
+        | _ -> ()
+
+    if internalClasses.Count = 0 then
+        cl
+    else if allClassesEmpty (internalClasses.ToArray()) then
+        cl
+    else
+        let newMembers =
+            cl.Members
+            |> Seq.map (fun m ->
+                match m with
+                | :? ClassDeclarationSyntax as c ->
+                    c.WithModifiers(
+                        SyntaxFactory.TokenList(
+                            SyntaxFactory.Token(SyntaxKind.InternalKeyword),
+                            SyntaxFactory.Token(SyntaxKind.SealedKeyword)
+                        )
+                    )
+                    :> MemberDeclarationSyntax
+                | _ -> m)
+
+        let newMembers = newMembers |> Seq.toArray
+
+        cl
+            .WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers)
+            .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
+
 
 
 let generatePrimitive (packets: PacketMetadata list, folder: string) =
@@ -268,6 +315,10 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
             ))
             |> Seq.cast<MemberDeclarationSyntax>
             |> Seq.toArray
+
+        let cl = (members |> Array.head) :?> ClassDeclarationSyntax
+
+        optimization (cl, p)
 
         let packetName = p.PacketName
 

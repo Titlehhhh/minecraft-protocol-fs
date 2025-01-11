@@ -143,3 +143,4 @@ public enum ServerPacket
     StoreCookie = 138,
     Transfer = 139
 }
+

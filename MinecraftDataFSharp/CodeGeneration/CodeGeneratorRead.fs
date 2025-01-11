@@ -1,5 +1,7 @@
 module MinecraftDataFSharp.CodeGeneration.CodeGeneratorRead
 
+open System
+open System.Diagnostics
 open System.IO
 open FSharp.Control
 open Humanizer
@@ -137,8 +139,12 @@ let generateReadMethod (container: ProtodefContainer) =
         .AddParameterListParameters(readerParameter, protocolVersionParameter)
         .AddBodyStatements(container.Fields |> Seq.map generateReadInstruct |> Array.ofSeq)
 
-let generateDeserializeMethod (container: ProtodefContainer) =
-    [ (generateReadMethod container) :> MemberDeclarationSyntax ]
+let generateDeserializeMethod (containers: (VersionRange * ProtodefContainer) list) =
+    if containers.Length = 1 then
+        let container = snd containers.Head
+        [ (generateReadMethod container) :> MemberDeclarationSyntax ]
+    else
+        []
 
 let generateDeserializeMethodForBase (_: string seq, _: Packet) =
     let identifier = SyntaxFactory.Identifier("Deserialize")
@@ -150,6 +156,45 @@ let generateDeserializeMethodForBase (_: string seq, _: Packet) =
           .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
       :> MemberDeclarationSyntax ]
 
+let private containsProperty (cl: ClassDeclarationSyntax) =
+    cl.Members |> Seq.exists (fun x -> x :? PropertyDeclarationSyntax)
+
+let private allClassesEmpty (classes: ClassDeclarationSyntax array) =
+    classes |> Array.forall containsProperty
+
+let private optimization (cl: ClassDeclarationSyntax, packet: Packet) : ClassDeclarationSyntax =
+    if packet.PacketName.ToLower().Contains("unload") then
+        Debugger.Break()
+
+    let internalClasses = ResizeArray()
+
+    for m in cl.Members do
+        match m with
+        | :? ClassDeclarationSyntax as c -> internalClasses.Add(c)
+        | _ -> ()
+
+    if internalClasses.Count = 0 then
+        cl
+    else if allClassesEmpty (internalClasses.ToArray()) then
+        cl
+    else
+        let newMembers =
+            cl.Members
+            |> Seq.map (fun m ->
+                match m with
+                | :? ClassDeclarationSyntax as c ->
+                    c.WithModifiers(
+                        SyntaxFactory.TokenList(
+                            SyntaxFactory.Token(SyntaxKind.InternalKeyword),
+                            SyntaxFactory.Token(SyntaxKind.SealedKeyword)
+                        )
+                    )
+                    :> MemberDeclarationSyntax
+                | _ -> m)
+
+        let newMembers = newMembers |> Seq.toArray
+
+        cl.WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers)
 
 let generatePrimitive (packets: PacketMetadata list, folder: string) =
     let protodefPackets = packets |> Seq.map packetMetadataToProtodefPacket
@@ -169,6 +214,12 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
             |> Seq.cast<MemberDeclarationSyntax>
             |> Seq.toArray
 
+        let cl = (members |> Array.head) :?> ClassDeclarationSyntax
+
+        let cl = optimization (cl, p) :> MemberDeclarationSyntax
+
+        let members = [| cl |]
+
         let packetName = p.PacketName
 
         let filePath = Path.Combine("packets", folder, "generated", $"{packetName}.cs")
@@ -177,7 +228,7 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
         let ns =
             SyntaxFactory
                 .NamespaceDeclaration(SyntaxFactory.ParseName("MinecraftDataFSharp"))
-                .AddMembers(members)                
+                .AddMembers(members)
 
         File.WriteAllText(filePath, ns.NormalizeWhitespace().ToFullString())
 

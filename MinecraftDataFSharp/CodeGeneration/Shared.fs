@@ -6,6 +6,7 @@ open System.Text.Json
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
+open MinecraftDataFSharp
 open MinecraftDataFSharp.Models
 open Protodef
 open Protodef.Converters
@@ -184,7 +185,7 @@ let generateSupportVersions (classes: string seq) =
     :> MemberDeclarationSyntax
 
 
-type MembersGenerator = ProtodefContainer -> MemberDeclarationSyntax list
+type MembersGenerator = (VersionRange * ProtodefContainer) list -> MemberDeclarationSyntax list
 type MembersGeneratorForBase = string seq * Packet -> MemberDeclarationSyntax list
 
 
@@ -235,82 +236,78 @@ let generateClasses
         |> Seq.toList
 
 
-    let eq = isAllEquivalent classes
 
     let baseList = SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName(name))
 
     let baseInterface =
         SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName(baseInterface))
 
-    if eq && packet.EmptyRanges.IsEmpty then
-        let f = classes |> Seq.head
-        let fClass = snd f
-        let members = generator (packet.Structure.Values |> Seq.head)
+    
+    let internalClasses =
+        classes
+        |> Seq.map (fun x ->
+            let newName = (fst x).ToString().Replace("-", "_")
+            let newName = $"V{newName}"
+            // public, and sealed
+            let modifiers =
+                SyntaxTokenList(
+                    [| SyntaxFactory.Token(SyntaxKind.PublicKeyword)
+                       SyntaxFactory.Token(SyntaxKind.SealedKeyword) |]
+                )
 
-        [| fClass
-               .WithIdentifier(SyntaxFactory.Identifier(name))
-               .AddModifiers(SyntaxFactory.Token(SyntaxKind.SealedKeyword))
-               .AddMembers(generateSupportVersionsMethod (AllVersion, false))
-               .AddMembers(members |> Seq.toArray) |]
-    else
-        let internalClasses =
-            classes
-            |> Seq.map (fun x ->
-                let newName = (fst x).ToString().Replace("-", "_")
-                let newName = $"V{newName}"
-                // public, and sealed
-                let modifiers = SyntaxTokenList([| SyntaxFactory.Token(SyntaxKind.PublicKeyword); SyntaxFactory.Token(SyntaxKind.SealedKeyword) |])
-
-                fst x,
-                (snd x)
-                    .WithIdentifier(SyntaxFactory.Identifier(newName))
-                    .AddBaseListTypes(baseList)
-                    .WithModifiers(modifiers))
+            fst x,
+            (snd x)
+                .WithIdentifier(SyntaxFactory.Identifier(newName))
+                .AddBaseListTypes(baseList)
+                .WithModifiers(modifiers))
 
 
-        let generalProperties =
-            getCommonProperties (internalClasses |> Seq.map (fun x -> snd x) |> Seq.toList)
+    let generalProperties =
+        getCommonProperties (internalClasses |> Seq.map (fun x -> snd x) |> Seq.toList)
 
-        let generalPropertiesNames = getNames generalProperties
+    let generalPropertiesNames = getNames generalProperties
 
-        let generalProperties =
-            generalProperties |> List.map (fun x -> x :> MemberDeclarationSyntax)
+    let generalProperties =
+        generalProperties |> List.map (fun x -> x :> MemberDeclarationSyntax)
 
-        let internalClasses =
-            internalClasses
-            |> Seq.map (fun x ->
-                let c = snd x
-                let supportMethod = generateSupportVersionsMethod ((fst x), true)
-                let protoDef = packet.Structure.[fst x]
-                let members = generator (protoDef) |> Seq.toArray
+    let internalClasses =
+        internalClasses
+        |> Seq.map (fun x ->
+            let c = snd x
+            let supportMethod = generateSupportVersionsMethod ((fst x), true)
+            let protoDef = packet.Structure.[fst x]
+            
+            let param = [(fst x), protoDef]
+            let members = (generator param) |> Seq.toArray
 
-                let newMembers =
-                    c.Members
-                    |> Seq.where (fun p -> not (containsProperty p generalProperties))
-                    |> Seq.toArray
-                    |> Array.append [| supportMethod |]
-                    |> Array.append members
+            let newMembers =
+                c.Members
+                |> Seq.where (fun p -> not (containsProperty p generalProperties))
+                |> Seq.toArray
+                |> Array.append [| supportMethod |]
+                |> Array.append members
 
-                c.WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers))
+            c.WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers))
 
-        let supportMethod =
-            generateSupportVersions (internalClasses |> Seq.map (_.Identifier.Text))
+    let supportMethod =
+        generateSupportVersions (internalClasses |> Seq.map (_.Identifier.Text))
 
-        let members = generatorBase (generalPropertiesNames, packet)
+    let members = generatorBase (generalPropertiesNames, packet)
 
-        let membersWrap =
-            generalProperties
-            @ (internalClasses |> Seq.cast<MemberDeclarationSyntax> |> Seq.toList)
-            @ [ supportMethod ]
-            @ members
+    let membersWrap =
+        generalProperties
+        @ (internalClasses |> Seq.cast<MemberDeclarationSyntax> |> Seq.toList)
+        @ [ supportMethod ]
+        @ members
 
-        let modifiers = SyntaxFactory.TokenList(modifiers |> Seq.map(fun x-> SyntaxFactory.Token(x)) |> Seq.toArray)
+    let modifiers =
+        SyntaxFactory.TokenList(modifiers |> Seq.map (fun x -> SyntaxFactory.Token(x)) |> Seq.toArray)
 
-        let wrapper =
-            SyntaxFactory
-                .ClassDeclaration(SyntaxFactory.Identifier(name))
-                .AddMembers(membersWrap |> Array.ofSeq)
-                .WithModifiers(modifiers)
-                .AddBaseListTypes(baseInterface)
+    let wrapper =
+        SyntaxFactory
+            .ClassDeclaration(SyntaxFactory.Identifier(name))
+            .AddMembers(membersWrap |> Array.ofSeq)
+            .WithModifiers(modifiers)
+            .AddBaseListTypes(baseInterface)
 
-        [| wrapper |]
+    [| wrapper |]
