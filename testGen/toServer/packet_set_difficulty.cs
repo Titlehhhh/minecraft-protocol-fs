@@ -1,42 +1,38 @@
 namespace MinecraftDataFSharp
 {
-    public class SetDifficulty
+    public class SetDifficulty : IClientPacket
     {
         public byte NewDifficulty { get; set; }
 
-        public sealed class V477_768 : SetDifficulty
+        public sealed class V477_769 : SetDifficulty
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 477 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, NewDifficulty);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, byte newDifficulty)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, byte newDifficulty)
             {
                 writer.WriteUnsignedByte(newDifficulty);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, NewDifficulty);
+                return protocolVersion is >= 477 and <= 769;
             }
         }
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V477_768.SupportedVersion(protocolVersion);
+            return V477_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            if (V477_768.SupportedVersion(protocolVersion))
-            {
-                V477_768.SerializeInternal(writer, NewDifficulty);
-            }
+            if (V477_769.SupportedVersion(protocolVersion))
+                V477_769.SerializeInternal(ref writer, protocolVersion, NewDifficulty);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

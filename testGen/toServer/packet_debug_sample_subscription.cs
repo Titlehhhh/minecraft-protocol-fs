@@ -1,42 +1,38 @@
 namespace MinecraftDataFSharp
 {
-    public class DebugSampleSubscription
+    public class DebugSampleSubscription : IClientPacket
     {
         public int Type { get; set; }
 
-        public sealed class V766_768 : DebugSampleSubscription
+        public sealed class V766_769 : DebugSampleSubscription
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 766 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Type);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int type)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int type)
             {
                 writer.WriteVarInt(type);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Type);
+                return protocolVersion is >= 766 and <= 769;
             }
         }
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V766_768.SupportedVersion(protocolVersion);
+            return V766_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            if (V766_768.SupportedVersion(protocolVersion))
-            {
-                V766_768.SerializeInternal(writer, Type);
-            }
+            if (V766_769.SupportedVersion(protocolVersion))
+                V766_769.SerializeInternal(ref writer, protocolVersion, Type);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

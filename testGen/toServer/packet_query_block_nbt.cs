@@ -1,44 +1,40 @@
 namespace MinecraftDataFSharp
 {
-    public class QueryBlockNbt
+    public class QueryBlockNbt : IClientPacket
     {
         public int TransactionId { get; set; }
         public Position Location { get; set; }
 
-        public sealed class V393_768 : QueryBlockNbt
+        public sealed class V393_769 : QueryBlockNbt
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 393 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, TransactionId, Location);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int transactionId, Position location)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int transactionId, Position location)
             {
                 writer.WriteVarInt(transactionId);
                 writer.WritePosition(location, protocolVersion);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, TransactionId, Location);
+                return protocolVersion is >= 393 and <= 769;
             }
         }
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V393_768.SupportedVersion(protocolVersion);
+            return V393_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            if (V393_768.SupportedVersion(protocolVersion))
-            {
-                V393_768.SerializeInternal(writer, TransactionId, Location);
-            }
+            if (V393_769.SupportedVersion(protocolVersion))
+                V393_769.SerializeInternal(ref writer, protocolVersion, TransactionId, Location);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

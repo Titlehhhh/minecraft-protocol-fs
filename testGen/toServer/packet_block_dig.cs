@@ -1,6 +1,6 @@
 namespace MinecraftDataFSharp
 {
-    public class BlockDig
+    public class BlockDig : IClientPacket
     {
         public int Status { get; set; }
         public Position Location { get; set; }
@@ -8,32 +8,32 @@ namespace MinecraftDataFSharp
 
         public sealed class V340_758 : BlockDig
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 340 and <= 758;
+                SerializeInternal(ref writer, protocolVersion, Status, Location, Face);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int status, Position location, sbyte face)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int status, Position location, sbyte face)
             {
                 writer.WriteVarInt(status);
                 writer.WritePosition(location, protocolVersion);
                 writer.WriteSignedByte(face);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Status, Location, Face);
+                return protocolVersion is >= 340 and <= 758;
             }
         }
 
-        public sealed class V759_768 : BlockDig
+        public sealed class V759_769 : BlockDig
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 759 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Status, Location, Face, Sequence);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int status, Position location, sbyte face, int sequence)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int status, Position location, sbyte face, int sequence)
             {
                 writer.WriteVarInt(status);
                 writer.WritePosition(location, protocolVersion);
@@ -41,9 +41,9 @@ namespace MinecraftDataFSharp
                 writer.WriteVarInt(sequence);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Status, Location, Face, Sequence);
+                return protocolVersion is >= 759 and <= 769;
             }
 
             public int Sequence { get; set; }
@@ -51,26 +51,17 @@ namespace MinecraftDataFSharp
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V340_758.SupportedVersion(protocolVersion) || V759_768.SupportedVersion(protocolVersion);
+            return V340_758.SupportedVersion(protocolVersion) || V759_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V340_758.SupportedVersion(protocolVersion))
-            {
-                V340_758.SerializeInternal(writer, Status, Location, Face);
-            }
+                V340_758.SerializeInternal(ref writer, protocolVersion, Status, Location, Face);
+            else if (V759_769.SupportedVersion(protocolVersion))
+                V759_769.SerializeInternal(ref writer, protocolVersion, Status, Location, Face, default);
             else
-            {
-                if (V759_768.SupportedVersion(protocolVersion))
-                {
-                    V759_768.SerializeInternal(writer, Status, Location, Face, default);
-                }
-                else
-                {
-                    throw new Exception();
-                }
-            }
+                throw new Exception();
         }
     }
 }

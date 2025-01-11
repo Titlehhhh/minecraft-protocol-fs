@@ -1,46 +1,42 @@
 namespace MinecraftDataFSharp
 {
-    public class GenerateStructure
+    public class GenerateStructure : IClientPacket
     {
         public Position Location { get; set; }
         public int Levels { get; set; }
         public bool KeepJigsaws { get; set; }
 
-        public sealed class V734_768 : GenerateStructure
+        public sealed class V734_769 : GenerateStructure
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 734 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Location, Levels, KeepJigsaws);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, Position location, int levels, bool keepJigsaws)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, Position location, int levels, bool keepJigsaws)
             {
                 writer.WritePosition(location, protocolVersion);
                 writer.WriteVarInt(levels);
                 writer.WriteBoolean(keepJigsaws);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Location, Levels, KeepJigsaws);
+                return protocolVersion is >= 734 and <= 769;
             }
         }
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V734_768.SupportedVersion(protocolVersion);
+            return V734_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            if (V734_768.SupportedVersion(protocolVersion))
-            {
-                V734_768.SerializeInternal(writer, Location, Levels, KeepJigsaws);
-            }
+            if (V734_769.SupportedVersion(protocolVersion))
+                V734_769.SerializeInternal(ref writer, protocolVersion, Location, Levels, KeepJigsaws);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

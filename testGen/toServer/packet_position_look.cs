@@ -1,6 +1,6 @@
 namespace MinecraftDataFSharp
 {
-    public class PositionLook
+    public class PositionLook : IClientPacket
     {
         public double X { get; set; }
         public double Y { get; set; }
@@ -10,12 +10,12 @@ namespace MinecraftDataFSharp
 
         public sealed class V340_767 : PositionLook
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 340 and <= 767;
+                SerializeInternal(ref writer, protocolVersion, X, Y, Z, Yaw, Pitch, OnGround);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, double x, double y, double z, float yaw, float pitch, bool onGround)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, double x, double y, double z, float yaw, float pitch, bool onGround)
             {
                 writer.WriteDouble(x);
                 writer.WriteDouble(y);
@@ -25,22 +25,22 @@ namespace MinecraftDataFSharp
                 writer.WriteBoolean(onGround);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, X, Y, Z, Yaw, Pitch, OnGround);
+                return protocolVersion is >= 340 and <= 767;
             }
 
             public bool OnGround { get; set; }
         }
 
-        public sealed class V768 : PositionLook
+        public sealed class V768_769 : PositionLook
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 768 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, X, Y, Z, Yaw, Pitch, Flags);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, double x, double y, double z, float yaw, float pitch, byte flags)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, double x, double y, double z, float yaw, float pitch, byte flags)
             {
                 writer.WriteDouble(x);
                 writer.WriteDouble(y);
@@ -50,9 +50,9 @@ namespace MinecraftDataFSharp
                 writer.WriteUnsignedByte(flags);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, X, Y, Z, Yaw, Pitch, Flags);
+                return protocolVersion is >= 768 and <= 769;
             }
 
             public byte Flags { get; set; }
@@ -60,26 +60,17 @@ namespace MinecraftDataFSharp
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V340_767.SupportedVersion(protocolVersion) || V768.SupportedVersion(protocolVersion);
+            return V340_767.SupportedVersion(protocolVersion) || V768_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V340_767.SupportedVersion(protocolVersion))
-            {
-                V340_767.SerializeInternal(writer, X, Y, Z, Yaw, Pitch, default);
-            }
+                V340_767.SerializeInternal(ref writer, protocolVersion, X, Y, Z, Yaw, Pitch, default);
+            else if (V768_769.SupportedVersion(protocolVersion))
+                V768_769.SerializeInternal(ref writer, protocolVersion, X, Y, Z, Yaw, Pitch, default);
             else
-            {
-                if (V768.SupportedVersion(protocolVersion))
-                {
-                    V768.SerializeInternal(writer, X, Y, Z, Yaw, Pitch, default);
-                }
-                else
-                {
-                    throw new Exception();
-                }
-            }
+                throw new Exception();
         }
     }
 }

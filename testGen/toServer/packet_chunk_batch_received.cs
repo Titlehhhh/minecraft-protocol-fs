@@ -1,42 +1,38 @@
 namespace MinecraftDataFSharp
 {
-    public class ChunkBatchReceived
+    public class ChunkBatchReceived : IClientPacket
     {
         public float ChunksPerTick { get; set; }
 
-        public sealed class V764_768 : ChunkBatchReceived
+        public sealed class V764_769 : ChunkBatchReceived
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 764 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, ChunksPerTick);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, float chunksPerTick)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, float chunksPerTick)
             {
                 writer.WriteFloat(chunksPerTick);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, ChunksPerTick);
+                return protocolVersion is >= 764 and <= 769;
             }
         }
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V764_768.SupportedVersion(protocolVersion);
+            return V764_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            if (V764_768.SupportedVersion(protocolVersion))
-            {
-                V764_768.SerializeInternal(writer, ChunksPerTick);
-            }
+            if (V764_769.SupportedVersion(protocolVersion))
+                V764_769.SerializeInternal(ref writer, protocolVersion, ChunksPerTick);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

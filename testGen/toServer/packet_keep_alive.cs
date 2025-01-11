@@ -1,22 +1,22 @@
 namespace MinecraftDataFSharp
 {
-    public class KeepAlive
+    public sealed class KeepAlive
     {
         public long KeepAliveId { get; set; }
 
-        public new static bool SupportedVersion(int protocolVersion)
+        public static bool SupportedVersion(int protocolVersion)
         {
             return protocolVersion is >= 340 and <= 769;
         }
 
-        internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, long keepAliveId)
+        public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            writer.WriteSignedLong(keepAliveId);
+            SerializeInternal(ref writer, protocolVersion, KeepAliveId);
         }
 
-        public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, long keepAliveId)
         {
-            SerializeInternal(writer, protocolVersion, KeepAliveId);
+            writer.WriteSignedLong(keepAliveId);
         }
     }
 }

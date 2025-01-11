@@ -1,6 +1,6 @@
 namespace MinecraftDataFSharp
 {
-    public class SteerVehicle
+    public class SteerVehicle : IClientPacket
     {
         public float Sideways { get; set; }
         public float Forward { get; set; }
@@ -8,21 +8,21 @@ namespace MinecraftDataFSharp
 
         public sealed class V340_767 : SteerVehicle
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 340 and <= 767;
+                SerializeInternal(ref writer, protocolVersion, Sideways, Forward, Jump);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, float sideways, float forward, byte jump)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, float sideways, float forward, byte jump)
             {
                 writer.WriteFloat(sideways);
                 writer.WriteFloat(forward);
                 writer.WriteUnsignedByte(jump);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Sideways, Forward, Jump);
+                return protocolVersion is >= 340 and <= 767;
             }
         }
 
@@ -31,16 +31,12 @@ namespace MinecraftDataFSharp
             return V340_767.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V340_767.SupportedVersion(protocolVersion))
-            {
-                V340_767.SerializeInternal(writer, Sideways, Forward, Jump);
-            }
+                V340_767.SerializeInternal(ref writer, protocolVersion, Sideways, Forward, Jump);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

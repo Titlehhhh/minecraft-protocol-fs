@@ -1,44 +1,40 @@
 namespace MinecraftDataFSharp
 {
-    public class SelectBundleItem
+    public class SelectBundleItem : IClientPacket
     {
         public int SlotId { get; set; }
         public int SelectedItemIndex { get; set; }
 
-        public sealed class V768 : SelectBundleItem
+        public sealed class V768_769 : SelectBundleItem
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 768 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, SlotId, SelectedItemIndex);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int slotId, int selectedItemIndex)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int slotId, int selectedItemIndex)
             {
                 writer.WriteVarInt(slotId);
                 writer.WriteVarInt(selectedItemIndex);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, SlotId, SelectedItemIndex);
+                return protocolVersion is >= 768 and <= 769;
             }
         }
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V768.SupportedVersion(protocolVersion);
+            return V768_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            if (V768.SupportedVersion(protocolVersion))
-            {
-                V768.SerializeInternal(writer, SlotId, SelectedItemIndex);
-            }
+            if (V768_769.SupportedVersion(protocolVersion))
+                V768_769.SerializeInternal(ref writer, protocolVersion, SlotId, SelectedItemIndex);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

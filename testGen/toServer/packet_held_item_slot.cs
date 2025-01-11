@@ -1,22 +1,22 @@
 namespace MinecraftDataFSharp
 {
-    public class HeldItemSlot
+    public sealed class HeldItemSlot
     {
         public short SlotId { get; set; }
 
-        public new static bool SupportedVersion(int protocolVersion)
+        public static bool SupportedVersion(int protocolVersion)
         {
             return protocolVersion is >= 340 and <= 769;
         }
 
-        internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, short slotId)
+        public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            writer.WriteSignedShort(slotId);
+            SerializeInternal(ref writer, protocolVersion, SlotId);
         }
 
-        public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, short slotId)
         {
-            SerializeInternal(writer, protocolVersion, SlotId);
+            writer.WriteSignedShort(slotId);
         }
     }
 }

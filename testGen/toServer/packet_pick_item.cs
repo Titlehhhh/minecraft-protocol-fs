@@ -1,24 +1,24 @@
 namespace MinecraftDataFSharp
 {
-    public class PickItem
+    public class PickItem : IClientPacket
     {
         public int Slot { get; set; }
 
         public sealed class V393_768 : PickItem
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 393 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Slot);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int slot)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int slot)
             {
                 writer.WriteVarInt(slot);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Slot);
+                return protocolVersion is >= 393 and <= 768;
             }
         }
 
@@ -27,16 +27,12 @@ namespace MinecraftDataFSharp
             return V393_768.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V393_768.SupportedVersion(protocolVersion))
-            {
-                V393_768.SerializeInternal(writer, Slot);
-            }
+                V393_768.SerializeInternal(ref writer, protocolVersion, Slot);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

@@ -1,24 +1,24 @@
 namespace MinecraftDataFSharp
 {
-    public class Chat
+    public class Chat : IClientPacket
     {
         public string Message { get; set; }
 
         public sealed class V340_758 : Chat
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 340 and <= 758;
+                SerializeInternal(ref writer, protocolVersion, Message);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, string message)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, string message)
             {
                 writer.WriteString(message);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Message);
+                return protocolVersion is >= 340 and <= 758;
             }
         }
 
@@ -27,16 +27,12 @@ namespace MinecraftDataFSharp
             return V340_758.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V340_758.SupportedVersion(protocolVersion))
-            {
-                V340_758.SerializeInternal(writer, Message);
-            }
+                V340_758.SerializeInternal(ref writer, protocolVersion, Message);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

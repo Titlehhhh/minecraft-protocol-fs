@@ -1,49 +1,49 @@
 namespace MinecraftDataFSharp
 {
-    public class Look
+    public class Look : IClientPacket
     {
         public float Yaw { get; set; }
         public float Pitch { get; set; }
 
         public sealed class V340_767 : Look
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 340 and <= 767;
+                SerializeInternal(ref writer, protocolVersion, Yaw, Pitch, OnGround);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, float yaw, float pitch, bool onGround)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, float yaw, float pitch, bool onGround)
             {
                 writer.WriteFloat(yaw);
                 writer.WriteFloat(pitch);
                 writer.WriteBoolean(onGround);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Yaw, Pitch, OnGround);
+                return protocolVersion is >= 340 and <= 767;
             }
 
             public bool OnGround { get; set; }
         }
 
-        public sealed class V768 : Look
+        public sealed class V768_769 : Look
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 768 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Yaw, Pitch, Flags);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, float yaw, float pitch, byte flags)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, float yaw, float pitch, byte flags)
             {
                 writer.WriteFloat(yaw);
                 writer.WriteFloat(pitch);
                 writer.WriteUnsignedByte(flags);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Yaw, Pitch, Flags);
+                return protocolVersion is >= 768 and <= 769;
             }
 
             public byte Flags { get; set; }
@@ -51,26 +51,17 @@ namespace MinecraftDataFSharp
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V340_767.SupportedVersion(protocolVersion) || V768.SupportedVersion(protocolVersion);
+            return V340_767.SupportedVersion(protocolVersion) || V768_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V340_767.SupportedVersion(protocolVersion))
-            {
-                V340_767.SerializeInternal(writer, Yaw, Pitch, default);
-            }
+                V340_767.SerializeInternal(ref writer, protocolVersion, Yaw, Pitch, default);
+            else if (V768_769.SupportedVersion(protocolVersion))
+                V768_769.SerializeInternal(ref writer, protocolVersion, Yaw, Pitch, default);
             else
-            {
-                if (V768.SupportedVersion(protocolVersion))
-                {
-                    V768.SerializeInternal(writer, Yaw, Pitch, default);
-                }
-                else
-                {
-                    throw new Exception();
-                }
-            }
+                throw new Exception();
         }
     }
 }

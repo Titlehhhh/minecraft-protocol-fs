@@ -1,18 +1,18 @@
 namespace MinecraftDataFSharp
 {
-    public class UpdateJigsawBlock
+    public class UpdateJigsawBlock : IClientPacket
     {
         public Position Location { get; set; }
         public string FinalState { get; set; }
 
         public sealed class V477_578 : UpdateJigsawBlock
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 477 and <= 578;
+                SerializeInternal(ref writer, protocolVersion, Location, AttachmentType, TargetPool, FinalState);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, Position location, string attachmentType, string targetPool, string finalState)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, Position location, string attachmentType, string targetPool, string finalState)
             {
                 writer.WritePosition(location, protocolVersion);
                 writer.WriteString(attachmentType);
@@ -20,9 +20,9 @@ namespace MinecraftDataFSharp
                 writer.WriteString(finalState);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Location, AttachmentType, TargetPool, FinalState);
+                return protocolVersion is >= 477 and <= 578;
             }
 
             public string AttachmentType { get; set; }
@@ -31,12 +31,12 @@ namespace MinecraftDataFSharp
 
         public sealed class V709_764 : UpdateJigsawBlock
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 709 and <= 764;
+                SerializeInternal(ref writer, protocolVersion, Location, Name, Target, Pool, FinalState, JointType);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, Position location, string name, string target, string pool, string finalState, string jointType)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, Position location, string name, string target, string pool, string finalState, string jointType)
             {
                 writer.WritePosition(location, protocolVersion);
                 writer.WriteString(name);
@@ -46,9 +46,9 @@ namespace MinecraftDataFSharp
                 writer.WriteString(jointType);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Location, Name, Target, Pool, FinalState, JointType);
+                return protocolVersion is >= 709 and <= 764;
             }
 
             public string Name { get; set; }
@@ -57,14 +57,14 @@ namespace MinecraftDataFSharp
             public string JointType { get; set; }
         }
 
-        public sealed class V765_768 : UpdateJigsawBlock
+        public sealed class V765_769 : UpdateJigsawBlock
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 765 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Location, Name, Target, Pool, FinalState, JointType, SelectionPriority, PlacementPriority);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, Position location, string name, string target, string pool, string finalState, string jointType, int selectionPriority, int placementPriority)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, Position location, string name, string target, string pool, string finalState, string jointType, int selectionPriority, int placementPriority)
             {
                 writer.WritePosition(location, protocolVersion);
                 writer.WriteString(name);
@@ -76,9 +76,9 @@ namespace MinecraftDataFSharp
                 writer.WriteVarInt(placementPriority);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Location, Name, Target, Pool, FinalState, JointType, SelectionPriority, PlacementPriority);
+                return protocolVersion is >= 765 and <= 769;
             }
 
             public string Name { get; set; }
@@ -91,33 +91,19 @@ namespace MinecraftDataFSharp
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V477_578.SupportedVersion(protocolVersion) || V709_764.SupportedVersion(protocolVersion) || V765_768.SupportedVersion(protocolVersion);
+            return V477_578.SupportedVersion(protocolVersion) || V709_764.SupportedVersion(protocolVersion) || V765_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V477_578.SupportedVersion(protocolVersion))
-            {
-                V477_578.SerializeInternal(writer, Location, default, default, FinalState);
-            }
+                V477_578.SerializeInternal(ref writer, protocolVersion, Location, default, default, FinalState);
+            else if (V709_764.SupportedVersion(protocolVersion))
+                V709_764.SerializeInternal(ref writer, protocolVersion, Location, default, default, default, FinalState, default);
+            else if (V765_769.SupportedVersion(protocolVersion))
+                V765_769.SerializeInternal(ref writer, protocolVersion, Location, default, default, default, FinalState, default, default, default);
             else
-            {
-                if (V709_764.SupportedVersion(protocolVersion))
-                {
-                    V709_764.SerializeInternal(writer, Location, default, default, default, FinalState, default);
-                }
-                else
-                {
-                    if (V765_768.SupportedVersion(protocolVersion))
-                    {
-                        V765_768.SerializeInternal(writer, Location, default, default, default, FinalState, default, default, default);
-                    }
-                    else
-                    {
-                        throw new Exception();
-                    }
-                }
-            }
+                throw new Exception();
         }
     }
 }

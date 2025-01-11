@@ -1,22 +1,22 @@
 namespace MinecraftDataFSharp
 {
-    public class ClientCommand
+    public sealed class ClientCommand
     {
         public int ActionId { get; set; }
 
-        public new static bool SupportedVersion(int protocolVersion)
+        public static bool SupportedVersion(int protocolVersion)
         {
             return protocolVersion is >= 340 and <= 769;
         }
 
-        internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int actionId)
+        public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            writer.WriteVarInt(actionId);
+            SerializeInternal(ref writer, protocolVersion, ActionId);
         }
 
-        public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int actionId)
         {
-            SerializeInternal(writer, protocolVersion, ActionId);
+            writer.WriteVarInt(actionId);
         }
     }
 }

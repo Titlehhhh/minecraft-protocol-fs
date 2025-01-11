@@ -1,6 +1,6 @@
 namespace MinecraftDataFSharp
 {
-    public class Transaction
+    public class Transaction : IClientPacket
     {
         public sbyte WindowId { get; set; }
         public short Action { get; set; }
@@ -8,21 +8,21 @@ namespace MinecraftDataFSharp
 
         public sealed class V340_754 : Transaction
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 340 and <= 754;
+                SerializeInternal(ref writer, protocolVersion, WindowId, Action, Accepted);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, sbyte windowId, short action, bool accepted)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, sbyte windowId, short action, bool accepted)
             {
                 writer.WriteSignedByte(windowId);
                 writer.WriteSignedShort(action);
                 writer.WriteBoolean(accepted);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, WindowId, Action, Accepted);
+                return protocolVersion is >= 340 and <= 754;
             }
         }
 
@@ -31,16 +31,12 @@ namespace MinecraftDataFSharp
             return V340_754.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V340_754.SupportedVersion(protocolVersion))
-            {
-                V340_754.SerializeInternal(writer, WindowId, Action, Accepted);
-            }
+                V340_754.SerializeInternal(ref writer, protocolVersion, WindowId, Action, Accepted);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

@@ -1,8 +1,8 @@
 namespace MinecraftDataFSharp
 {
-    public class TickEnd : IClientPacket
+    public class PlayerLoaded : IClientPacket
     {
-        public sealed class V768_769 : TickEnd
+        public sealed class V769 : PlayerLoaded
         {
             public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
@@ -15,19 +15,19 @@ namespace MinecraftDataFSharp
 
             public new static bool SupportedVersion(int protocolVersion)
             {
-                return protocolVersion is >= 768 and <= 769;
+                return protocolVersion == 769;
             }
         }
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V768_769.SupportedVersion(protocolVersion);
+            return V769.SupportedVersion(protocolVersion);
         }
 
         public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            if (V768_769.SupportedVersion(protocolVersion))
-                V768_769.SerializeInternal(ref writer, protocolVersion);
+            if (V769.SupportedVersion(protocolVersion))
+                V769.SerializeInternal(ref writer, protocolVersion);
             else
                 throw new Exception();
         }

@@ -1,26 +1,26 @@
 namespace MinecraftDataFSharp
 {
-    public class CraftRecipeRequest
+    public class CraftRecipeRequest : IClientPacket
     {
         public bool MakeAll { get; set; }
 
         public sealed class V340 : CraftRecipeRequest
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 340 and <= 340;
+                SerializeInternal(ref writer, protocolVersion, WindowId, Recipe, MakeAll);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, sbyte windowId, int recipe, bool makeAll)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, sbyte windowId, int recipe, bool makeAll)
             {
                 writer.WriteSignedByte(windowId);
                 writer.WriteVarInt(recipe);
                 writer.WriteBoolean(makeAll);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, WindowId, Recipe, MakeAll);
+                return protocolVersion == 340;
             }
 
             public sbyte WindowId { get; set; }
@@ -29,44 +29,44 @@ namespace MinecraftDataFSharp
 
         public sealed class V351_767 : CraftRecipeRequest
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 351 and <= 767;
+                SerializeInternal(ref writer, protocolVersion, WindowId, Recipe, MakeAll);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, sbyte windowId, string recipe, bool makeAll)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, sbyte windowId, string recipe, bool makeAll)
             {
                 writer.WriteSignedByte(windowId);
                 writer.WriteString(recipe);
                 writer.WriteBoolean(makeAll);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, WindowId, Recipe, MakeAll);
+                return protocolVersion is >= 351 and <= 767;
             }
 
             public sbyte WindowId { get; set; }
             public string Recipe { get; set; }
         }
 
-        public sealed class V768 : CraftRecipeRequest
+        public sealed class V768_769 : CraftRecipeRequest
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 768 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, WindowId, RecipeId, MakeAll);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int windowId, int recipeId, bool makeAll)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int windowId, int recipeId, bool makeAll)
             {
                 writer.WriteVarInt(windowId);
                 writer.WriteVarInt(recipeId);
                 writer.WriteBoolean(makeAll);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, WindowId, RecipeId, MakeAll);
+                return protocolVersion is >= 768 and <= 769;
             }
 
             public int WindowId { get; set; }
@@ -75,33 +75,19 @@ namespace MinecraftDataFSharp
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V340.SupportedVersion(protocolVersion) || V351_767.SupportedVersion(protocolVersion) || V768.SupportedVersion(protocolVersion);
+            return V340.SupportedVersion(protocolVersion) || V351_767.SupportedVersion(protocolVersion) || V768_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V340.SupportedVersion(protocolVersion))
-            {
-                V340.SerializeInternal(writer, 0, default, MakeAll);
-            }
+                V340.SerializeInternal(ref writer, protocolVersion, 0, default, MakeAll);
+            else if (V351_767.SupportedVersion(protocolVersion))
+                V351_767.SerializeInternal(ref writer, protocolVersion, 0, default, MakeAll);
+            else if (V768_769.SupportedVersion(protocolVersion))
+                V768_769.SerializeInternal(ref writer, protocolVersion, default, default, MakeAll);
             else
-            {
-                if (V351_767.SupportedVersion(protocolVersion))
-                {
-                    V351_767.SerializeInternal(writer, 0, default, MakeAll);
-                }
-                else
-                {
-                    if (V768.SupportedVersion(protocolVersion))
-                    {
-                        V768.SerializeInternal(writer, default, default, MakeAll);
-                    }
-                    else
-                    {
-                        throw new Exception();
-                    }
-                }
-            }
+                throw new Exception();
         }
     }
 }

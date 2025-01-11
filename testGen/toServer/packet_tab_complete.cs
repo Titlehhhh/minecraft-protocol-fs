@@ -1,17 +1,17 @@
 namespace MinecraftDataFSharp
 {
-    public class TabComplete
+    public class TabComplete : IClientPacket
     {
         public string Text { get; set; }
 
         public sealed class V340 : TabComplete
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 340 and <= 340;
+                SerializeInternal(ref writer, protocolVersion, Text, AssumeCommand, LookedAtBlock);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, string text, bool assumeCommand, Position? lookedAtBlock)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, string text, bool assumeCommand, Position? lookedAtBlock)
             {
                 writer.WriteString(text);
                 writer.WriteBoolean(assumeCommand);
@@ -20,31 +20,31 @@ namespace MinecraftDataFSharp
                 writer.WritePosition(lookedAtBlock!, protocolVersion);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Text, AssumeCommand, LookedAtBlock);
+                return protocolVersion == 340;
             }
 
             public bool AssumeCommand { get; set; }
             public Position? LookedAtBlock { get; set; }
         }
 
-        public sealed class V351_768 : TabComplete
+        public sealed class V351_769 : TabComplete
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 351 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, TransactionId, Text);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int transactionId, string text)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int transactionId, string text)
             {
                 writer.WriteVarInt(transactionId);
                 writer.WriteString(text);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, TransactionId, Text);
+                return protocolVersion is >= 351 and <= 769;
             }
 
             public int TransactionId { get; set; }
@@ -52,26 +52,17 @@ namespace MinecraftDataFSharp
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V340.SupportedVersion(protocolVersion) || V351_768.SupportedVersion(protocolVersion);
+            return V340.SupportedVersion(protocolVersion) || V351_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V340.SupportedVersion(protocolVersion))
-            {
-                V340.SerializeInternal(writer, Text, default, default);
-            }
+                V340.SerializeInternal(ref writer, protocolVersion, Text, default, default);
+            else if (V351_769.SupportedVersion(protocolVersion))
+                V351_769.SerializeInternal(ref writer, protocolVersion, default, Text);
             else
-            {
-                if (V351_768.SupportedVersion(protocolVersion))
-                {
-                    V351_768.SerializeInternal(writer, default, Text);
-                }
-                else
-                {
-                    throw new Exception();
-                }
-            }
+                throw new Exception();
         }
     }
 }

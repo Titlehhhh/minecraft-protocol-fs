@@ -1,6 +1,6 @@
 namespace MinecraftDataFSharp
 {
-    public class UpdateStructureBlock
+    public class UpdateStructureBlock : IClientPacket
     {
         public Position Location { get; set; }
         public int Action { get; set; }
@@ -20,12 +20,12 @@ namespace MinecraftDataFSharp
 
         public sealed class V393_758 : UpdateStructureBlock
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 393 and <= 758;
+                SerializeInternal(ref writer, protocolVersion, Location, Action, Mode, Name, OffsetX, OffsetY, OffsetZ, SizeX, SizeY, SizeZ, Mirror, Rotation, Metadata, Integrity, Seed, Flags);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, Position location, int action, int mode, string name, sbyte offsetX, sbyte offsetY, sbyte offsetZ, sbyte sizeX, sbyte sizeY, sbyte sizeZ, int mirror, int rotation, string metadata, float integrity, long seed, byte flags)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, Position location, int action, int mode, string name, sbyte offsetX, sbyte offsetY, sbyte offsetZ, sbyte sizeX, sbyte sizeY, sbyte sizeZ, int mirror, int rotation, string metadata, float integrity, long seed, byte flags)
             {
                 writer.WritePosition(location, protocolVersion);
                 writer.WriteVarInt(action);
@@ -45,22 +45,22 @@ namespace MinecraftDataFSharp
                 writer.WriteUnsignedByte(flags);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Location, Action, Mode, Name, OffsetX, OffsetY, OffsetZ, SizeX, SizeY, SizeZ, Mirror, Rotation, Metadata, Integrity, Seed, Flags);
+                return protocolVersion is >= 393 and <= 758;
             }
 
             public long Seed { get; set; }
         }
 
-        public sealed class V759_768 : UpdateStructureBlock
+        public sealed class V759_769 : UpdateStructureBlock
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 759 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Location, Action, Mode, Name, OffsetX, OffsetY, OffsetZ, SizeX, SizeY, SizeZ, Mirror, Rotation, Metadata, Integrity, Seed, Flags);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, Position location, int action, int mode, string name, sbyte offsetX, sbyte offsetY, sbyte offsetZ, sbyte sizeX, sbyte sizeY, sbyte sizeZ, int mirror, int rotation, string metadata, float integrity, int seed, byte flags)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, Position location, int action, int mode, string name, sbyte offsetX, sbyte offsetY, sbyte offsetZ, sbyte sizeX, sbyte sizeY, sbyte sizeZ, int mirror, int rotation, string metadata, float integrity, int seed, byte flags)
             {
                 writer.WritePosition(location, protocolVersion);
                 writer.WriteVarInt(action);
@@ -80,9 +80,9 @@ namespace MinecraftDataFSharp
                 writer.WriteUnsignedByte(flags);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Location, Action, Mode, Name, OffsetX, OffsetY, OffsetZ, SizeX, SizeY, SizeZ, Mirror, Rotation, Metadata, Integrity, Seed, Flags);
+                return protocolVersion is >= 759 and <= 769;
             }
 
             public int Seed { get; set; }
@@ -90,26 +90,17 @@ namespace MinecraftDataFSharp
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V393_758.SupportedVersion(protocolVersion) || V759_768.SupportedVersion(protocolVersion);
+            return V393_758.SupportedVersion(protocolVersion) || V759_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V393_758.SupportedVersion(protocolVersion))
-            {
-                V393_758.SerializeInternal(writer, Location, Action, Mode, Name, OffsetX, OffsetY, OffsetZ, SizeX, SizeY, SizeZ, Mirror, Rotation, Metadata, Integrity, default, Flags);
-            }
+                V393_758.SerializeInternal(ref writer, protocolVersion, Location, Action, Mode, Name, OffsetX, OffsetY, OffsetZ, SizeX, SizeY, SizeZ, Mirror, Rotation, Metadata, Integrity, default, Flags);
+            else if (V759_769.SupportedVersion(protocolVersion))
+                V759_769.SerializeInternal(ref writer, protocolVersion, Location, Action, Mode, Name, OffsetX, OffsetY, OffsetZ, SizeX, SizeY, SizeZ, Mirror, Rotation, Metadata, Integrity, default, Flags);
             else
-            {
-                if (V759_768.SupportedVersion(protocolVersion))
-                {
-                    V759_768.SerializeInternal(writer, Location, Action, Mode, Name, OffsetX, OffsetY, OffsetZ, SizeX, SizeY, SizeZ, Mirror, Rotation, Metadata, Integrity, default, Flags);
-                }
-                else
-                {
-                    throw new Exception();
-                }
-            }
+                throw new Exception();
         }
     }
 }

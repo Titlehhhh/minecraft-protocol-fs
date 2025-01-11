@@ -1,22 +1,22 @@
 namespace MinecraftDataFSharp
 {
-    public class TeleportConfirm
+    public sealed class TeleportConfirm
     {
         public int TeleportId { get; set; }
 
-        public new static bool SupportedVersion(int protocolVersion)
+        public static bool SupportedVersion(int protocolVersion)
         {
             return protocolVersion is >= 340 and <= 769;
         }
 
-        internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int teleportId)
+        public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            writer.WriteVarInt(teleportId);
+            SerializeInternal(ref writer, protocolVersion, TeleportId);
         }
 
-        public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int teleportId)
         {
-            SerializeInternal(writer, protocolVersion, TeleportId);
+            writer.WriteVarInt(teleportId);
         }
     }
 }

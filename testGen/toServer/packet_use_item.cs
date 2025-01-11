@@ -1,65 +1,65 @@
 namespace MinecraftDataFSharp
 {
-    public class UseItem
+    public class UseItem : IClientPacket
     {
         public int Hand { get; set; }
 
         public sealed class V340_758 : UseItem
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 340 and <= 758;
+                SerializeInternal(ref writer, protocolVersion, Hand);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int hand)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int hand)
             {
                 writer.WriteVarInt(hand);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Hand);
+                return protocolVersion is >= 340 and <= 758;
             }
         }
 
         public sealed class V759_766 : UseItem
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 759 and <= 766;
+                SerializeInternal(ref writer, protocolVersion, Hand, Sequence);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int hand, int sequence)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int hand, int sequence)
             {
                 writer.WriteVarInt(hand);
                 writer.WriteVarInt(sequence);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Hand, Sequence);
+                return protocolVersion is >= 759 and <= 766;
             }
 
             public int Sequence { get; set; }
         }
 
-        public sealed class V767_768 : UseItem
+        public sealed class V767_769 : UseItem
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 767 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Hand, Sequence, Rotation);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int hand, int sequence, Vector2 rotation)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int hand, int sequence, Vector2 rotation)
             {
                 writer.WriteVarInt(hand);
                 writer.WriteVarInt(sequence);
                 writer.WriteVector2(rotation, protocolVersion);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Hand, Sequence, Rotation);
+                return protocolVersion is >= 767 and <= 769;
             }
 
             public int Sequence { get; set; }
@@ -68,33 +68,19 @@ namespace MinecraftDataFSharp
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V340_758.SupportedVersion(protocolVersion) || V759_766.SupportedVersion(protocolVersion) || V767_768.SupportedVersion(protocolVersion);
+            return V340_758.SupportedVersion(protocolVersion) || V759_766.SupportedVersion(protocolVersion) || V767_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V340_758.SupportedVersion(protocolVersion))
-            {
-                V340_758.SerializeInternal(writer, Hand);
-            }
+                V340_758.SerializeInternal(ref writer, protocolVersion, Hand);
+            else if (V759_766.SupportedVersion(protocolVersion))
+                V759_766.SerializeInternal(ref writer, protocolVersion, Hand, default);
+            else if (V767_769.SupportedVersion(protocolVersion))
+                V767_769.SerializeInternal(ref writer, protocolVersion, Hand, default, default);
             else
-            {
-                if (V759_766.SupportedVersion(protocolVersion))
-                {
-                    V759_766.SerializeInternal(writer, Hand, default);
-                }
-                else
-                {
-                    if (V767_768.SupportedVersion(protocolVersion))
-                    {
-                        V767_768.SerializeInternal(writer, Hand, default, default);
-                    }
-                    else
-                    {
-                        throw new Exception();
-                    }
-                }
-            }
+                throw new Exception();
         }
     }
 }

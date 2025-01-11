@@ -1,6 +1,6 @@
 namespace MinecraftDataFSharp
 {
-    public class UpdateSign
+    public class UpdateSign : IClientPacket
     {
         public Position Location { get; set; }
         public string Text1 { get; set; }
@@ -10,12 +10,12 @@ namespace MinecraftDataFSharp
 
         public sealed class V340_762 : UpdateSign
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 340 and <= 762;
+                SerializeInternal(ref writer, protocolVersion, Location, Text1, Text2, Text3, Text4);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, Position location, string text1, string text2, string text3, string text4)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, Position location, string text1, string text2, string text3, string text4)
             {
                 writer.WritePosition(location, protocolVersion);
                 writer.WriteString(text1);
@@ -24,20 +24,20 @@ namespace MinecraftDataFSharp
                 writer.WriteString(text4);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Location, Text1, Text2, Text3, Text4);
+                return protocolVersion is >= 340 and <= 762;
             }
         }
 
-        public sealed class V763_768 : UpdateSign
+        public sealed class V763_769 : UpdateSign
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 763 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Location, IsFrontText, Text1, Text2, Text3, Text4);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, Position location, bool isFrontText, string text1, string text2, string text3, string text4)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, Position location, bool isFrontText, string text1, string text2, string text3, string text4)
             {
                 writer.WritePosition(location, protocolVersion);
                 writer.WriteBoolean(isFrontText);
@@ -47,9 +47,9 @@ namespace MinecraftDataFSharp
                 writer.WriteString(text4);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Location, IsFrontText, Text1, Text2, Text3, Text4);
+                return protocolVersion is >= 763 and <= 769;
             }
 
             public bool IsFrontText { get; set; }
@@ -57,26 +57,17 @@ namespace MinecraftDataFSharp
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V340_762.SupportedVersion(protocolVersion) || V763_768.SupportedVersion(protocolVersion);
+            return V340_762.SupportedVersion(protocolVersion) || V763_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V340_762.SupportedVersion(protocolVersion))
-            {
-                V340_762.SerializeInternal(writer, Location, Text1, Text2, Text3, Text4);
-            }
+                V340_762.SerializeInternal(ref writer, protocolVersion, Location, Text1, Text2, Text3, Text4);
+            else if (V763_769.SupportedVersion(protocolVersion))
+                V763_769.SerializeInternal(ref writer, protocolVersion, Location, default, Text1, Text2, Text3, Text4);
             else
-            {
-                if (V763_768.SupportedVersion(protocolVersion))
-                {
-                    V763_768.SerializeInternal(writer, Location, default, Text1, Text2, Text3, Text4);
-                }
-                else
-                {
-                    throw new Exception();
-                }
-            }
+                throw new Exception();
         }
     }
 }

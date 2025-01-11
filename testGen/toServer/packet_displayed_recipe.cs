@@ -1,42 +1,42 @@
 namespace MinecraftDataFSharp
 {
-    public class DisplayedRecipe
+    public class DisplayedRecipe : IClientPacket
     {
         public sealed class V751_767 : DisplayedRecipe
         {
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
+            {
+                SerializeInternal(ref writer, protocolVersion, RecipeId);
+            }
+
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, string recipeId)
+            {
+                writer.WriteString(recipeId);
+            }
+
             public new static bool SupportedVersion(int protocolVersion)
             {
                 return protocolVersion is >= 751 and <= 767;
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, string recipeId)
-            {
-                writer.WriteString(recipeId);
-            }
-
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
-            {
-                SerializeInternal(writer, protocolVersion, RecipeId);
-            }
-
             public string RecipeId { get; set; }
         }
 
-        public sealed class V768 : DisplayedRecipe
+        public sealed class V768_769 : DisplayedRecipe
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 768 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, RecipeId);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int recipeId)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int recipeId)
             {
                 writer.WriteVarInt(recipeId);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, RecipeId);
+                return protocolVersion is >= 768 and <= 769;
             }
 
             public int RecipeId { get; set; }
@@ -44,26 +44,17 @@ namespace MinecraftDataFSharp
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V751_767.SupportedVersion(protocolVersion) || V768.SupportedVersion(protocolVersion);
+            return V751_767.SupportedVersion(protocolVersion) || V768_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V751_767.SupportedVersion(protocolVersion))
-            {
-                V751_767.SerializeInternal(writer, default);
-            }
+                V751_767.SerializeInternal(ref writer, protocolVersion, default);
+            else if (V768_769.SupportedVersion(protocolVersion))
+                V768_769.SerializeInternal(ref writer, protocolVersion, default);
             else
-            {
-                if (V768.SupportedVersion(protocolVersion))
-                {
-                    V768.SerializeInternal(writer, default);
-                }
-                else
-                {
-                    throw new Exception();
-                }
-            }
+                throw new Exception();
         }
     }
 }

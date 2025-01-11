@@ -1,20 +1,20 @@
 namespace MinecraftDataFSharp
 {
-    public class UpdateCommandBlock
+    public class UpdateCommandBlock : IClientPacket
     {
         public Position Location { get; set; }
         public string Command { get; set; }
         public int Mode { get; set; }
         public byte Flags { get; set; }
 
-        public sealed class V393_768 : UpdateCommandBlock
+        public sealed class V393_769 : UpdateCommandBlock
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 393 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Location, Command, Mode, Flags);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, Position location, string command, int mode, byte flags)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, Position location, string command, int mode, byte flags)
             {
                 writer.WritePosition(location, protocolVersion);
                 writer.WriteString(command);
@@ -22,27 +22,23 @@ namespace MinecraftDataFSharp
                 writer.WriteUnsignedByte(flags);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Location, Command, Mode, Flags);
+                return protocolVersion is >= 393 and <= 769;
             }
         }
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V393_768.SupportedVersion(protocolVersion);
+            return V393_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            if (V393_768.SupportedVersion(protocolVersion))
-            {
-                V393_768.SerializeInternal(writer, Location, Command, Mode, Flags);
-            }
+            if (V393_769.SupportedVersion(protocolVersion))
+                V393_769.SerializeInternal(ref writer, protocolVersion, Location, Command, Mode, Flags);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

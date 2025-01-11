@@ -1,42 +1,38 @@
 namespace MinecraftDataFSharp
 {
-    public class LockDifficulty
+    public class LockDifficulty : IClientPacket
     {
         public bool Locked { get; set; }
 
-        public sealed class V477_768 : LockDifficulty
+        public sealed class V477_769 : LockDifficulty
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 477 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Locked);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, bool locked)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, bool locked)
             {
                 writer.WriteBoolean(locked);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Locked);
+                return protocolVersion is >= 477 and <= 769;
             }
         }
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V477_768.SupportedVersion(protocolVersion);
+            return V477_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            if (V477_768.SupportedVersion(protocolVersion))
-            {
-                V477_768.SerializeInternal(writer, Locked);
-            }
+            if (V477_769.SupportedVersion(protocolVersion))
+                V477_769.SerializeInternal(ref writer, protocolVersion, Locked);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

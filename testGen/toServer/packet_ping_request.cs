@@ -1,42 +1,38 @@
 namespace MinecraftDataFSharp
 {
-    public class PingRequest
+    public class PingRequest : IClientPacket
     {
         public long Id { get; set; }
 
-        public sealed class V764_768 : PingRequest
+        public sealed class V764_769 : PingRequest
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 764 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, Id);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, long id)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, long id)
             {
                 writer.WriteSignedLong(id);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, Id);
+                return protocolVersion is >= 764 and <= 769;
             }
         }
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V764_768.SupportedVersion(protocolVersion);
+            return V764_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            if (V764_768.SupportedVersion(protocolVersion))
-            {
-                V764_768.SerializeInternal(writer, Id);
-            }
+            if (V764_769.SupportedVersion(protocolVersion))
+                V764_769.SerializeInternal(ref writer, protocolVersion, Id);
             else
-            {
                 throw new Exception();
-            }
         }
     }
 }

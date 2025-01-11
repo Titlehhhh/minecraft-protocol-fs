@@ -1,42 +1,42 @@
 namespace MinecraftDataFSharp
 {
-    public class CloseWindow
+    public class CloseWindow : IClientPacket
     {
         public sealed class V340_767 : CloseWindow
         {
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
+            {
+                SerializeInternal(ref writer, protocolVersion, WindowId);
+            }
+
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, byte windowId)
+            {
+                writer.WriteUnsignedByte(windowId);
+            }
+
             public new static bool SupportedVersion(int protocolVersion)
             {
                 return protocolVersion is >= 340 and <= 767;
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, byte windowId)
-            {
-                writer.WriteUnsignedByte(windowId);
-            }
-
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
-            {
-                SerializeInternal(writer, protocolVersion, WindowId);
-            }
-
             public byte WindowId { get; set; }
         }
 
-        public sealed class V768 : CloseWindow
+        public sealed class V768_769 : CloseWindow
         {
-            public new static bool SupportedVersion(int protocolVersion)
+            public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
             {
-                return protocolVersion is >= 768 and <= 768;
+                SerializeInternal(ref writer, protocolVersion, WindowId);
             }
 
-            internal static void SerializeInternal(MinecraftPrimitiveWriter writer, int protocolVersion, int windowId)
+            internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int windowId)
             {
                 writer.WriteVarInt(windowId);
             }
 
-            public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+            public new static bool SupportedVersion(int protocolVersion)
             {
-                SerializeInternal(writer, protocolVersion, WindowId);
+                return protocolVersion is >= 768 and <= 769;
             }
 
             public int WindowId { get; set; }
@@ -44,26 +44,17 @@ namespace MinecraftDataFSharp
 
         public static bool SupportedVersion(int protocolVersion)
         {
-            return V340_767.SupportedVersion(protocolVersion) || V768.SupportedVersion(protocolVersion);
+            return V340_767.SupportedVersion(protocolVersion) || V768_769.SupportedVersion(protocolVersion);
         }
 
-        public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
             if (V340_767.SupportedVersion(protocolVersion))
-            {
-                V340_767.SerializeInternal(writer, 0);
-            }
+                V340_767.SerializeInternal(ref writer, protocolVersion, 0);
+            else if (V768_769.SupportedVersion(protocolVersion))
+                V768_769.SerializeInternal(ref writer, protocolVersion, default);
             else
-            {
-                if (V768.SupportedVersion(protocolVersion))
-                {
-                    V768.SerializeInternal(writer, default);
-                }
-                else
-                {
-                    throw new Exception();
-                }
-            }
+                throw new Exception();
         }
     }
 }
