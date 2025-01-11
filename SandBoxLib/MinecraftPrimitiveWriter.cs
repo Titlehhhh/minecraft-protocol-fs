@@ -2,7 +2,7 @@
 
 namespace SandBoxLib;
 
-public class MinecraftPrimitiveWriter : IMinecraftPrimitiveWriter
+public ref struct MinecraftPrimitiveWriter 
 {
     public void Dispose()
     {

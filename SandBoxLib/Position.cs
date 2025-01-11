@@ -1,66 +1,97 @@
 ﻿namespace SandBoxLib.MinecraftDataFSharp;
 
-public class Position : IClientPacket
+public class CraftRecipeRequest : IClientPacket
 {
-    public double X { get; set; }
-    public double Y { get; set; }
-    public double Z { get; set; }
+    public bool MakeAll { get; set; }
 
-    public sealed class V340_767 : Position
+    public class V340 : CraftRecipeRequest
     {
-        internal static void SerializeInternal(MinecraftPrimitiveWriter writer, double x, double y,
-            double z, bool onGround)
+        public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            writer.WriteDouble(x);
-            writer.WriteDouble(y);
-            writer.WriteDouble(z);
-            writer.WriteBoolean(onGround);
+            SerializeInternal(ref writer, protocolVersion, WindowId, Recipe, MakeAll);
         }
 
-        public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+        internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, sbyte windowId,
+            int recipe, bool makeAll)
         {
-            SerializeInternal(writer, X, Y, Z, OnGround);
+            writer.WriteSignedByte(windowId);
+            writer.WriteVarInt(recipe);
+            writer.WriteBoolean(makeAll);
         }
 
         public new static bool SupportedVersion(int protocolVersion)
         {
-            return protocolVersion is >= 340 and <= 767;
+            return protocolVersion == 340;
         }
 
-        public bool OnGround { get; set; }
+        public sbyte WindowId { get; set; }
+        public int Recipe { get; set; }
     }
 
-    public sealed class V768 : Position
+    public class V351_767 : CraftRecipeRequest
     {
-        internal static void SerializeInternal(MinecraftPrimitiveWriter writer, double x, double y,
-            double z, byte flags)
+        public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         {
-            writer.WriteDouble(x);
-            writer.WriteDouble(y);
-            writer.WriteDouble(z);
-            writer.WriteUnsignedByte(flags);
+            SerializeInternal(ref writer, protocolVersion, WindowId, Recipe, MakeAll);
         }
 
-        public override void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion) =>
-            SerializeInternal(writer, X, Y, Z, Flags);
+        internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, sbyte windowId,
+            string recipe, bool makeAll)
+        {
+            writer.WriteSignedByte(windowId);
+            writer.WriteString(recipe);
+            writer.WriteBoolean(makeAll);
+        }
 
         public new static bool SupportedVersion(int protocolVersion)
         {
-            return protocolVersion is >= 768 and <= 768;
+            return protocolVersion is >= 351 and <= 767;
         }
 
-        public byte Flags { get; set; }
+        public sbyte WindowId { get; set; }
+        public string Recipe { get; set; }
     }
 
-    public virtual void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
+    public class V768_769 : CraftRecipeRequest
     {
-        if (V340_767.SupportedVersion(protocolVersion)) V340_767.SerializeInternal(writer, X, Y, Z, false);
-        else if (V768.SupportedVersion(protocolVersion)) V768.SerializeInternal(writer, X, Y, Z, 0);
-        else throw new Exception();
+        public override void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
+        {
+            SerializeInternal(ref writer, protocolVersion, WindowId, RecipeId, MakeAll);
+        }
+
+        internal static void SerializeInternal(ref MinecraftPrimitiveWriter writer, int protocolVersion, int windowId,
+            int recipeId, bool makeAll)
+        {
+            writer.WriteVarInt(windowId);
+            writer.WriteVarInt(recipeId);
+            writer.WriteBoolean(makeAll);
+        }
+
+        public new static bool SupportedVersion(int protocolVersion)
+        {
+            return protocolVersion is >= 768 and <= 769;
+        }
+
+        public int WindowId { get; set; }
+        public int RecipeId { get; set; }
     }
+
 
     public static bool SupportedVersion(int protocolVersion)
     {
-        return V340_767.SupportedVersion(protocolVersion) || V768.SupportedVersion(protocolVersion);
+        return V340.SupportedVersion(protocolVersion) || V351_767.SupportedVersion(protocolVersion) ||
+               V768_769.SupportedVersion(protocolVersion);
+    }
+
+    public virtual void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
+    {
+        if (V340.SupportedVersion(protocolVersion))
+            V340.SerializeInternal(ref writer, protocolVersion, 0, default, MakeAll);
+        else if (V351_767.SupportedVersion(protocolVersion))
+            V351_767.SerializeInternal(ref writer, protocolVersion, 0, default, MakeAll);
+        else if (V768_769.SupportedVersion(protocolVersion))
+            V768_769.SerializeInternal(ref writer, protocolVersion, default, default, MakeAll);
+        else
+            throw new Exception();
     }
 }
