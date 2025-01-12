@@ -316,18 +316,29 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
             |> Seq.cast<MemberDeclarationSyntax>
             |> Seq.toArray
 
+
         let cl = (members |> Array.head) :?> ClassDeclarationSyntax
+        let enumName = p.PacketName.Substring("packet_".Length).Pascalize()
+        let cl = optimization (cl, p)
 
-        optimization (cl, p)
+        let cl =
+            cl.AddMembers(
+                SyntaxFactory.ParseMemberDeclaration(
+                    $"public static virtual ClientPacket Id => ClientPacket.{enumName};"
+                )
+            )
 
-        let packetName = p.PacketName
+        let cl = cl :> MemberDeclarationSyntax
+        let members = [| cl |]
+
+        let packetName = p.PacketName.Pascalize()
 
         let filePath = Path.Combine("packets", folder, "generated", $"{packetName}.cs")
 
 
         let ns =
             SyntaxFactory
-                .NamespaceDeclaration(SyntaxFactory.ParseName("MinecraftDataFSharp"))
+                .NamespaceDeclaration(SyntaxFactory.ParseName("McProtoNet.Protocol.ServerboundPackets"))
                 .AddMembers(members)
 
         File.WriteAllText(filePath, ns.NormalizeWhitespace().ToFullString())

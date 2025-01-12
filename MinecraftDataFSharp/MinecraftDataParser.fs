@@ -35,7 +35,7 @@ let getPcProtocols =
     let grouped =
         dataPaths
         |> Seq.groupBy (fun x -> getProtocolVersion x.Value)
-        |> Seq.where (fun x -> x |> fst >= 340)
+        |> Seq.where (fun x -> x |> fst >= Models.MinVersionProtocol)
 
     [ for tuple in grouped do
           let protoVer = fst tuple
@@ -52,6 +52,6 @@ let getPcProtocols =
                 MaxVersion = maxVersion
                 JsonProtocol = protocolNode }
 
-          if protoVer <= 769 then
+          if protoVer <= Models.MaxVersionProtocol then
               yield node ]
     

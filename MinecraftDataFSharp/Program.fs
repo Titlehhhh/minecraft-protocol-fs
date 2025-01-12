@@ -5,19 +5,22 @@ open System.Text
 open System.Text.Json
 open Humanizer
 open Microsoft.CodeAnalysis.CSharp
+open Microsoft.CodeAnalysis.CSharp.Syntax
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Core
 open MinecraftDataFSharp
 open MinecraftDataFSharp.CodeGeneration
 open MinecraftDataFSharp.Models
 open Protodef
-
+open Microsoft.CodeAnalysis
 
 
 let protocols = MinecraftDataParser.getPcProtocols
 
 ProtocolTypeMapper.generateVersionedTypeMap protocols
 let allPackets = HashSet<string>()
+
+
 
 let generateIds (protocol) (side: string) (protocolVersion: int) =
     let obj =
@@ -51,8 +54,7 @@ if Directory.Exists("packets") then
 let generate (side: string) =
     let packets = JsonPacketGenerator.generatePackets protocols side
 
-    let filterPrimitivePackets (packet: PacketMetadata) =   
-        Extensions.IsPrimitive packet.Structure
+    let filterPrimitivePackets (packet: PacketMetadata) = Extensions.IsPrimitive packet.Structure
 
 
     let packetFolders = [ "primitive"; "complex" ]
@@ -80,6 +82,48 @@ let generate (side: string) =
         CodeGeneratorWrite.generatePrimitive (primitivePackets, side) |> ignore
     else
         CodeGeneratorRead.generatePrimitive (primitivePackets, side) |> ignore
+        let protodefPackets = packets |> Seq.map Shared.packetMetadataToProtodefPacket
+        let data = PacketFactoryGenerator.create (protodefPackets, protocols)
+        let identifier = SyntaxFactory.Identifier("PacketFactory")
+
+        let factories =
+            data.Factories
+            |> Seq.map (fun x -> SyntaxFactory.ParseMemberDeclaration(x))
+            |> Seq.toArray
+
+        let keyvalues = data.Dict |> String.concat "\n,"
+
+        let g =
+            $"private static readonly FrozenDictionary<long, Func<IServerPacket>> ClientboundPackets = new Dictionary<long,Func<IServerPacket>> {{ {keyvalues} }}.ToFrozenDictionary();"
+
+        let field = (SyntaxFactory.ParseMemberDeclaration g)
+
+        let packetFactoryClass =
+            SyntaxFactory
+                .ClassDeclaration(identifier)
+                .AddModifiers(
+                    SyntaxFactory.Token(SyntaxKind.PublicKeyword),
+                    SyntaxFactory.Token(SyntaxKind.StaticKeyword),
+                    SyntaxFactory.Token(SyntaxKind.PartialKeyword)
+                )
+                .AddMembers(factories)
+                .AddMembers(field)
+
+        let ns =
+            SyntaxFactory
+                .NamespaceDeclaration(SyntaxFactory.ParseName("McProtoNet.Protocol"))
+                .AddMembers(packetFactoryClass)
+
+        let compileUnit =
+            SyntaxFactory
+                .CompilationUnit()
+                .AddMembers(ns)
+                .AddUsings(
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("McProtoNet.Protocol.ClientboundPackets"))
+                )
+
+        File.WriteAllText("PacketFactory.Generated.cs", compileUnit.NormalizeWhitespace().ToFullString())
+        ()
 
 
 generate "toServer"

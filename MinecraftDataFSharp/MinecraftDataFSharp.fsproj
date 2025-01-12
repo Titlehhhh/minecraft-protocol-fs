@@ -16,6 +16,7 @@
         <Compile Include="LLMService.fs" />
         <Compile Include="MinecraftDataParser.fs"/>
         <Compile Include="ProtocolTypeMapper.fs"/>
+        <Compile Include="PacketFactoryGenerator.fs" />
         <Compile Include="CodeGeneration\Shared.fs" />
         <Compile Include="CodeGeneration\CodeGeneratorWrite.fs" />
         <Compile Include="CodeGeneration\CodeGeneratorRead.fs" />

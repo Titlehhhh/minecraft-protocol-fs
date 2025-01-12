@@ -47,6 +47,9 @@ type VersionRange =
             this.MinVersion.ToString()
         else
             sprintf "%d-%d" this.MinVersion this.MaxVersion
+    
+    member this.Contains(version: int) =
+        version >= this.MinVersion && version <= this.MaxVersion
 
 let AllVersion =
     { MinVersion = MinVersionProtocol
