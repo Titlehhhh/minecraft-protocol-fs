@@ -16,7 +16,7 @@ let private getClass (p: Packet, version: int) : string option =
     | Some t ->
         let name = p.PacketName.Substring("packet_".Length)
         let name = name.Pascalize()
-        let className = $"{name}.V{t}".Replace("-", "_")
+        let className = $"{name}Packet.V{t}".Replace("-", "_")
         Some(className)
     | None -> None
 
@@ -49,7 +49,7 @@ let create (packets: Packet seq, protocols: ProtocolVersionEntry seq) =
         classes
         |> Seq.map (fun x ->
             let name = x.Replace(".", "_") + "Factory"
-            $"public static readonly Func<IServerPacket> {name} = () => new {x}();")
+            $"private static readonly Func<IServerPacket> {name} = () => new {x}();")
         |> Seq.toArray
 
     {| Dict = arr.ToArray(); Factories = factories |}

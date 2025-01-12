@@ -72,9 +72,10 @@ let private generateInstructionForField (field: ProtodefContainerField) =
             $"foreach (var {argName}_item in {argName})" |> add
             generateWriteInstruction a.Type $"{argName}_item"
         | :? ProtodefOption as o ->
+            let csType = o.Type |> protodefTypeToCSharpType
             "WriteBoolean" |> wi $"{argName} is not null"
             $"if ({argName} is not null)" |> add
-            generateWriteInstruction o.Type $"{argName}!"
+            generateWriteInstruction o.Type $"({csType}){argName}"
         | :? ProtodefCustomType as custom ->
             match custom.Name with
             | "vec2f" -> "WriteVector2" |> wiP name
@@ -148,11 +149,11 @@ let private generateSerializeMethod (containers: (VersionRange * ProtodefContain
     if (containers.Length = 1) then
         let container = snd containers.Head
 
-        let parameters =
+        let parameters = 
             container.Fields |> Seq.map _.Name.Pascalize() |> String.concat ", "
+        let comma = if container.Fields.Count > 0 then ", " else ""
 
-
-        let body = $"SerializeInternal(ref writer, protocolVersion, {parameters});"
+        let body = $"SerializeInternal(ref writer, protocolVersion{comma} {parameters});"
 
         let serializeInternal =
             (generateSerializeInternalMethod container) :> MemberDeclarationSyntax
@@ -190,10 +191,17 @@ let private generateArgumentListForConcrete (generalProps: string seq, protodef:
             getDefaultValue f.Type)
     |> Seq.toArray
 
+let mutable private currentPacket = ""
+
 let private generateBodyForBase (generalProps: string seq, containers: Dictionary<VersionRange, ProtodefContainer>) =
     let rec generateIfElse (remaining: (VersionRange * ProtodefContainer) list) =
         match remaining with
-        | [] -> Some(SyntaxFactory.ParseStatement("throw new Exception();"))
+        | [] ->
+            Some(
+                SyntaxFactory.ParseStatement(
+                    $"throw new ProtocolNotSupportException(nameof(ClientPacket.{currentPacket}), protocolVersion);"
+                )
+            )
         | (k, v) :: tail ->
             let arguments =
                 generateArgumentListForConcrete (generalProps, v) |> String.concat ", "
@@ -219,7 +227,7 @@ let private generateBodyForBase (generalProps: string seq, containers: Dictionar
 
             let thenStatement =
                 SyntaxFactory.ParseStatement(
-                    if String.IsNullOrWhiteSpace(arguments) then
+                    if String.IsNullOrEmpty(arguments.Trim()) then
                         $"{className}.SerializeInternal(ref writer,protocolVersion);"
                     else
                         $"{className}.SerializeInternal(ref writer,protocolVersion,{arguments});"
@@ -305,6 +313,9 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
     |> ignore
 
     for p in protodefPackets do
+        currentPacket <- p.PacketName.Substring("packet_".Length).Pascalize()
+
+
         let members =
             (generateClasses (
                 p,
@@ -324,8 +335,9 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
         let cl =
             cl.AddMembers(
                 SyntaxFactory.ParseMemberDeclaration(
-                    $"public static virtual ClientPacket Id => ClientPacket.{enumName};"
-                )
+                    $"public static ClientPacket PacketId => ClientPacket.{enumName};"
+                ),
+                SyntaxFactory.ParseMemberDeclaration("public ClientPacket GetPacketId() => PacketId;")
             )
 
         let cl = cl :> MemberDeclarationSyntax
@@ -340,6 +352,18 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
             SyntaxFactory
                 .NamespaceDeclaration(SyntaxFactory.ParseName("McProtoNet.Protocol.ServerboundPackets"))
                 .AddMembers(members)
+        //usings McProtoNet,McProtoNet.Serialization, McProtoNet.NBT, McProtoNet.Protocol
+        
+        let ns =
+            SyntaxFactory
+                .CompilationUnit()
+                .AddMembers(ns)
+                .AddUsings(
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("McProtoNet.Protocol")),
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("McProtoNet.NBT")),
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("McProtoNet.Serialization")),
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System"))
+                )
 
         File.WriteAllText(filePath, ns.NormalizeWhitespace().ToFullString())
 

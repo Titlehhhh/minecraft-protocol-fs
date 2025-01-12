@@ -237,7 +237,7 @@ let generateClasses
 
 
 
-    let baseList = SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName(name))
+    let baseList = SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName(name+"Packet"))
 
     let baseInterface =
         SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName(baseInterface))
@@ -305,7 +305,7 @@ let generateClasses
 
     let wrapper =
         SyntaxFactory
-            .ClassDeclaration(SyntaxFactory.Identifier(name))
+            .ClassDeclaration(SyntaxFactory.Identifier(name+"Packet"))
             .AddMembers(membersWrap |> Array.ofSeq)
             .WithModifiers(modifiers)
             .AddBaseListTypes(baseInterface)

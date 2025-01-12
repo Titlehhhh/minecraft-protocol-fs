@@ -29,16 +29,42 @@ let generateIds (protocol) (side: string) (protocolVersion: int) =
 
     let name = if side = "toServer" then "ClientPacket" else "ServerPacket"
 
-    for KeyValue(k, v) in obj do
-        allPackets.Add(v.ToString().Pascalize()) |> ignore
-        printfn $"{{Combine({name}.{v.ToString().Pascalize()},{protocolVersion}), {k}}},"
+    seq {
+        for KeyValue(k, v) in obj do
+            allPackets.Add(v.ToString().Pascalize()) |> ignore
+            yield $"{{Combine({name}.{v.ToString().Pascalize()},{protocolVersion}), {k}}},"
+    }
 
 
 
 
-//protocols |> Seq.iter (fun x -> generateIds x "toClient" x.ProtocolVersion)
 
-//printfn ""
+let clientboundPackets =
+    protocols
+    |> Seq.map (fun x -> generateIds x "toClient" x.ProtocolVersion)
+    |> Seq.collect (fun x -> x)
+    |> String.concat "\n"
+
+File.WriteAllText("clientids.txt", clientboundPackets)
+let gg = allPackets |> String.concat ",\n"
+
+let gg1 = $"public enum ServerPacket \n{{\n{gg}\n}}"
+
+File.WriteAllText("ServerPacket.cs", gg1)
+allPackets.Clear()
+let serverboundPackets =
+    protocols
+    |> Seq.map (fun x -> generateIds x "toServer" x.ProtocolVersion)
+    |> Seq.collect (fun x -> x)
+    |> String.concat "\n"
+
+File.WriteAllText("serverids.txt", serverboundPackets)
+
+let gg2 = allPackets |> String.concat ",\n"
+
+let gg3 = $"public enum ClientPacket \n{{\n{gg2}\n}}"
+
+File.WriteAllText("ClientPacket.cs", gg3)
 
 //allPackets |> Seq.iteri (fun i x ->  printfn $"%s{x} = %d{i},")
 
@@ -82,7 +108,7 @@ let generate (side: string) =
         CodeGeneratorWrite.generatePrimitive (primitivePackets, side) |> ignore
     else
         CodeGeneratorRead.generatePrimitive (primitivePackets, side) |> ignore
-        let protodefPackets = packets |> Seq.map Shared.packetMetadataToProtodefPacket
+        let protodefPackets = primitivePackets |> Seq.map Shared.packetMetadataToProtodefPacket
         let data = PacketFactoryGenerator.create (protodefPackets, protocols)
         let identifier = SyntaxFactory.Identifier("PacketFactory")
 
@@ -119,7 +145,8 @@ let generate (side: string) =
                 .CompilationUnit()
                 .AddMembers(ns)
                 .AddUsings(
-                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("McProtoNet.Protocol.ClientboundPackets"))
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("McProtoNet.Protocol.ClientboundPackets")),
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Collections.Frozen"))
                 )
 
         File.WriteAllText("PacketFactory.Generated.cs", compileUnit.NormalizeWhitespace().ToFullString())
@@ -130,7 +157,7 @@ generate "toServer"
 generate "toClient"
 
 
-Extensions.PrintUnknownTypes()
+//Extensions.PrintUnknownTypes()
 
 // let firt10Packets = packets |> Seq.take 10 |> Seq.map (fun x -> createPromt x)
 //

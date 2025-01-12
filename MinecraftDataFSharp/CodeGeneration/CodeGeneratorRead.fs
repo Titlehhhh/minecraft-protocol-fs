@@ -28,24 +28,24 @@ let private TypeToReadMethodMap =
           "f32", "ReadFloat()"
           "f64", "ReadDouble()"
           "UUID", "ReadUUID()"
-          "restBuffer", "ReadToEnd()"
+          "restBuffer", "ReadRestBuffer()"
           "varint", "ReadVarInt()"
           "varlong", "ReadVarLong()"
           "string", "ReadString()"
           "pstring", "ReadString()"
           "vec2f", "ReadVector2(protocolVersion)"
           "vec3f", "ReadVector3(protocolVersion)"
-          "vec3f64", "ReadVector364(protocolVersion)"
+          "vec3f64", "ReadVector3F64(protocolVersion)"
           "vec4f", "ReadVector4(protocolVersion)"
           "uuid", "ReadUUID()"
           "position", "ReadPosition(protocolVersion)"
-          "ByteArray", "ReadBuffer()"
+          "ByteArray", "ReadBuffer(LengthFormat.VarInt)"
           "slot", "ReadSlot(protocolVersion)"
           "Slot", "ReadSlot(protocolVersion)"
           "anonymousNbt", "ReadNbtTag(false)"
-          "anonOptionalNbt", "ReadOptionalNbt(false)"
+          "anonOptionalNbt", "ReadOptionalNbtTag(false)"
           "nbt", "ReadNbtTag(true)"
-          "optionalNbt", "ReadOptionalNbt(true)"
+          "optionalNbt", "ReadOptionalNbtTag(true)"
           "MovementFlags", "ReadUnsignedByte()"
           "PositionUpdateRelatives", "ReadUnsignedInt()"
           "ContainerID", "ReadVarInt()" ]
@@ -65,10 +65,7 @@ let ReadDelegateMap =
           "f32", "ReadDelegates.Float"
           "f64", "ReadDelegates.Double"
           "string", "ReadDelegates.String"
-          "pstring", "ReadDelegates.String"
-          "vec2f", "ReadDelegates.Vector2"
-          "vec3f", "ReadDelegates.Vector3"
-          "vec3f64", "ReadDelegates.Vector364" ]
+          "pstring", "ReadDelegates.String" ]
 
 
 
@@ -100,13 +97,13 @@ let generateReadInstruct (field: ProtodefContainerField) =
                 let typeSharp = op |> protodefTypeToCSharpType
                 let r = generateInstruct op.Type (depth + 1)
                 let rName = $"r_{depth}"
-
+                let rParam = $"(ref MinecraftPrimitiveReader {rName})"
                 match ReadDelegateMap.TryFind(op.Type.ToString()) with
-                | Some x -> $"ReadOptional<{typeSharp}>({x})"
-                | None -> $"ReadOptional<{typeSharp}>({rName} => {rName}.{r})"
+                | Some x -> $"ReadOptional({x})"
+                | None -> $"ReadOptional({rParam} => {rName}.{r})"
             | :? ProtodefBuffer as b ->
                 if b.Rest = true then
-                    "ReadToEnd()"
+                    "ReadRestBuffer()"
                 else
                     let length = LengthFormatMap[b.CountType.ToString()]
                     $"ReadBuffer({length})"
@@ -114,11 +111,12 @@ let generateReadInstruct (field: ProtodefContainerField) =
                 let typeSharp = arr.Type |> protodefTypeToCSharpType
                 let r = generateInstruct arr.Type (depth + 1)
                 let rName = $"r_{depth}"
+                let rParam = $"(ref MinecraftPrimitiveReader {rName})"
                 let length = LengthFormatMap[arr.CountType.ToString()]
 
                 match ReadDelegateMap.TryFind(arr.Type.ToString()) with
-                | Some x -> $"ReadArray<{typeSharp}, int>({length},{x})"
-                | None -> $"ReadArray<{typeSharp}, int>({length},{rName} => {rName}.{r})"
+                | Some x -> $"ReadArray({length},{x})"
+                | None -> $"ReadArray({length},{rParam} => {rName}.{r})"
             | :? ProtodefCustomType as c -> failwith $"unknown custom type: {c.Name}"
             | _ -> failwith $"Unknown type {t}"
 
@@ -220,8 +218,9 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
         let cl =
             cl.AddMembers(
                 SyntaxFactory.ParseMemberDeclaration(
-                    $"public static virtual ClientPacket Id => ClientPacket.{enumName};"
-                )
+                    $"public static ServerPacket PacketId => ServerPacket.{enumName};"
+                ),
+                SyntaxFactory.ParseMemberDeclaration("public ServerPacket GetPacketId() => PacketId;")
             )
 
         let cl = cl :> MemberDeclarationSyntax
@@ -238,7 +237,16 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
                 .NamespaceDeclaration(SyntaxFactory.ParseName("McProtoNet.Protocol.ClientboundPackets"))
                 .AddMembers(members)
 
-
+        let ns =
+            SyntaxFactory
+                .CompilationUnit()
+                .AddMembers(ns)
+                .AddUsings(
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("McProtoNet.Protocol")),
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("McProtoNet.NBT")),
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("McProtoNet.Serialization")),
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System"))
+                )
 
         File.WriteAllText(filePath, ns.NormalizeWhitespace().ToFullString())
 
