@@ -279,7 +279,7 @@ let private optimization (cl: ClassDeclarationSyntax, packet: Packet) : ClassDec
         | :? ClassDeclarationSyntax as c -> internalClasses.Add(c)
         | _ -> ()
 
-    if internalClasses.Count = 0 then
+    if internalClasses.Count = 0 || not(packet.EmptyRanges.IsEmpty) then
         cl
     else if allClassesEmpty (internalClasses.ToArray()) then
         cl

@@ -8,6 +8,7 @@ open Humanizer
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
+open Microsoft.FSharp.Core
 open MinecraftDataFSharp.CodeGeneration.Shared
 open MinecraftDataFSharp.Models
 open Protodef.Enumerable
@@ -102,17 +103,29 @@ let generateReadInstruct (field: ProtodefContainerField) =
                 | Some x -> $"ReadOptional({x})"
                 | None -> $"ReadOptional({rParam} => {rName}.{r})"
             | :? ProtodefBuffer as b ->
+                let count = if isNull(b.Count) then "" else b.Count.ToString() 
                 if b.Rest = true then
                     "ReadRestBuffer()"
                 else
-                    let length = LengthFormatMap[b.CountType.ToString()]
-                    $"ReadBuffer({length})"
+                    if String.IsNullOrWhiteSpace count then                        
+                        let length = LengthFormatMap[b.CountType.ToString()]
+                        $"ReadBuffer({length})"
+                    else
+                        $"ReadBuffer({count})"
             | :? ProtodefArray as arr ->
+                
+                
+                
                 let typeSharp = arr.Type |> protodefTypeToCSharpType
                 let r = generateInstruct arr.Type (depth + 1)
                 let rName = $"r_{depth}"
                 let rParam = $"(ref MinecraftPrimitiveReader {rName})"
-                let length = LengthFormatMap[arr.CountType.ToString()]
+                let count = if isNull(arr.Count) then "" else arr.Count.ToString() 
+                let length =
+                    if String.IsNullOrWhiteSpace count then
+                        LengthFormatMap[arr.CountType.ToString()]
+                    else
+                        count
 
                 match ReadDelegateMap.TryFind(arr.Type.ToString()) with
                 | Some x -> $"ReadArray({length},{x})"
@@ -170,7 +183,7 @@ let private optimization (cl: ClassDeclarationSyntax, packet: Packet) : ClassDec
         | :? ClassDeclarationSyntax as c -> internalClasses.Add(c)
         | _ -> ()
 
-    if internalClasses.Count = 0 then
+    if internalClasses.Count = 0 || not(packet.EmptyRanges.IsEmpty) then
         cl
     else if allClassesEmpty (internalClasses.ToArray()) then
         cl

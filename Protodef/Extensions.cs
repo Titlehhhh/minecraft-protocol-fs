@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Protodef.Converters;
 using Protodef.Enumerable;
 using Protodef.Primitive;
@@ -22,6 +23,7 @@ public static class Extensions
     {
         JsonSerializerOptions options = new();
         options.Converters.Add(new DataTypeConverter());
+        options.NumberHandling = JsonNumberHandling.AllowReadingFromString;
         foreach (var (key, value) in jsonObject)
         {
             if (value is JsonArray arr)

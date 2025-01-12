@@ -1,8 +1,11 @@
 module MinecraftDataFSharp.CodeGeneration.Shared
 
+open System
 open System.Collections.Generic
 open System.Diagnostics
+open System.Linq
 open System.Text.Json
+open System.Text.Json.Serialization
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
@@ -131,12 +134,46 @@ let generateClass (container: ProtodefContainer) (name: string) =
         .ClassDeclaration(SyntaxFactory.Identifier(name))
         .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
         .AddMembers(fields)
-
-let getDefaultValue (t: ProtodefType) =
+let tryParseInt s = 
+    try 
+        s |> int |> Some
+    with :? FormatException -> 
+        None
+let rec getDefaultValue (t: ProtodefType) =
     match t with
     | :? ProtodefNumericType -> "0"
     | :? ProtodefCustomType -> "default"
-    | _ -> "default"
+    | :? ProtodefVarInt -> "0"
+    | :? ProtodefVarLong -> "0"
+    | :? ProtodefBool -> "false"
+    | :? ProtodefOption -> "null"
+    | :? ProtodefString -> "string.Empty"
+    | :? ProtodefPrefixedString -> "string.Empty"
+    | :? ProtodefBuffer as buff ->
+        let count = if isNull(buff.Count) then "" else buff.Count.ToString() 
+        if String.IsNullOrWhiteSpace(count) then
+            "[]"
+        else
+            match tryParseInt count with
+            | Some x ->
+                //[0, 0, 0, ... 0] x - count
+                "["+(Seq.replicate 0 "0"
+                |> String.concat ",")+"]"                
+            | None ->
+                $"new byte[{buff.Count}]"
+    | :? ProtodefArray as arr ->
+        let count = if isNull(arr.Count) then "" else arr.Count.ToString() 
+        if String.IsNullOrWhiteSpace(count) then
+            "[]"
+        else
+            match tryParseInt count with
+            | Some x ->
+                let defValue = getDefaultValue arr.Type
+                //[0, 0, 0, ... 0] x - count
+                "["+(Seq.replicate 0 defValue
+                |> String.concat ",")+"]"                
+            | None ->
+                $"new byte[{count}]"
 
 let protocolVersionParameter =
     SyntaxFactory
