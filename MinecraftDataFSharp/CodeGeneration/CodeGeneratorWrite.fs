@@ -262,47 +262,7 @@ let private generateSerializeMethodForBase (generalProps: string seq, packet: Pa
           .WithBody(blockSyntax)
       :> MemberDeclarationSyntax ]
 
-let private containsProperty (cl: ClassDeclarationSyntax) =
-    cl.Members |> Seq.exists (fun x -> x :? PropertyDeclarationSyntax)
 
-let private allClassesEmpty (classes: ClassDeclarationSyntax array) =
-    classes |> Array.forall containsProperty
-
-let private optimization (cl: ClassDeclarationSyntax, packet: Packet) : ClassDeclarationSyntax =
-    if packet.PacketName.ToLower().Contains("unload") then
-        Debugger.Break()
-
-    let internalClasses = ResizeArray()
-
-    for m in cl.Members do
-        match m with
-        | :? ClassDeclarationSyntax as c -> internalClasses.Add(c)
-        | _ -> ()
-
-    if internalClasses.Count = 0 || not(packet.EmptyRanges.IsEmpty) then
-        cl
-    else if allClassesEmpty (internalClasses.ToArray()) then
-        cl
-    else
-        let newMembers =
-            cl.Members
-            |> Seq.map (fun m ->
-                match m with
-                | :? ClassDeclarationSyntax as c ->
-                    c.WithModifiers(
-                        SyntaxFactory.TokenList(
-                            SyntaxFactory.Token(SyntaxKind.InternalKeyword),
-                            SyntaxFactory.Token(SyntaxKind.SealedKeyword)
-                        )
-                    )
-                    :> MemberDeclarationSyntax
-                | _ -> m)
-
-        let newMembers = newMembers |> Seq.toArray
-
-        cl
-            .WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers)
-            .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
 
 
 
@@ -330,7 +290,7 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
 
         let cl = (members |> Array.head) :?> ClassDeclarationSyntax
         let enumName = p.PacketName.Substring("packet_".Length).Pascalize()
-        let cl = optimization (cl, p)
+        let cl = hideDuplicateCode (cl, p)
 
         let cl =
             cl.AddMembers(

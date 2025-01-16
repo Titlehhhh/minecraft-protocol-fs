@@ -134,11 +134,13 @@ let generateClass (container: ProtodefContainer) (name: string) =
         .ClassDeclaration(SyntaxFactory.Identifier(name))
         .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
         .AddMembers(fields)
-let tryParseInt s = 
-    try 
+
+let tryParseInt s =
+    try
         s |> int |> Some
-    with :? FormatException -> 
+    with :? FormatException ->
         None
+
 let rec getDefaultValue (t: ProtodefType) =
     match t with
     | :? ProtodefNumericType -> "0"
@@ -150,19 +152,19 @@ let rec getDefaultValue (t: ProtodefType) =
     | :? ProtodefString -> "string.Empty"
     | :? ProtodefPrefixedString -> "string.Empty"
     | :? ProtodefBuffer as buff ->
-        let count = if isNull(buff.Count) then "" else buff.Count.ToString() 
+        let count = if isNull (buff.Count) then "" else buff.Count.ToString()
+
         if String.IsNullOrWhiteSpace(count) then
             "[]"
         else
             match tryParseInt count with
             | Some x ->
                 //[0, 0, 0, ... 0] x - count
-                "["+(Seq.replicate 0 "0"
-                |> String.concat ",")+"]"                
-            | None ->
-                $"new byte[{buff.Count}]"
+                "[" + (Seq.replicate 0 "0" |> String.concat ",") + "]"
+            | None -> $"new byte[{buff.Count}]"
     | :? ProtodefArray as arr ->
-        let count = if isNull(arr.Count) then "" else arr.Count.ToString() 
+        let count = if isNull (arr.Count) then "" else arr.Count.ToString()
+
         if String.IsNullOrWhiteSpace(count) then
             "[]"
         else
@@ -170,10 +172,8 @@ let rec getDefaultValue (t: ProtodefType) =
             | Some x ->
                 let defValue = getDefaultValue arr.Type
                 //[0, 0, 0, ... 0] x - count
-                "["+(Seq.replicate 0 defValue
-                |> String.concat ",")+"]"                
-            | None ->
-                $"new byte[{count}]"
+                "[" + (Seq.replicate 0 defValue |> String.concat ",") + "]"
+            | None -> $"new byte[{count}]"
 
 let protocolVersionParameter =
     SyntaxFactory
@@ -274,12 +274,13 @@ let generateClasses
 
 
 
-    let baseList = SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName(name+"Packet"))
+    let baseList =
+        SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName(name + "Packet"))
 
     let baseInterface =
         SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName(baseInterface))
 
-    
+
     let internalClasses =
         classes
         |> Seq.map (fun x ->
@@ -313,8 +314,8 @@ let generateClasses
             let c = snd x
             let supportMethod = generateSupportVersionsMethod ((fst x), true)
             let protoDef = packet.Structure.[fst x]
-            
-            let param = [(fst x), protoDef]
+
+            let param = [ (fst x), protoDef ]
             let members = (generator param) |> Seq.toArray
 
             let newMembers =
@@ -342,9 +343,50 @@ let generateClasses
 
     let wrapper =
         SyntaxFactory
-            .ClassDeclaration(SyntaxFactory.Identifier(name+"Packet"))
+            .ClassDeclaration(SyntaxFactory.Identifier(name + "Packet"))
             .AddMembers(membersWrap |> Array.ofSeq)
             .WithModifiers(modifiers)
             .AddBaseListTypes(baseInterface)
 
     [| wrapper |]
+
+
+
+let private existsProp (cl: ClassDeclarationSyntax) =
+    cl.Members |> Seq.exists (fun x -> x :? PropertyDeclarationSyntax)
+
+let private existsProperty (classes: ClassDeclarationSyntax array) = classes |> Array.exists existsProp
+
+let hideDuplicateCode (cl: ClassDeclarationSyntax, packet: Packet) : ClassDeclarationSyntax =
+    if packet.PacketName.Contains("use_item") then
+        Debugger.Break()
+
+    let internalClasses = ResizeArray()
+
+    for m in cl.Members do
+        match m with
+        | :? ClassDeclarationSyntax as c -> internalClasses.Add(c)
+        | _ -> ()
+
+    if internalClasses.Count = 0 || not (packet.EmptyRanges.IsEmpty) then
+        cl
+    else if existsProperty (internalClasses.ToArray()) then
+        cl
+    else
+        let newMembers =
+            cl.Members
+            |> Seq.map (fun m ->
+                match m with
+                | :? ClassDeclarationSyntax as c ->
+                    c.WithModifiers(
+                        SyntaxFactory.TokenList(
+                            SyntaxFactory.Token(SyntaxKind.InternalKeyword),
+                            SyntaxFactory.Token(SyntaxKind.SealedKeyword)
+                        )
+                    )
+                    :> MemberDeclarationSyntax
+                | _ -> m)
+
+        let newMembers = newMembers |> Seq.toArray
+
+        cl.WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers)
