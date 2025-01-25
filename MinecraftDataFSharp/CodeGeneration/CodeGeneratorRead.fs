@@ -194,9 +194,9 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
         let cl =
             cl.AddMembers(
                 SyntaxFactory.ParseMemberDeclaration(
-                    $"public static ServerPacket PacketId => ServerPacket.{enumName};"
+                    $"public static PacketIdentifier PacketId => ServerPlayPacket.{enumName};"
                 ),
-                SyntaxFactory.ParseMemberDeclaration("public ServerPacket GetPacketId() => PacketId;")
+                SyntaxFactory.ParseMemberDeclaration("public PacketIdentifier GetPacketId() => PacketId;")
             )
 
         let cl = cl :> MemberDeclarationSyntax
@@ -210,7 +210,7 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
 
         let ns =
             SyntaxFactory
-                .NamespaceDeclaration(SyntaxFactory.ParseName("McProtoNet.Protocol.ClientboundPackets"))
+                .NamespaceDeclaration(SyntaxFactory.ParseName("McProtoNet.Protocol.ClientboundPackets.Play"))
                 .AddMembers(members)
 
         let ns =

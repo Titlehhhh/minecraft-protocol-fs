@@ -14,59 +14,140 @@ open MinecraftDataFSharp.Models
 open Protodef
 open Microsoft.CodeAnalysis
 
-
 let protocols = MinecraftDataParser.getPcProtocols
 
+
+type PacketProtocolMapping =
+    { PacketName: string
+      ProtocolVersion: int
+      Identifier: string }
+
+let generateIds
+    (protocol: ProtocolVersionEntry)
+    (state: string)
+    (side: string)
+    : (array<string> * seq<PacketProtocolMapping>) option =
+    let json = protocol.JsonProtocol.AsObject()
+
+    match json.TryGetPropertyValue(state) with
+    | false, _ -> None
+    | true, stateData ->
+        let sideData = stateData[side]
+
+        let packetMappings =
+            (sideData["types"]["packet"][1][0]["type"][1]["mappings"]).AsObject()
+
+        let packetPrefix =
+            let s = state.Pascalize()
+
+            if side = "toServer" then
+                $"Client{s}Packet"
+            else
+                $"Server{s}Packet"
+
+        let uniquePackets = HashSet<string>()
+
+        let mappings =
+            seq {
+                for KeyValue(k, v) in packetMappings do
+                    let packetName = $"{packetPrefix}.{v.ToString().Pascalize()}"
+                    uniquePackets.Add(v.ToString().Pascalize()) |> ignore
+
+                    yield
+                        { PacketName = packetName
+                          ProtocolVersion = protocol.ProtocolVersion
+                          Identifier = k }
+            } |> Seq.toArray
+
+        Some(uniquePackets |> Array.ofSeq, mappings)
+
+let save (packets: PacketMetadata list) (direction: string) (folderName: string) =
+    let folder = folderName.Pascalize()
+    Directory.CreateDirectory(folder) |> ignore
+    Directory.CreateDirectory(Path.Combine(folder, direction)) |> ignore
+
+    packets
+    |> Seq.iter (fun packet ->
+        let filePath = Path.Combine(folder, direction, $"{packet.PacketName}.json")
+        File.WriteAllText(filePath, packet.Structure.ToJsonString(JsonSerializerOptions(WriteIndented = true))))
+
+for direction in [| "toClient"; "toServer" |] do
+    for state in [| "login"; "status"; "configuration" |] do
+
+        let packets = JsonPacketGenerator.generatePackets protocols direction state
+        save packets direction state
+
+for direction in [| "toClient"; "toServer" |] do
+    for state in [| "login"; "status"; "configuration"; "play" |] do
+        let idsSeq =
+            protocols |> Seq.map (fun p -> generateIds p state direction) |> Seq.choose id |> Seq.toArray
+
+        let ids =
+            idsSeq
+            |> Seq.map snd
+            |> Seq.concat
+            |> Seq.map (fun p -> $"{{Combine({p.PacketName}, {p.ProtocolVersion}), {p.Identifier}}}")
+
+        let path = Path.Combine(state.Pascalize(), direction)
+        Directory.CreateDirectory(path) |> ignore
+
+        (let path = Path.Combine(path, "ids.txt")
+         File.WriteAllLines(path, ids))
+        if state = "login" then
+            Debugger.Break()
+        
+        let name =
+            if direction = "toServer" then
+                "ServerPacket"
+            else
+                "ClientPacket"
+
+        let direction =
+            if direction = "toServer" then
+                "Serverbound"
+            else
+                "Clientbound"
+
+        let content =
+            idsSeq
+            |> Seq.map fst
+            |> Seq.concat
+            |> Set
+            |> Set.toSeq
+            |> Seq.mapi (fun i x ->
+                let name = x.Pascalize()
+                let state = "PacketState." + state.Pascalize()
+                let direction = "PacketDirection." + direction
+                $"\tpublic static PacketIdentifier {name} => new ({i}, nameof({name}),{state},{direction});")
+            |> String.concat "\n"
+        // Client or Server
+        let className = if direction = "Serverbound" then "Client" else "Server"
+        
+        let className = $"{className}{state.Pascalize()}Packet"
+        
+
+        let content = StringBuilder()
+                          .AppendLine($"public static class {className}")
+                          .AppendLine("{")
+                          .AppendLine(content)
+                          .AppendLine("}")
+                          .ToString()
+        
+
+
+
+        let name = $"{name}.Generated{state.Pascalize()}.cs"
+
+        (let path = Path.Combine(path, name)
+         File.WriteAllText(path, content))
+
+
+
+
+
+
 ProtocolTypeMapper.generateVersionedTypeMap protocols
-let allPackets = HashSet<string>()
 
-
-
-let generateIds (protocol) (side: string) (protocolVersion: int) =
-    let obj =
-        (protocol.JsonProtocol["play"][side]["types"]["packet"][1][0]["type"][1]["mappings"])
-            .AsObject()
-
-    let name = if side = "toServer" then "ClientPacket" else "ServerPacket"
-
-    seq {
-        for KeyValue(k, v) in obj do
-            allPackets.Add(v.ToString().Pascalize()) |> ignore
-            yield $"{{Combine({name}.{v.ToString().Pascalize()},{protocolVersion}), {k}}},"
-    }
-
-
-
-
-
-let clientboundPackets =
-    protocols
-    |> Seq.map (fun x -> generateIds x "toClient" x.ProtocolVersion)
-    |> Seq.collect (fun x -> x)
-    |> String.concat "\n"
-
-File.WriteAllText("clientids.txt", clientboundPackets)
-let gg = allPackets |> String.concat ",\n"
-
-let gg1 = $"public enum ServerPacket \n{{\n{gg}\n}}"
-
-File.WriteAllText("ServerPacket.cs", gg1)
-allPackets.Clear()
-let serverboundPackets =
-    protocols
-    |> Seq.map (fun x -> generateIds x "toServer" x.ProtocolVersion)
-    |> Seq.collect (fun x -> x)
-    |> String.concat "\n"
-
-File.WriteAllText("serverids.txt", serverboundPackets)
-
-let gg2 = allPackets |> String.concat ",\n"
-
-let gg3 = $"public enum ClientPacket \n{{\n{gg2}\n}}"
-
-File.WriteAllText("ClientPacket.cs", gg3)
-
-//allPackets |> Seq.iteri (fun i x ->  printfn $"%s{x} = %d{i},")
 
 
 if Directory.Exists("packets") then
@@ -78,7 +159,7 @@ if Directory.Exists("packets") then
             ())
 
 let generate (side: string) =
-    let packets = JsonPacketGenerator.generatePackets protocols side
+    let packets = JsonPacketGenerator.generatePackets protocols side "play"
 
     let filterPrimitivePackets (packet: PacketMetadata) = Extensions.IsPrimitive packet.Structure
 
@@ -108,7 +189,10 @@ let generate (side: string) =
         CodeGeneratorWrite.generatePrimitive (primitivePackets, side) |> ignore
     else
         CodeGeneratorRead.generatePrimitive (primitivePackets, side) |> ignore
-        let protodefPackets = primitivePackets |> Seq.map Shared.packetMetadataToProtodefPacket
+
+        let protodefPackets =
+            primitivePackets |> Seq.map Shared.packetMetadataToProtodefPacket
+
         let data = PacketFactoryGenerator.create (protodefPackets, protocols)
         let identifier = SyntaxFactory.Identifier("PacketFactory")
 
@@ -145,11 +229,11 @@ let generate (side: string) =
                 .CompilationUnit()
                 .AddMembers(ns)
                 .AddUsings(
-                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("McProtoNet.Protocol.ClientboundPackets")),
+                    SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("McProtoNet.Protocol.ClientboundPackets.Play")),
                     SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Collections.Frozen"))
                 )
 
-        File.WriteAllText("PacketFactory.Generated.cs", compileUnit.NormalizeWhitespace().ToFullString())
+        File.WriteAllText("PacketFactory.Generated.Play.cs", compileUnit.NormalizeWhitespace().ToFullString())
         ()
 
 
@@ -157,27 +241,6 @@ generate "toServer"
 generate "toClient"
 
 
-//Extensions.PrintUnknownTypes()
 
-// let firt10Packets = packets |> Seq.take 10 |> Seq.map (fun x -> createPromt x)
-//
-// let systemMessage = "You C# code generator for Minecraft protocol library"
-// Directory.CreateDirectory("packets") |> ignore
-// printfn "Start generation"
-//
-// packets
-// |> Seq.take 10
-// |> Seq.map (fun info ->
-//     let promt = createPromt info
-//
-//     async {
-//         let! result = LLMService.Predict(promt, systemMessage)
-//         let filePath = Path.Combine("packets", $"{info.PacketName}.cs")
-//
-//         match result with
-//         | Some x -> return! File.WriteAllTextAsync(filePath, x) |> Async.AwaitTask
-//         | None -> return ()
-//     })
-// |> Async.Parallel
-// |> Async.RunSynchronously
-// |> ignore
+
+//Generate login, status, configuration packets
