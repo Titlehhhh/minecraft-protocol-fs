@@ -57,7 +57,8 @@ let generateIds
                         { PacketName = packetName
                           ProtocolVersion = protocol.ProtocolVersion
                           Identifier = k }
-            } |> Seq.toArray
+            }
+            |> Seq.toArray
 
         Some(uniquePackets |> Array.ofSeq, mappings)
 
@@ -72,30 +73,34 @@ let save (packets: PacketMetadata list) (direction: string) (folderName: string)
         File.WriteAllText(filePath, packet.Structure.ToJsonString(JsonSerializerOptions(WriteIndented = true))))
 
 for direction in [| "toClient"; "toServer" |] do
-    for state in [| "login"; "status"; "configuration" |] do
+    for state in [| "login"; "status"; "configuration"; "handshaking" |] do
 
         let packets = JsonPacketGenerator.generatePackets protocols direction state
         save packets direction state
 
 for direction in [| "toClient"; "toServer" |] do
-    for state in [| "login"; "status"; "configuration"; "play" |] do
+    for state in [| "login"; "status"; "configuration"; "play";"handshaking" |] do
         let idsSeq =
-            protocols |> Seq.map (fun p -> generateIds p state direction) |> Seq.choose id |> Seq.toArray
+            protocols
+            |> Seq.map (fun p -> generateIds p state direction)
+            |> Seq.choose id
+            |> Seq.toArray
 
         let ids =
             idsSeq
             |> Seq.map snd
             |> Seq.concat
-            |> Seq.map (fun p -> $"{{Combine({p.PacketName}, {p.ProtocolVersion}), {p.Identifier}}}")
+            |> Seq.map (fun p -> $"{{Combine({p.PacketName}, {p.ProtocolVersion}), {p.Identifier}}},")
 
         let path = Path.Combine(state.Pascalize(), direction)
         Directory.CreateDirectory(path) |> ignore
 
         (let path = Path.Combine(path, "ids.txt")
          File.WriteAllLines(path, ids))
+
         if state = "login" then
             Debugger.Break()
-        
+
         let name =
             if direction = "toServer" then
                 "ServerPacket"
@@ -113,26 +118,26 @@ for direction in [| "toClient"; "toServer" |] do
             |> Seq.map fst
             |> Seq.concat
             |> Set
-            |> Set.toSeq
             |> Seq.mapi (fun i x ->
                 let name = x.Pascalize()
                 let state = "PacketState." + state.Pascalize()
                 let direction = "PacketDirection." + direction
                 $"\tpublic static PacketIdentifier {name} => new ({i}, nameof({name}),{state},{direction});")
             |> String.concat "\n"
-        // Client or Server
-        let className = if direction = "Serverbound" then "Client" else "Server"
-        
-        let className = $"{className}{state.Pascalize()}Packet"
-        
 
-        let content = StringBuilder()
-                          .AppendLine($"public static class {className}")
-                          .AppendLine("{")
-                          .AppendLine(content)
-                          .AppendLine("}")
-                          .ToString()
-        
+        let className = if direction = "Serverbound" then "Client" else "Server"
+
+        let className = $"{className}{state.Pascalize()}Packet"
+
+
+        let content =
+            StringBuilder()
+                .AppendLine($"public static class {className}")
+                .AppendLine("{")
+                .AppendLine(content)
+                .AppendLine("}")
+                .ToString()
+
 
 
 

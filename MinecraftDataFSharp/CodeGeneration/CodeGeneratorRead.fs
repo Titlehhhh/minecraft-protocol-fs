@@ -179,7 +179,8 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
         let members =
             (generateClasses (
                 p,
-                [| SyntaxKind.PublicKeyword; SyntaxKind.AbstractKeyword |],
+                Direction.ToClient,
+                [| SyntaxKind.PublicKeyword; SyntaxKind.AbstractKeyword; SyntaxKind.PartialKeyword |],
                 "IServerPacket",
                 generateDeserializeMethod,
                 generateDeserializeMethodForBase
@@ -188,29 +189,21 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
             |> Seq.toArray
 
         let cl = (members |> Array.head) :?> ClassDeclarationSyntax
-        let enumName = p.PacketName.Substring("packet_".Length).Pascalize()
         let cl = hideDuplicateCode (cl, p)
 
-        let cl =
-            cl.AddMembers(
-                SyntaxFactory.ParseMemberDeclaration(
-                    $"public static PacketIdentifier PacketId => ServerPlayPacket.{enumName};"
-                ),
-                SyntaxFactory.ParseMemberDeclaration("public PacketIdentifier GetPacketId() => PacketId;")
-            )
 
         let cl = cl :> MemberDeclarationSyntax
 
         let members = [| cl |]
 
-        let packetName = p.PacketName.Pascalize()
+        let packetName = p.PacketName.Substring("packet_".Length).Pascalize()+"Packet"
 
         let filePath = Path.Combine("packets", folder, "generated", $"{packetName}.cs")
 
 
         let ns =
             SyntaxFactory
-                .NamespaceDeclaration(SyntaxFactory.ParseName("McProtoNet.Protocol.ClientboundPackets.Play"))
+                .NamespaceDeclaration(SyntaxFactory.ParseName("McProtoNet.Protocol.Packets.Play.Clientbound"))
                 .AddMembers(members)
 
         let ns =

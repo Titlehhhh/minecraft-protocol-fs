@@ -9,6 +9,7 @@ open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
 open Microsoft.FSharp.Collections
+open MinecraftDataFSharp.CodeGeneration.Shared
 open MinecraftDataFSharp.Models
 open Protodef
 open Protodef.Enumerable
@@ -199,7 +200,7 @@ let private generateBodyForBase (generalProps: string seq, containers: Dictionar
         | [] ->
             Some(
                 SyntaxFactory.ParseStatement(
-                    $"throw new ProtocolNotSupportException(nameof(ClientPacket.{currentPacket}), protocolVersion);"
+                    $"throw new ProtocolNotSupportException(nameof(ClientPlayPacket.{currentPacket}), protocolVersion);"
                 )
             )
         | (k, v) :: tail ->
@@ -214,7 +215,7 @@ let private generateBodyForBase (generalProps: string seq, containers: Dictionar
                         SyntaxFactory.MemberAccessExpression(
                             SyntaxKind.SimpleMemberAccessExpression,
                             SyntaxFactory.IdentifierName(className),
-                            SyntaxFactory.IdentifierName("SupportedVersion")
+                            SyntaxFactory.IdentifierName("IsSupportedVersionStatic")
                         )
                     )
                     .WithArgumentList(
@@ -279,7 +280,8 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
         let members =
             (generateClasses (
                 p,
-                [| SyntaxKind.PublicKeyword |],
+                Direction.ToServer,
+                [| SyntaxKind.PublicKeyword; SyntaxKind.PartialKeyword |],
                 "IClientPacket",
                 generateSerializeMethod,
                 generateSerializeMethodForBase
@@ -289,28 +291,21 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
 
 
         let cl = (members |> Array.head) :?> ClassDeclarationSyntax
-        let enumName = p.PacketName.Substring("packet_".Length).Pascalize()
         let cl = hideDuplicateCode (cl, p)
 
-        let cl =
-            cl.AddMembers(
-                SyntaxFactory.ParseMemberDeclaration(
-                    $"public static PacketIdentifier PacketId => ClientPlayPacket.{enumName};"
-                ),
-                SyntaxFactory.ParseMemberDeclaration("public PacketIdentifier GetPacketId() => PacketId;")
-            )
+        
 
         let cl = cl :> MemberDeclarationSyntax
         let members = [| cl |]
 
-        let packetName = p.PacketName.Pascalize()
+        let packetName = p.PacketName.Substring("packet_".Length).Pascalize()+"Packet"
 
         let filePath = Path.Combine("packets", folder, "generated", $"{packetName}.cs")
 
 
         let ns =
             SyntaxFactory
-                .NamespaceDeclaration(SyntaxFactory.ParseName("McProtoNet.Protocol.ServerboundPackets.Play"))
+                .NamespaceDeclaration(SyntaxFactory.ParseName("McProtoNet.Protocol.Packets.Play.Serverbound"))
                 .AddMembers(members)
         //usings McProtoNet,McProtoNet.Serialization, McProtoNet.NBT, McProtoNet.Protocol
         

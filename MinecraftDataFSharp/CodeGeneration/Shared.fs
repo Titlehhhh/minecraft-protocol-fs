@@ -180,46 +180,7 @@ let protocolVersionParameter =
         .Parameter(SyntaxFactory.Identifier("protocolVersion"))
         .WithType(SyntaxFactory.ParseTypeName("int"))
 
-let generateSupportVersionsMethod (versions: VersionRange, addNew: bool) =
-    let identifier = SyntaxFactory.Identifier("SupportedVersion")
 
-    let condition =
-        SyntaxFactory.ParseStatement(
-            if versions.MaxVersion = versions.MinVersion then
-                $"return protocolVersion == {versions.MinVersion};"
-            else
-                $"return protocolVersion is >= {versions.MinVersion} and <= {versions.MaxVersion};"
-        )
-
-    let method =
-        SyntaxFactory
-            .MethodDeclaration(SyntaxFactory.ParseTypeName("bool"), identifier)
-            .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
-            .AddParameterListParameters(protocolVersionParameter)
-            .WithBody(SyntaxFactory.Block(condition))
-
-    let method =
-        if addNew then
-            method.AddModifiers(SyntaxFactory.Token(SyntaxKind.NewKeyword))
-        else
-            method
-
-    method.AddModifiers(SyntaxFactory.Token(SyntaxKind.StaticKeyword)) :> MemberDeclarationSyntax
-
-let generateSupportVersions (classes: string seq) =
-    let versions =
-        classes
-        |> Seq.map (fun x -> $"{x}.SupportedVersion(protocolVersion)")
-        |> String.concat " || "
-
-    let returnStatement = SyntaxFactory.ParseStatement $"return {versions};"
-
-    SyntaxFactory
-        .MethodDeclaration(SyntaxFactory.ParseTypeName("bool"), "SupportedVersion")
-        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword))
-        .AddParameterListParameters(protocolVersionParameter)
-        .WithBody(SyntaxFactory.Block(returnStatement))
-    :> MemberDeclarationSyntax
 
 
 type MembersGenerator = (VersionRange * ProtodefContainer) list -> MemberDeclarationSyntax list
@@ -257,9 +218,14 @@ let private isAllEquivalent (classes: (VersionRange * ClassDeclarationSyntax) li
 let private containsProperty (mem: MemberDeclarationSyntax) (props: MemberDeclarationSyntax list) =
     props |> List.exists _.IsEquivalentTo(mem)
 
+type Direction =
+    | ToServer
+    | ToClient
+
 let generateClasses
     (
         packet: Packet,
+        direction: Direction,
         modifiers: SyntaxKind seq,
         baseInterface: string,
         generator: MembersGenerator,
@@ -284,20 +250,36 @@ let generateClasses
     let internalClasses =
         classes
         |> Seq.map (fun x ->
-            let newName = (fst x).ToString().Replace("-", "_")
+            let versions = fst x
+            let attributeDeclaration = $"({versions.MinVersion}, {versions.MaxVersion})"
+
+            let attrib =
+                SyntaxFactory.AttributeList(
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.Attribute(
+                            SyntaxFactory.ParseName("PacketSubInfo"),
+                            SyntaxFactory.ParseAttributeArgumentList(attributeDeclaration)
+                        )
+                    )
+                )
+
+            let newName = versions.ToString().Replace("-", "_")
             let newName = $"V{newName}"
-            // public, and sealed
+            
             let modifiers =
                 SyntaxTokenList(
                     [| SyntaxFactory.Token(SyntaxKind.PublicKeyword)
-                       SyntaxFactory.Token(SyntaxKind.SealedKeyword) |]
+                       SyntaxFactory.Token(SyntaxKind.SealedKeyword)
+                       SyntaxFactory.Token(SyntaxKind.PartialKeyword) |]
                 )
 
-            fst x,
+            versions,
             (snd x)
                 .WithIdentifier(SyntaxFactory.Identifier(newName))
                 .AddBaseListTypes(baseList)
-                .WithModifiers(modifiers))
+                .WithModifiers(modifiers)
+                .AddAttributeLists(attrib))
+
 
 
     let generalProperties =
@@ -312,7 +294,7 @@ let generateClasses
         internalClasses
         |> Seq.map (fun x ->
             let c = snd x
-            let supportMethod = generateSupportVersionsMethod ((fst x), true)
+
             let protoDef = packet.Structure.[fst x]
 
             let param = [ (fst x), protoDef ]
@@ -322,31 +304,44 @@ let generateClasses
                 c.Members
                 |> Seq.where (fun p -> not (containsProperty p generalProperties))
                 |> Seq.toArray
-                |> Array.append [| supportMethod |]
                 |> Array.append members
 
             c.WithMembers(SyntaxList<MemberDeclarationSyntax> newMembers))
 
-    let supportMethod =
-        generateSupportVersions (internalClasses |> Seq.map (_.Identifier.Text))
 
     let members = generatorBase (generalPropertiesNames, packet)
 
     let membersWrap =
         generalProperties
         @ (internalClasses |> Seq.cast<MemberDeclarationSyntax> |> Seq.toList)
-        @ [ supportMethod ]
         @ members
 
     let modifiers =
         SyntaxFactory.TokenList(modifiers |> Seq.map (fun x -> SyntaxFactory.Token(x)) |> Seq.toArray)
-
+    
+    let packetPascalName = packet.PacketName.Substring("packet_".Length).Pascalize()
+    let stage = "PacketState.Play"
+    let direction = if direction = Direction.ToClient then "Clientbound" else "Serverbound"
+    let direction = "PacketDirection." + direction
+    let args = $"(\"{packetPascalName}\", {stage}, {direction})"
+    
+    let attrib =
+                SyntaxFactory.AttributeList(
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.Attribute(
+                            SyntaxFactory.ParseName("PacketInfo"),
+                            SyntaxFactory.ParseAttributeArgumentList(args)
+                        )
+                    )
+                )
+    
     let wrapper =
         SyntaxFactory
             .ClassDeclaration(SyntaxFactory.Identifier(name + "Packet"))
             .AddMembers(membersWrap |> Array.ofSeq)
             .WithModifiers(modifiers)
             .AddBaseListTypes(baseInterface)
+            .AddAttributeLists(attrib)
 
     [| wrapper |]
 
@@ -358,8 +353,7 @@ let private existsProp (cl: ClassDeclarationSyntax) =
 let private existsProperty (classes: ClassDeclarationSyntax array) = classes |> Array.exists existsProp
 
 let hideDuplicateCode (cl: ClassDeclarationSyntax, packet: Packet) : ClassDeclarationSyntax =
-    if packet.PacketName.Contains("use_item") then
-        Debugger.Break()
+    
 
     let internalClasses = ResizeArray()
 
