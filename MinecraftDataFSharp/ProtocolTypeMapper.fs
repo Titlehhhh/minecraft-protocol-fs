@@ -67,8 +67,7 @@ let generateVersionedTypeMap (protocols: ProtocolVersionEntry seq) =
 
     let nonNative =
         protocols
-        |> Seq.map (fun p -> (p.JsonProtocol["types"]).AsObject())
-        |> Seq.map (fun x -> x :> KeyValuePair<string, JsonNode> seq)
+        |> Seq.map (fun p -> (p.JsonProtocol["types"]).AsObject())        
         |> Seq.concat
         |> Seq.filter (fun x -> x.Value.GetValueKind() <> JsonValueKind.String)
         |> Seq.map _.Key

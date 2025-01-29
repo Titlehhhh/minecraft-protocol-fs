@@ -16,6 +16,40 @@ open Microsoft.CodeAnalysis
 
 let protocols = MinecraftDataParser.getPcProtocols
 
+let protocolVersions =
+    protocols
+    |> Seq.map (fun x ->
+        let versions =
+            if x.MaxVersion = x.MinVersion then
+                x.MinVersion
+            else
+                $"{x.MinVersion}_To_{x.MaxVersion}"
+
+        let versions = versions.Replace("-", "_").Replace(".", "_")
+        let versions = "V" + versions
+        $"{versions} = {x.ProtocolVersion}")
+    |> Seq.map (fun x ->
+        let parsed = SyntaxFactory.Identifier(x)
+        SyntaxFactory.EnumMemberDeclaration(parsed))
+    |> Seq.toArray
+
+
+let code =
+    SyntaxFactory
+        .EnumDeclaration(SyntaxFactory.Identifier("MinecraftVersion"))
+        .AddMembers(protocolVersions)
+        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+
+let ns =
+    SyntaxFactory
+        .NamespaceDeclaration(SyntaxFactory.ParseName("McProtoNet.Protocol"))
+        .AddMembers(code)
+        
+
+File.WriteAllText("MinecraftVersion.cs", ns.NormalizeWhitespace().ToFullString())
+
+
+
 
 type PacketProtocolMapping =
     { PacketName: string
@@ -79,7 +113,7 @@ for direction in [| "toClient"; "toServer" |] do
         save packets direction state
 
 for direction in [| "toClient"; "toServer" |] do
-    for state in [| "login"; "status"; "configuration"; "play";"handshaking" |] do
+    for state in [| "login"; "status"; "configuration"; "play"; "handshaking" |] do
         let idsSeq =
             protocols
             |> Seq.map (fun p -> generateIds p state direction)

@@ -28,7 +28,7 @@ let getPcProtocols =
     let dataPaths =
         Path.Combine(minecraftDataRootPath, "data", "dataPaths.json")
         |> File.ReadAllText
-        |> JsonObject.Parse
+        |> JsonObject.Parse       
     
     let dataPaths = dataPaths["pc"].AsObject()
 
