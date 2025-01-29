@@ -98,8 +98,6 @@ for direction in [| "toClient"; "toServer" |] do
         (let path = Path.Combine(path, "ids.txt")
          File.WriteAllLines(path, ids))
 
-        if state = "login" then
-            Debugger.Break()
 
         let name =
             if direction = "toServer" then

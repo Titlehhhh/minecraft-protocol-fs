@@ -1,6 +1,7 @@
 ﻿module MinecraftDataFSharp.ProtocolTypeMapper
 
 open System.Collections.Generic
+open System.Diagnostics
 open System.IO
 open System.Text.Json
 open System.Text.Json.Nodes
@@ -8,48 +9,87 @@ open Microsoft.FSharp.Core
 open MinecraftDataFSharp.Models
 open Models
 
-let generateVersionedTypeMap (protocols: ProtocolVersionEntry seq) =
-    let nonNativeTypes = HashSet()
-    
-    
-    let jsons = protocols |> Seq.map _.JsonProtocol["types"].AsObject() 
-    for proto in jsons do
-        proto
-        |> Seq.where (fun x -> x.Value.ToString() <> "native")
-        |> Seq.iter (fun x -> x.Key |> nonNativeTypes.Add |> ignore)
+type TypeMeta =
+    { Version: int
+      Name: string
+      Structure: JsonNode }
 
-    let protocols = protocols |> Seq.toArray
+let findRanges (input: TypeMeta array) =
+    let jsonObj = JsonObject()
 
-    let getType (json: JsonNode, typeName: string) : JsonNode =
-        match json.AsObject().TryGetPropertyValue(typeName) with
+    input
+    |> List.ofArray
+    |> List.fold
+        (fun acc current ->
+            match acc with
+            | [] ->
+                [ { Version = current.Version
+                    Name = current.Name
+                    Structure = current.Structure },
+                  current.Version,
+                  current.Version ]
+            | (lastObj, startVer, _) :: tail when JsonNode.DeepEquals(lastObj.Structure, current.Structure) ->
+                (lastObj, startVer, current.Version) :: tail
+            | _ ->
+                ({ Version = current.Version
+                   Name = current.Name
+                   Structure = current.Structure },
+                 current.Version,
+                 current.Version)
+                :: acc)
+        []
+    |> List.rev
+    |> List.iter (fun (obj, startVer, endVer) ->
+        let key =
+            if startVer = endVer then
+                startVer.ToString()
+            else
+                sprintf "%d-%d" startVer endVer
+
+        let value = obj.Structure.DeepClone()
+        jsonObj.Add(key, value))
+
+    jsonObj
+
+let toTypeMeta (entry: ProtocolVersionEntry, name: string) =
+    let types = entry.JsonProtocol["types"].AsObject()
+
+    let structure =
+        match types.TryGetPropertyValue(name) with
         | true, v -> v.DeepClone()
-        | _ -> JsonValue.Create("empty")
+        | false, _ -> JsonValue.Create("empty")
 
-    let verRangeToStr f t = if f = t then $"{f}" else $"{f}-{t}"
+    { Version = entry.ProtocolVersion
+      Name = name
+      Structure = structure }
+
+let generateVersionedTypeMap (protocols: ProtocolVersionEntry seq) =
+
+    let nonNative =
+        protocols
+        |> Seq.map (fun p -> (p.JsonProtocol["types"]).AsObject())
+        |> Seq.map (fun x -> x :> KeyValuePair<string, JsonNode> seq)
+        |> Seq.concat
+        |> Seq.filter (fun x -> x.Value.GetValueKind() <> JsonValueKind.String)
+        |> Seq.map _.Key
+        |> Set
+
     Directory.CreateDirectory("types") |> ignore
-    
-    for protoType in nonNativeTypes do
-        let mutable current = protocols[0]
-        let verTypesDict: JsonObject = JsonObject()
 
-        for i = 1 to protocols.Length - 1 do
-            let proto = protocols[i]
-            let typeFirst = getType (current.JsonProtocol["types"], protoType)
-            let typeSec = getType (proto.JsonProtocol["types"], protoType)
+    Directory.EnumerateFiles("types", "*.*", SearchOption.AllDirectories)
+    |> Seq.iter (fun f ->
+        try
+            File.Delete(f)
+        with _ ->
+            ())
 
-            if not (JsonObject.DeepEquals(typeFirst, typeSec)) then
-                let fromVer = current.ProtocolVersion
-                let toVer = protocols[i - 1].ProtocolVersion
-                let key = verRangeToStr fromVer toVer
-                verTypesDict.Add(key, typeFirst)
-                current <- proto
+    nonNative
+    |> Seq.iteri (fun i name ->
+        let ranges =
+            protocols
+            |> Seq.map (fun x -> toTypeMeta (x, name))
+            |> Seq.toArray
+            |> findRanges
 
-        let fromVer = current.ProtocolVersion
-        let toVer = (protocols |> Array.last).ProtocolVersion
-        let key = verRangeToStr fromVer toVer
-        verTypesDict.Add(key, getType (current.JsonProtocol["types"], protoType))
-
-        let path = Path.Combine("types", $"{protoType}.json")
-
-        let json = verTypesDict.ToJsonString(JsonSerializerOptions(WriteIndented = true))
-        File.WriteAllText(path, json)
+        let path = Path.Combine("types", name + $"_{i}.json")
+        File.WriteAllText(path, ranges.ToJsonString(JsonSerializerOptions(WriteIndented = true))))

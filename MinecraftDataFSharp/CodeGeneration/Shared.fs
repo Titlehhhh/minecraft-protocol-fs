@@ -375,7 +375,8 @@ let hideDuplicateCode (cl: ClassDeclarationSyntax, packet: Packet) : ClassDeclar
                     c.WithModifiers(
                         SyntaxFactory.TokenList(
                             SyntaxFactory.Token(SyntaxKind.InternalKeyword),
-                            SyntaxFactory.Token(SyntaxKind.SealedKeyword)
+                            SyntaxFactory.Token(SyntaxKind.SealedKeyword),
+                            SyntaxFactory.Token(SyntaxKind.PartialKeyword)
                         )
                     )
                     :> MemberDeclarationSyntax
