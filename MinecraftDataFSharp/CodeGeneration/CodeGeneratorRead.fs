@@ -68,6 +68,23 @@ let ReadDelegateMap =
           "string", "ReadDelegates.String"
           "pstring", "ReadDelegates.String" ]
 
+let ReadersMap =
+    Map
+        [ "u8", "ByteArrayReader"
+          "i8", "SByteArrayReader"
+          "varint", "VarIntArrayReader"
+          "varlong", "VarLongArrayReader"
+          "i32", "IntArrayReader"
+          "u32", "UIntArrayReader"
+          "i64", "LongArrayReader"
+          "u64", "ULongArrayReader"
+          "i16", "ShortArrayReader"
+          "u16", "UShortArrayReader"
+          "f32", "FloatArrayReader"
+          "f64", "DoubleArrayReader"
+          "string", "StringArrayReader"
+          "pstring", "StringArrayReader" ]
+
 
 
 let LengthFormatMap =
@@ -99,36 +116,39 @@ let generateReadInstruct (field: ProtodefContainerField) =
                 let r = generateInstruct op.Type (depth + 1)
                 let rName = $"r_{depth}"
                 let rParam = $"(ref MinecraftPrimitiveReader {rName})"
+
                 match ReadDelegateMap.TryFind(op.Type.ToString()) with
                 | Some x -> $"ReadOptional({x})"
                 | None -> $"ReadOptional({rParam} => {rName}.{r})"
             | :? ProtodefBuffer as b ->
-                let count = if isNull(b.Count) then "" else b.Count.ToString() 
+                let count = if isNull (b.Count) then "" else b.Count.ToString()
+
                 if b.Rest = true then
                     "ReadRestBuffer()"
+                else if String.IsNullOrWhiteSpace count then
+                    let length = LengthFormatMap[b.CountType.ToString()]
+                    $"ReadBuffer({length})"
                 else
-                    if String.IsNullOrWhiteSpace count then                        
-                        let length = LengthFormatMap[b.CountType.ToString()]
-                        $"ReadBuffer({length})"
-                    else
-                        $"ReadBuffer({count})"
+                    $"ReadBuffer({count})"
             | :? ProtodefArray as arr ->
-                
-                
-                
+
+
+
                 let typeSharp = arr.Type |> protodefTypeToCSharpType
                 let r = generateInstruct arr.Type (depth + 1)
                 let rName = $"r_{depth}"
                 let rParam = $"(ref MinecraftPrimitiveReader {rName})"
-                let count = if isNull(arr.Count) then "" else arr.Count.ToString() 
+                let count = if isNull arr.Count then "" else arr.Count.ToString()
+
                 let length =
                     if String.IsNullOrWhiteSpace count then
                         LengthFormatMap[arr.CountType.ToString()]
                     else
                         count
-
-                match ReadDelegateMap.TryFind(arr.Type.ToString()) with
-                | Some x -> $"ReadArray({length},{x})"
+                
+                
+                match ReadersMap.TryFind(arr.Type.ToString()) with
+                | Some x -> $"ReadArray<{typeSharp},{x}>({length})"
                 | None -> $"ReadArray({length},{rParam} => {rName}.{r})"
             | :? ProtodefCustomType as c -> failwith $"unknown custom type: {c.Name}"
             | _ -> failwith $"Unknown type {t}"
@@ -180,7 +200,9 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
             (generateClasses (
                 p,
                 Direction.ToClient,
-                [| SyntaxKind.PublicKeyword; SyntaxKind.AbstractKeyword; SyntaxKind.PartialKeyword |],
+                [| SyntaxKind.PublicKeyword
+                   SyntaxKind.AbstractKeyword
+                   SyntaxKind.PartialKeyword |],
                 "IServerPacket",
                 generateDeserializeMethod,
                 generateDeserializeMethodForBase
@@ -196,7 +218,7 @@ let generatePrimitive (packets: PacketMetadata list, folder: string) =
 
         let members = [| cl |]
 
-        let packetName = p.PacketName.Substring("packet_".Length).Pascalize()+"Packet"
+        let packetName = p.PacketName.Substring("packet_".Length).Pascalize() + "Packet"
 
         let filePath = Path.Combine("packets", folder, "generated", $"{packetName}.cs")
 

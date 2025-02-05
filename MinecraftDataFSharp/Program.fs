@@ -154,7 +154,7 @@ for direction in [| "toClient"; "toServer" |] do
                 let name = x.Pascalize()
                 let state = "PacketState." + state.Pascalize()
                 let direction = "PacketDirection." + direction
-                $"\tpublic static PacketIdentifier {name} => new ({i}, nameof({name}),{state},{direction});")
+                $"\tpublic static readonly PacketIdentifier {name} = new ({i}, nameof({name}),{state},{direction});")
             |> String.concat "\n"
 
         let className = if direction = "Serverbound" then "Client" else "Server"
@@ -164,6 +164,8 @@ for direction in [| "toClient"; "toServer" |] do
 
         let content =
             StringBuilder()
+                .AppendLine("namespace McProtoNet.Protocol;")
+                .AppendLine()
                 .AppendLine($"public static class {className}")
                 .AppendLine("{")
                 .AppendLine(content)
@@ -173,9 +175,9 @@ for direction in [| "toClient"; "toServer" |] do
 
 
 
-        let name = $"{name}.Generated{state.Pascalize()}.cs"
-
-        (let path = Path.Combine(path, name)
+        let name = $"{className}.cs"
+        Directory.CreateDirectory("PacketEnums") |> ignore
+        (let path = Path.Combine("PacketEnums", name)
          File.WriteAllText(path, content))
 
 
