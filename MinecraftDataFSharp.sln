@@ -4,13 +4,11 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MinecraftDataFSharp", "Mine
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{207C87D4-70A3-4EC9-BFBC-7D0768D3C480}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ProtcolCraftPorter", "ProtcolCraftPorter\ProtcolCraftPorter.fsproj", "{D2A41307-5929-45A4-B4DB-20D3CB185FBF}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Protodef", "Protodef\Protodef.csproj", "{FE2EE226-3B52-45A3-AE83-D5B1208F4A1A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SandBoxLib", "SandBoxLib\SandBoxLib.csproj", "{1CD94B39-60A0-4D13-9848-417CDD34AC7E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProtocolCraftLib", "ProtocolCraftLib\ProtocolCraftLib.csproj", "{76E150CA-7093-42ED-B3C4-473620FB71AE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Validator", "Validator\Validator.csproj", "{EBD43A8A-B924-472A-B514-6CDDA3219F86}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,10 +24,6 @@ Global
 		{207C87D4-70A3-4EC9-BFBC-7D0768D3C480}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{207C87D4-70A3-4EC9-BFBC-7D0768D3C480}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{207C87D4-70A3-4EC9-BFBC-7D0768D3C480}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D2A41307-5929-45A4-B4DB-20D3CB185FBF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D2A41307-5929-45A4-B4DB-20D3CB185FBF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D2A41307-5929-45A4-B4DB-20D3CB185FBF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D2A41307-5929-45A4-B4DB-20D3CB185FBF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{FE2EE226-3B52-45A3-AE83-D5B1208F4A1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{FE2EE226-3B52-45A3-AE83-D5B1208F4A1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FE2EE226-3B52-45A3-AE83-D5B1208F4A1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -38,9 +32,9 @@ Global
 		{1CD94B39-60A0-4D13-9848-417CDD34AC7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1CD94B39-60A0-4D13-9848-417CDD34AC7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1CD94B39-60A0-4D13-9848-417CDD34AC7E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{76E150CA-7093-42ED-B3C4-473620FB71AE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{76E150CA-7093-42ED-B3C4-473620FB71AE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{76E150CA-7093-42ED-B3C4-473620FB71AE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{76E150CA-7093-42ED-B3C4-473620FB71AE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EBD43A8A-B924-472A-B514-6CDDA3219F86}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EBD43A8A-B924-472A-B514-6CDDA3219F86}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EBD43A8A-B924-472A-B514-6CDDA3219F86}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EBD43A8A-B924-472A-B514-6CDDA3219F86}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

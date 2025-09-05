@@ -57,7 +57,6 @@ let generatePackets (protocols: ProtocolVersionEntry list) (side: string) (state
         |> Seq.map _.AsObject()
         |> Seq.map (fun x -> x |> Seq.map(_.Key))
         |> Seq.concat
-        |> Seq.filter(_.StartsWith("packet_"))
         |> HashSet
         
         

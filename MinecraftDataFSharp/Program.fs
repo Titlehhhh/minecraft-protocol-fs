@@ -110,6 +110,7 @@ for direction in [| "toClient"; "toServer" |] do
     for state in [| "login"; "status"; "configuration"; "handshaking" |] do
 
         let packets = JsonPacketGenerator.generatePackets protocols direction state
+        let packets = packets |> List.filter _.PacketName.StartsWith("packet_")
         save packets direction state
 
 for direction in [| "toClient"; "toServer" |] do
@@ -124,7 +125,7 @@ for direction in [| "toClient"; "toServer" |] do
             idsSeq
             |> Seq.map snd
             |> Seq.concat
-            |> Seq.map (fun p -> $"{{Combine({p.PacketName}, {p.ProtocolVersion}), {p.Identifier}}},")
+            |> Seq.map (fun p -> $"{{({p.PacketName}, {p.ProtocolVersion}), {p.Identifier}}},")
 
         let path = Path.Combine(state.Pascalize(), direction)
         Directory.CreateDirectory(path) |> ignore
@@ -221,7 +222,7 @@ let generate (side: string) =
 
         let filePath = Path.Combine("packets", side, folder, $"{packet.PacketName}.json")
         File.WriteAllText(filePath, packet.Structure.ToJsonString(JsonSerializerOptions(WriteIndented = true))))
-
+    let packets = packets |> List.filter _.PacketName.Contains("packet_")
     let primitivePackets = packets |> Seq.filter filterPrimitivePackets |> List.ofSeq
 
     if side = "toServer" then
