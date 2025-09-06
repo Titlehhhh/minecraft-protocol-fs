@@ -5,9 +5,9 @@ using Protodef.Converters;
 namespace Protodef;
 
 [JsonConverter(typeof(ProtodefTypeConverter))]
-public abstract class ProtodefType : IJsonOnDeserialized, ICloneable,
-    IEnumerable<KeyValuePair<string?, ProtodefType>>
+public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
 {
+    [JsonIgnore]
     public ProtodefType? Parent { get; set; }
 
 
@@ -15,10 +15,8 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable,
 
     public void OnDeserialized()
     {
-        using var enumerator = GetEnumerator();
-        while (enumerator.MoveNext())
+        foreach (var item in Children)
         {
-            var item = enumerator.Current;
             item.Value.Parent = this;
         }
     }
@@ -28,15 +26,9 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable,
         return null;
     }
 
-    public virtual IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
-    {
-        return System.Linq.Enumerable.Empty<KeyValuePair<string?, ProtodefType>>().GetEnumerator();
-    }
+    public virtual IEnumerable<KeyValuePair<string?, ProtodefType>> Children => [];
 
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
-    }
+    
 }
 
 public sealed class PassableType : ProtodefType

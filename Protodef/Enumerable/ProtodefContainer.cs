@@ -23,7 +23,7 @@ public sealed class ProtodefContainer : ProtodefType
             Fields.Add(fieldClone);
         }
     }
-   
+
 
     public ProtodefType this[string name]
     {
@@ -44,9 +44,6 @@ public sealed class ProtodefContainer : ProtodefType
         return new ProtodefContainer(this);
     }
 
-    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
-    {
-        foreach (var item in Fields)
-            yield return new KeyValuePair<string?, ProtodefType>(item.Name, item.Type);
-    }
+    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children =>
+        Fields.Select(f => new KeyValuePair<string?, ProtodefType>(f.Name, f.Type));
 }

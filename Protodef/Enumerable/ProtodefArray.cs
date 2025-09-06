@@ -11,11 +11,14 @@ public sealed class ProtodefArray : ProtodefType
 
     [JsonPropertyName("count")] public object? Count { get; set; }
 
-    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
+    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
     {
-        yield return new KeyValuePair<string?, ProtodefType>("type", Type);
-        if (CountType is not null)
-            yield return new KeyValuePair<string?, ProtodefType>("countType", CountType);
+        get
+        {
+            yield return new KeyValuePair<string?, ProtodefType>("type", Type);
+            if (CountType is not null)
+                yield return new KeyValuePair<string?, ProtodefType>("countType", CountType);
+        }
     }
 
     public override string? GetNetType()

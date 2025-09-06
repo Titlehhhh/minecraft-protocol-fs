@@ -5,6 +5,38 @@ using Protodef.Primitive;
 
 namespace Protodef.Converters;
 
+public static class ProtodefNames
+{
+    public const string Container = "container";
+    public const string BitField = "bitfield";
+    public const string Buffer = "buffer";
+    public const string Mapper = "mapper";
+    public const string Array = "array";
+    public const string Option = "option";
+    public const string PString = "pstring";
+    public const string Switch = "switch";
+    public const string TopBitSetTerminatedArray = "topBitSetTerminatedArray";
+    public const string VarInt = "varint";
+    public const string VarLong = "varlong";
+    public const string Void = "void";
+    public const string String = "string";
+    public const string Bool = "bool";
+    public const string Native = "native";
+
+    #region Numbers
+    public const string UInt8 = "uint8";
+    public const string Int8 = "int8";
+    public const string UInt16 = "uint16";
+    public const string Int16 = "int16";
+    public const string UInt32 = "uint32";
+    public const string Int32 = "int32";
+    public const string UInt64 = "uint64";
+    public const string Int64 = "int64";
+    public const string Float32 = "float32";
+    public const string Float64 = "float64";
+    #endregion
+}
+
 public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
 {
     public override ProtodefType? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
@@ -36,7 +68,7 @@ public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
 
             //else
             reader.Read();
-            
+
             try
             {
                 var result = name switch
@@ -55,7 +87,7 @@ public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
                         ref reader, options),
                     _ => ReadUnknownType(ref reader, options, name)
                 };
-                
+
                 reader.Read();
                 //while (reader.Read()) ;
                 result.OnDeserialized();
@@ -63,10 +95,10 @@ public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
             }
             catch (Exception ex)
             {
-                Console.WriteLine("name: " + name);
-                Console.WriteLine("Error deserialize: " + ex);
-                Console.WriteLine();
-                throw;
+                throw new JsonException(
+                    $"Failed to deserialize type '{name}' at token index {reader.TokenStartIndex}, bytes consumed: {reader.BytesConsumed}, json: {reader.TokenType}",
+                    ex
+                );
             }
         }
 

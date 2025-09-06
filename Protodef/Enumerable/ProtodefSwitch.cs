@@ -13,12 +13,16 @@ public class ProtodefSwitch : ProtodefType
 
     [JsonPropertyName("default")] public ProtodefType? Default { get; set; }
 
-    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
+   
+    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
     {
-        foreach (var item in Fields) 
-            yield return new KeyValuePair<string?, ProtodefType>(item.Key, item.Value);
-        if (Default is not null)
-            yield return new KeyValuePair<string?, ProtodefType>("default", Default);
+        get
+        {
+            foreach (var item in Fields)
+                yield return new KeyValuePair<string?, ProtodefType>(item.Key, item.Value);
+            if (Default is not null)
+                yield return new KeyValuePair<string?, ProtodefType>("default", Default);
+        }
     }
 
     public override object Clone()

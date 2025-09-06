@@ -1,6 +1,7 @@
 ﻿using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Protodef.Converters;
 
 namespace Protodef;
 
@@ -58,19 +59,35 @@ public class ProtodefProtocol : ProtodefType
         }
     }
 
+    private static JsonSerializerOptions DefaultOptions { get; } = new JsonSerializerOptions()
+    {
+        Converters = { new ProtodefTypeConverter() },
+        ReadCommentHandling = JsonCommentHandling.Skip
+    };
+
     public static ProtodefProtocol Deserialize(string json)
     {
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        Dictionary<string, ProtodefType> types = null;
+        Dictionary<string, ProtodefType> types = new();
         Dictionary<string, ProtodefNamespace> namespaces = new();
 
         foreach (var item in root.EnumerateObject())
         {
             if (item.Name == "types")
             {
-                types = item.Value.Deserialize<Dictionary<string, ProtodefType>>();
+                foreach (var prop in item.Value.EnumerateObject())
+                {
+                    try
+                    {
+                        types[prop.Name] = prop.Value.Deserialize<ProtodefType>(DefaultOptions)!;
+                    }
+                    catch (Exception e)
+                    {
+                        throw new JsonException($"Failed to deserialize type '{prop.Name}'", e);
+                    }
+                }
             }
             else
             {
@@ -78,11 +95,13 @@ public class ProtodefProtocol : ProtodefType
                 namespaces[item.Name] = namespaceObj;
             }
         }
+
         var protocol = new ProtodefProtocol(types, namespaces);
         foreach (var item in namespaces)
         {
             item.Value.Parent = protocol;
         }
+
         foreach (var item in types)
         {
             item.Value.Parent = protocol;
@@ -100,7 +119,7 @@ public class ProtodefProtocol : ProtodefType
             {
                 if (item.NameEquals("types"))
                 {
-                    types = item.Value.Deserialize<Dictionary<string, ProtodefType>>();
+                    types = item.Value.Deserialize<Dictionary<string, ProtodefType>>(DefaultOptions);
                     break;
                 }
 

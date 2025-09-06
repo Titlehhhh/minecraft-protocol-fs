@@ -23,9 +23,9 @@ public sealed class ProtodefContainerField : ProtodefType
     [JsonIgnore] public bool IsPass { get; set; }
     [JsonIgnore] public bool IsAnon => Anon == true;
 
-    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
+    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
     {
-        yield return new KeyValuePair<string?, ProtodefType>("type", Type);
+        get { yield return new KeyValuePair<string?, ProtodefType>("type", Type); }
     }
 
     public override object Clone()

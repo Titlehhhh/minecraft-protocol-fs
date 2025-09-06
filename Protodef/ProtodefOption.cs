@@ -10,10 +10,14 @@ public sealed class ProtodefOption : ProtodefType
 
     public ProtodefType Type { get; }
 
-    public IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
+    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
     {
-        yield return new KeyValuePair<string?, ProtodefType>("type", Type);
+        get
+        {
+            yield return new KeyValuePair<string?, ProtodefType>("type", Type);
+        }
     }
+
 
     public override object Clone()
     {

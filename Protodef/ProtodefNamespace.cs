@@ -6,10 +6,10 @@ public sealed class ProtodefNamespace : ProtodefType
 {
     public Dictionary<string, ProtodefType> Types { get; set; } = new();
 
-    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
-    {
-        return Types.GetEnumerator();
-    }
+    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
+        => Types.Select(x 
+            => new KeyValuePair<string?, ProtodefType>(x.Key, x.Value));
+
     public override object Clone()
     {
         var owner = new ProtodefNamespace

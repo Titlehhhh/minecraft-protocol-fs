@@ -14,9 +14,12 @@ public sealed class ProtodefLoop : ProtodefType
         set => _type = value ?? throw new ArgumentNullException("value");
     }
 
-    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
+    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
     {
-        yield return new KeyValuePair<string?, ProtodefType>("type", Type);
+        get
+        {
+            yield return new KeyValuePair<string?, ProtodefType>("type", Type);
+        }
     }
 
     public override object Clone()

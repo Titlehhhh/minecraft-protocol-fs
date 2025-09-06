@@ -2,7 +2,7 @@
 
 namespace Protodef;
 
-public sealed class ProtodefBitField : ProtodefType, IEnumerable<ProtodefBitFieldNode>, IEnumerable
+public sealed class ProtodefBitField : ProtodefType, IEnumerable<ProtodefBitFieldNode>
 {
     //public override string TypeName => "Bitfield";
     private readonly List<ProtodefBitFieldNode> nodes = new();

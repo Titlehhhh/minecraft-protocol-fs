@@ -4,6 +4,18 @@ namespace Protodef.Enumerable;
 
 public sealed class ProtodefBuffer : ProtodefType
 {
+    [JsonConstructor]
+    public ProtodefBuffer(ProtodefType? countType, object? count, bool? rest)
+    {
+        CountType = countType;
+        Count = count;
+        Rest = rest;
+    }
+
+    public ProtodefBuffer()
+    {
+    }
+
     [JsonPropertyName("countType")] public ProtodefType? CountType { get; set; }
 
     [JsonPropertyName("count")] public object? Count { get; set; }
@@ -15,12 +27,14 @@ public sealed class ProtodefBuffer : ProtodefType
         return "byte[]";
     }
 
-    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
+    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
     {
-        if (CountType is not null)
-            yield return new KeyValuePair<string?, ProtodefType>("countType", CountType);
+        get
+        {
+            if (CountType is not null)
+                yield return new KeyValuePair<string?, ProtodefType>("countType", CountType);
+        }
     }
-
 
     public override object Clone()
     {
