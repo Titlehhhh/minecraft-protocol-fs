@@ -2,7 +2,7 @@
 
 namespace Protodef.Enumerable;
 
-public sealed class ProtodefArray : ProtodefType, IPathTypeEnumerable
+public sealed class ProtodefArray : ProtodefType
 {
     [JsonPropertyName("type")] public ProtodefType Type { get; set; }
 
@@ -11,10 +11,11 @@ public sealed class ProtodefArray : ProtodefType, IPathTypeEnumerable
 
     [JsonPropertyName("count")] public object? Count { get; set; }
 
-    public IEnumerator<KeyValuePair<string, ProtodefType>> GetEnumerator()
+    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
     {
-        if (Type is IPathTypeEnumerable)
-            yield return new KeyValuePair<string, ProtodefType>("type", Type);
+        yield return new KeyValuePair<string?, ProtodefType>("type", Type);
+        if (CountType is not null)
+            yield return new KeyValuePair<string?, ProtodefType>("countType", CountType);
     }
 
     public override string? GetNetType()

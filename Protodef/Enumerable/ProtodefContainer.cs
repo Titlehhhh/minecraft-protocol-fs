@@ -2,7 +2,7 @@
 
 namespace Protodef.Enumerable;
 
-public sealed class ProtodefContainer : ProtodefType, IPathTypeEnumerable
+public sealed class ProtodefContainer : ProtodefType
 {
     public List<ProtodefContainerField> Fields { get; set; } = new();
 
@@ -23,36 +23,7 @@ public sealed class ProtodefContainer : ProtodefType, IPathTypeEnumerable
             Fields.Add(fieldClone);
         }
     }
-
-
-    public override void OnDeserialized()
-    {
-        foreach (var field in Fields)
-        {
-            field.Parent = this;
-            field.Type.Parent = field;
-        }
-    }
-
-    IEnumerator<KeyValuePair<string, ProtodefType>> IPathTypeEnumerable.GetEnumerator()
-    {
-        throw new NotImplementedException();
-        // var id = 0;
-        //
-        //
-        // foreach (var item in fields)
-        // {
-        //     id++;
-        //
-        //     var name = string.IsNullOrEmpty(item.Name) ? $"anon_{id}" : item.Name;
-        //
-        //     yield return new KeyValuePair<string, ProtodefType>(name, item.Type);
-        // }
-    }
-
-    public void SetPassable(string name)
-    {
-    }
+   
 
     public ProtodefType this[string name]
     {
@@ -71,5 +42,11 @@ public sealed class ProtodefContainer : ProtodefType, IPathTypeEnumerable
     public override object Clone()
     {
         return new ProtodefContainer(this);
+    }
+
+    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
+    {
+        foreach (var item in Fields)
+            yield return new KeyValuePair<string?, ProtodefType>(item.Name, item.Type);
     }
 }

@@ -2,20 +2,14 @@
 
 namespace Protodef;
 
-public sealed class ProtodefNamespace : ProtodefType, IEnumerable<KeyValuePair<string, ProtodefType>>
+public sealed class ProtodefNamespace : ProtodefType
 {
     public Dictionary<string, ProtodefType> Types { get; set; } = new();
 
-    public IEnumerator<KeyValuePair<string, ProtodefType>> GetEnumerator()
+    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
     {
         return Types.GetEnumerator();
     }
-
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return Types.GetEnumerator();
-    }
-
     public override object Clone()
     {
         var owner = new ProtodefNamespace

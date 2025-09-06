@@ -15,11 +15,18 @@ public sealed class ProtodefBuffer : ProtodefType
         return "byte[]";
     }
 
+    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
+    {
+        if (CountType is not null)
+            yield return new KeyValuePair<string?, ProtodefType>("countType", CountType);
+    }
+
+
     public override object Clone()
     {
         var owner = new ProtodefBuffer
         {
-            CountType = (ProtodefType?)CountType?.Clone() ,
+            CountType = (ProtodefType?)CountType?.Clone(),
             Count = Count,
             Rest = Rest
         };

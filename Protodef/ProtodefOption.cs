@@ -1,6 +1,6 @@
 ﻿namespace Protodef;
 
-public sealed class ProtodefOption : ProtodefType, IPathTypeEnumerable
+public sealed class ProtodefOption : ProtodefType
 {
     public ProtodefOption(ProtodefType type)
     {
@@ -10,10 +10,9 @@ public sealed class ProtodefOption : ProtodefType, IPathTypeEnumerable
 
     public ProtodefType Type { get; }
 
-    public IEnumerator<KeyValuePair<string, ProtodefType>> GetEnumerator()
+    public IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
     {
-        if (Type is IPathTypeEnumerable)
-            yield return new KeyValuePair<string, ProtodefType>("type", Type);
+        yield return new KeyValuePair<string?, ProtodefType>("type", Type);
     }
 
     public override object Clone()

@@ -23,7 +23,7 @@ let packetMetadataToProtodefPacket (packet: PacketMetadata) =
     let dict = Dictionary<VersionRange, ProtodefContainer>()
     let options = JsonSerializerOptions()
 
-    options.Converters.Add(DataTypeConverter())
+    options.Converters.Add(ProtodefTypeConverter())
 
     packet.Structure
     |> Seq.filter (fun x -> x.Value.GetValueKind() <> JsonValueKind.String)

@@ -4,12 +4,12 @@ using System.Text.Json.Serialization;
 
 namespace Protodef;
 
-public class ProtodefProtocol : IJsonOnDeserialized, ICloneable
+public class ProtodefProtocol : ProtodefType
 {
-    [JsonConstructor]
-    public ProtodefProtocol()
+    public ProtodefProtocol(Dictionary<string, ProtodefType> types, Dictionary<string, ProtodefNamespace> namespaces)
     {
-        Namespaces = new Dictionary<string, ProtodefNamespace>();
+        Types = types;
+        Namespaces = namespaces;
     }
 
     private ProtodefProtocol(ProtodefProtocol other)
@@ -23,14 +23,11 @@ public class ProtodefProtocol : IJsonOnDeserialized, ICloneable
             .ToDictionary();
     }
 
-    [JsonPropertyName("types")] public Dictionary<string, ProtodefType> Types { get; set; }
+    public Dictionary<string, ProtodefType> Types { get; set; }
 
-    [JsonExtensionData]
-    public IDictionary<string, JsonElement> AdditionalData { get; set; } = new Dictionary<string, JsonElement>();
+    public Dictionary<string, ProtodefNamespace> Namespaces { get; }
 
-    [JsonIgnore] public Dictionary<string, ProtodefNamespace> Namespaces { get; }
-
-    public object Clone()
+    public override object Clone()
     {
         return new ProtodefProtocol(this);
     }
@@ -61,21 +58,40 @@ public class ProtodefProtocol : IJsonOnDeserialized, ICloneable
         }
     }
 
-    public void OnDeserialized()
+    public static ProtodefProtocol Deserialize(string json)
     {
-        foreach (var (key, value) in AdditionalData)
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        Dictionary<string, ProtodefType> types = null;
+        Dictionary<string, ProtodefNamespace> namespaces = new();
+
+        foreach (var item in root.EnumerateObject())
         {
-            var namespaceObj = ParseNamespace(value);
-            Namespaces[key] = namespaceObj;
+            if (item.Name == "types")
+            {
+                types = item.Value.Deserialize<Dictionary<string, ProtodefType>>();
+            }
+            else
+            {
+                var namespaceObj = ParseNamespace(item.Value);
+                namespaces[item.Name] = namespaceObj;
+            }
         }
+        var protocol = new ProtodefProtocol(types, namespaces);
+        foreach (var item in namespaces)
+        {
+            item.Value.Parent = protocol;
+        }
+        foreach (var item in types)
+        {
+            item.Value.Parent = protocol;
+        }
+
+        return protocol;
     }
 
-    public void GetObjectData(SerializationInfo info, StreamingContext context)
-    {
-        Console.WriteLine("GetObjectData");
-    }
-
-    private ProtodefNamespace ParseNamespace(JsonElement element)
+    private static ProtodefNamespace ParseNamespace(JsonElement element)
     {
         if (element.ValueKind == JsonValueKind.Object)
         {

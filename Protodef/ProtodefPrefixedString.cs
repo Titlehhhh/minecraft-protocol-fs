@@ -35,6 +35,11 @@ public sealed class ProtodefPrefixedString : ProtodefType
         return ReferenceEquals(this, obj) || (obj is ProtodefPrefixedString other && Equals(other));
     }
 
+    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
+    {
+        yield return new KeyValuePair<string?, ProtodefType>("countType", CountType);
+    }
+
     public override int GetHashCode()
     {
         return CountType.GetHashCode();

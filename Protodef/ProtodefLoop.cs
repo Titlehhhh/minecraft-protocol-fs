@@ -2,7 +2,7 @@
 
 namespace Protodef;
 
-public sealed class ProtodefLoop : ProtodefType, IPathTypeEnumerable
+public sealed class ProtodefLoop : ProtodefType
 {
     private ProtodefType _type;
     [JsonPropertyName("endVal")] public uint EndValue { get; set; }
@@ -14,10 +14,9 @@ public sealed class ProtodefLoop : ProtodefType, IPathTypeEnumerable
         set => _type = value ?? throw new ArgumentNullException("value");
     }
 
-    public IEnumerator<KeyValuePair<string, ProtodefType>> GetEnumerator()
+    public override IEnumerator<KeyValuePair<string?, ProtodefType>> GetEnumerator()
     {
-        if (Type is IPathTypeEnumerable)
-            yield return new KeyValuePair<string, ProtodefType>("type", Type);
+        yield return new KeyValuePair<string?, ProtodefType>("type", Type);
     }
 
     public override object Clone()

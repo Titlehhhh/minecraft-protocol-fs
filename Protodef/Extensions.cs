@@ -22,7 +22,7 @@ public static class Extensions
     public static bool IsPrimitive(JsonObject jsonObject)
     {
         JsonSerializerOptions options = new();
-        options.Converters.Add(new DataTypeConverter());
+        options.Converters.Add(new ProtodefTypeConverter());
         options.NumberHandling = JsonNumberHandling.AllowReadingFromString;
         foreach (var (key, value) in jsonObject)
         {

@@ -5,7 +5,7 @@ using Protodef.Primitive;
 
 namespace Protodef.Converters;
 
-public sealed class DataTypeConverter : JsonConverter<ProtodefType>
+public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
 {
     public override ProtodefType? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
@@ -36,6 +36,7 @@ public sealed class DataTypeConverter : JsonConverter<ProtodefType>
 
             //else
             reader.Read();
+            
             try
             {
                 var result = name switch
@@ -54,6 +55,7 @@ public sealed class DataTypeConverter : JsonConverter<ProtodefType>
                         ref reader, options),
                     _ => ReadUnknownType(ref reader, options, name)
                 };
+                
                 reader.Read();
                 //while (reader.Read()) ;
                 result.OnDeserialized();
@@ -63,6 +65,7 @@ public sealed class DataTypeConverter : JsonConverter<ProtodefType>
             {
                 Console.WriteLine("name: " + name);
                 Console.WriteLine("Error deserialize: " + ex);
+                Console.WriteLine();
                 throw;
             }
         }
