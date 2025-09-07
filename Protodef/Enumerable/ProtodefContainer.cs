@@ -19,7 +19,7 @@ public sealed class ProtodefContainer : ProtodefType
         foreach (var field in other.Fields)
         {
             var fieldClone = (ProtodefContainerField)field.Clone();
-            fieldClone.Parent = this;
+            //fieldClone.Parent = this;
             Fields.Add(fieldClone);
         }
     }

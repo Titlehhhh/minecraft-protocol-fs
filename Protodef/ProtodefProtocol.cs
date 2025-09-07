@@ -1,6 +1,7 @@
 ﻿using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Protodef;
 using Protodef.Converters;
 
 namespace Protodef;
@@ -99,15 +100,31 @@ public class ProtodefProtocol : ProtodefType
         var protocol = new ProtodefProtocol(types, namespaces);
         foreach (var item in namespaces)
         {
+            item.Value.ParentName = item.Key;
             item.Value.Parent = protocol;
+            item.Value.OnDeserialized();
         }
 
         foreach (var item in types)
         {
+            item.Value.ParentName = item.Key;
             item.Value.Parent = protocol;
+            item.Value.OnDeserialized();
         }
 
+        FixParents(protocol);
         return protocol;
+    }
+
+    private static void FixParents(ProtodefType root)
+    {
+        foreach (var item in root.Children)
+        {
+            var child = item.Value;
+            child.Parent = root;
+            child.ParentName = item.Key;
+            FixParents(child);
+        }
     }
 
     private static ProtodefNamespace ParseNamespace(JsonElement element)
@@ -125,11 +142,57 @@ public class ProtodefProtocol : ProtodefType
 
                 var namespaceObj = ParseNamespace(item.Value);
                 types[item.Name] = namespaceObj;
+                namespaceObj.OnDeserialized();
             }
 
             return new ProtodefNamespace { Types = types };
         }
 
         throw new JsonException("Invalid namespace format.");
+    }
+
+    public IEnumerable<FullnameNamespace> EnumerateNamespaces()
+    {
+        foreach (var kv in Namespaces)
+        {
+            string rootName = kv.Key;
+            foreach (var ns in EnumerateNamespaces(rootName, kv.Value))
+                yield return ns;
+        }
+    }
+
+
+    private IEnumerable<FullnameNamespace> EnumerateNamespaces(string prefix, ProtodefNamespace ns)
+    {
+        foreach (var childKv in ns.Types)
+        {
+            if (childKv.Value is ProtodefNamespace childNs)
+            {
+                string childFull = string.IsNullOrEmpty(prefix) ? childKv.Key : $"{prefix}.{childKv.Key}";
+                foreach (var sub in EnumerateNamespaces(childFull, childNs))
+                    yield return sub;
+            }
+        }
+
+        var concreteTypes = ns.Types
+            .Where(kv => !(kv.Value is ProtodefNamespace))
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        if (concreteTypes.Count > 0)
+        {
+            yield return new FullnameNamespace(prefix, concreteTypes);
+        }
+    }
+}
+
+public struct FullnameNamespace
+{
+    public string Fullname { get; }
+    public Dictionary<string, ProtodefType> Types { get; }
+
+    public FullnameNamespace(string fullName, Dictionary<string, ProtodefType> types)
+    {
+        Fullname = fullName;
+        Types = types;
     }
 }

@@ -9,6 +9,9 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
 {
     [JsonIgnore]
     public ProtodefType? Parent { get; set; }
+    
+    [JsonIgnore]
+    public string? ParentName { get; set; }
 
 
     public abstract object Clone();
@@ -18,6 +21,7 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
         foreach (var item in Children)
         {
             item.Value.Parent = this;
+            item.Value.ParentName = item.Key;
         }
     }
 
@@ -26,6 +30,7 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
         return null;
     }
 
+    [JsonIgnore]
     public virtual IEnumerable<KeyValuePair<string?, ProtodefType>> Children => [];
 
     
