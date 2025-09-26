@@ -24,6 +24,21 @@ public class ProtodefSwitch : ProtodefType
                 yield return new KeyValuePair<string?, ProtodefType>("default", Default);
         }
     }
+    
+    private bool Equals(ProtodefSwitch other)
+    {
+        return CompareTo == other.CompareTo && CompareToValue == other.CompareToValue && Fields == other.Fields && Default == other.Default;
+    }
+    
+    public override bool Equals(object? obj)
+    {
+        if (obj is not ProtodefSwitch other)
+        {
+            return false;
+        }
+
+        return Equals(other);
+    }
 
     public override object Clone()
     {

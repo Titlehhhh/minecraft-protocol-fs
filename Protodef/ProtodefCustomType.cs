@@ -18,4 +18,14 @@ public sealed class ProtodefCustomType : ProtodefType
     {
         return new ProtodefCustomType(Name);
     }
+    
+    public override bool Equals(object? obj)
+    {
+        if (obj is not ProtodefCustomType other)
+        {
+            return false;
+        }
+
+        return Name == other.Name;
+    }
 }

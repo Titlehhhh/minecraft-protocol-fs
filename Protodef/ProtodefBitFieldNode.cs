@@ -24,4 +24,14 @@ public sealed class ProtodefBitFieldNode : ICloneable
     {
         return $"name: {Name} size: {Size} signed: {Signed}";
     }
+    
+    public override bool Equals(object? obj)
+    {
+        if (obj is not ProtodefBitFieldNode other)
+        {
+            return false;
+        }
+
+        return Name == other.Name && Size == other.Size && Signed == other.Signed;
+    }
 }

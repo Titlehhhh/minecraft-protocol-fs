@@ -22,7 +22,7 @@ public sealed class ProtodefBool : ProtodefType
 
     public override bool Equals(object? obj)
     {
-        return ReferenceEquals(this, obj) || obj is ProtodefBool other;
+        return ReferenceEquals(this, obj) || obj is ProtodefBool;
     }
 
     public override int GetHashCode()

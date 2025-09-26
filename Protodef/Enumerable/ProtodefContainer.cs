@@ -43,6 +43,24 @@ public sealed class ProtodefContainer : ProtodefType
     {
         return new ProtodefContainer(this);
     }
+    
+    
+    public override bool Equals(object? obj)
+    {
+        if (obj is not ProtodefContainer other)
+        {
+            return false;
+        }
+
+        return Fields == other.Fields;
+    }
+
+    private bool Equals(ProtodefContainer other)
+    {
+        return Fields.Equals(other.Fields);
+    }
+
+    
 
     public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children =>
         Fields.Select(f => new KeyValuePair<string?, ProtodefType>(f.Name, f.Type));

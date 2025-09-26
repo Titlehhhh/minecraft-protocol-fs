@@ -25,4 +25,14 @@ public sealed class ProtodefContainerField
         clone.Type.Parent = null; // или назначишь позже в OnDeserialized
         return clone;
     }
+    
+    public override bool Equals(object? obj)
+    {
+        if (obj is not ProtodefContainerField other)
+        {
+            return false;
+        }
+
+        return Anon == other.Anon && Name == other.Name && Type.Equals(other.Type);
+    }
 }

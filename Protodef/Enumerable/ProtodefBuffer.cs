@@ -47,4 +47,14 @@ public sealed class ProtodefBuffer : ProtodefType
         if (owner.CountType is not null) owner.CountType.Parent = owner;
         return owner;
     }
+    
+    public override bool Equals(object? obj)
+    {
+        if (obj is not ProtodefBuffer other)
+        {
+            return false;
+        }
+
+        return CountType == other.CountType && Count == other.Count && Rest == other.Rest;
+    }
 }

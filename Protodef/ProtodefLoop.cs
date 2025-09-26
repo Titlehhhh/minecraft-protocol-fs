@@ -32,4 +32,14 @@ public sealed class ProtodefLoop : ProtodefType
         owner.Type.Parent = owner;
         return owner;
     }
+    
+    public override bool Equals(object? obj)
+    {
+        if (obj is not ProtodefLoop other)
+        {
+            return false;
+        }
+
+        return EndValue == other.EndValue && Type.Equals(other.Type);
+    }
 }

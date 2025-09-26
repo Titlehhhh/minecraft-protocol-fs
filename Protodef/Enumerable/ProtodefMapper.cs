@@ -25,4 +25,27 @@ public sealed class ProtodefMapper : ProtodefType
     {
         return new ProtodefMapper(this);
     }
+    
+    public override bool Equals(object? obj)
+    {
+        if (obj is not ProtodefMapper other)
+        {
+            return false;
+        }
+
+        return Equals(other);
+    }
+    private bool EqualsDictionary(Dictionary<string, string> a, Dictionary<string, string> b)
+    {
+        if (a.Count != b.Count) return false;
+        foreach (var item in a)
+        {
+            if (!b.TryGetValue(item.Key, out var value) || value != item.Value) return false;
+        }
+        return true;
+    }
+    private bool Equals(ProtodefMapper other)
+    {
+        return Type == other.Type && EqualsDictionary(Mappings, other.Mappings);
+    }
 }

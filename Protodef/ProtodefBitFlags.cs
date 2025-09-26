@@ -24,4 +24,14 @@ public sealed class ProtodefBitFlags : ProtodefType
     {
         return new ProtodefBitFlags(Type, Flags, Big, Shift);
     }
+    
+    public override bool Equals(object? obj)
+    {
+        if (obj is not ProtodefBitFlags other)
+        {
+            return false;
+        }
+
+        return Type == other.Type && Flags.SequenceEqual(other.Flags) && Big == other.Big && Shift == other.Shift;
+    }
 }

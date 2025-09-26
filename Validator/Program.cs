@@ -1,7 +1,8 @@
-﻿using System.Text.Json;
+﻿using System.Numerics;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
+using Humanizer;
 using Protodef;
-using Protodef.Converters;
-using Protodef.Enumerable;
 
 namespace Validator;
 
@@ -12,6 +13,8 @@ class Program
         var protocol = ProtodefProtocol.Deserialize(File.ReadAllText(
             "C:\\Users\\Title\\RiderProjects\\MinecraftDataFSharp\\minecraft-data\\data\\pc\\1.12.2\\protocol.json"));
 
+        
+        
         foreach (var ns in protocol.EnumerateNamespaces())
         {
             Console.WriteLine(ns.Fullname);

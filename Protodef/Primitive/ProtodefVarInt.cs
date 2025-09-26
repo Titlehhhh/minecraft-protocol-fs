@@ -21,7 +21,7 @@ public sealed class ProtodefVarInt : ProtodefType
 
     public override bool Equals(object? obj)
     {
-        return ReferenceEquals(this, obj) || obj is ProtodefString;
+        return ReferenceEquals(this, obj) || obj is ProtodefVarInt;
     }
 
     public override int GetHashCode()

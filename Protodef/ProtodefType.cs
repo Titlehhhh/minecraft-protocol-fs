@@ -34,6 +34,19 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
     public virtual IEnumerable<KeyValuePair<string?, ProtodefType>> Children => [];
 
     
+    public static bool operator ==(ProtodefType? a, ProtodefType? b)
+    {
+        if (a is null && b is null) return true;
+        if (a is null || b is null) return false;
+        if (a.GetType() != b.GetType()) return false;
+
+        return a.Equals(b);
+    }
+    
+    public static bool operator !=(ProtodefType? a, ProtodefType? b)
+    {
+        return !(a == b);
+    }
 }
 
 public sealed class PassableType : ProtodefType
