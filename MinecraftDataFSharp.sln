@@ -10,6 +10,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SandBoxLib", "SandBoxLib\Sa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Validator", "Validator\Validator.csproj", "{EBD43A8A-B924-472A-B514-6CDDA3219F86}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinecraftData", "MinecraftData\MinecraftData.csproj", "{86621825-651D-4909-A8B4-A0B1F4614733}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionItems", "SolutionItems", "{84AE276B-AEDF-4222-BA64-0C324E832252}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,5 +43,9 @@ Global
 		{EBD43A8A-B924-472A-B514-6CDDA3219F86}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EBD43A8A-B924-472A-B514-6CDDA3219F86}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EBD43A8A-B924-472A-B514-6CDDA3219F86}.Release|Any CPU.Build.0 = Release|Any CPU
+		{86621825-651D-4909-A8B4-A0B1F4614733}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{86621825-651D-4909-A8B4-A0B1F4614733}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{86621825-651D-4909-A8B4-A0B1F4614733}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{86621825-651D-4909-A8B4-A0B1F4614733}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

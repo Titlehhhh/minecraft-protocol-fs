@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <MinecraftDataDir>$(SolutionDir)minecraft-data\data</MinecraftDataDir>    
+    <GeneratedConstantsDir>$(SolutionDir)Generated\Constants</GeneratedConstantsDir>
+  </PropertyGroup>
+
+   
+</Project>
