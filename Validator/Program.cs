@@ -1,11 +1,12 @@
-﻿using System.Numerics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Humanizer;
 using MinecraftData;
 using Protodef;
+using Protodef.Enumerable;
 using TruePath;
 using TruePath.SystemIo;
 
@@ -19,7 +20,8 @@ class Program
 
         const int minVersion = 735; //1.16
         const int maxVersion = 772; //1.21.8
-        
+
+        ProtocolMap protocolMap = new();
         foreach (var item in dict)
         {
             var protocolDir = MinecraftPaths.DataPath / item.Value.Protocol;
@@ -28,38 +30,60 @@ class Program
 
             var versionFilePath = versionDir / "version.json";
 
+            var protocolFilePath = protocolDir / "protocol.json";
+
             var versionFile = await VersionFile.DeserializeAsync(versionFilePath);
 
             if (versionFile.Version is <= maxVersion and >= minVersion)
             {
+                protocolMap.AddProtocol(versionFile, protocolFilePath);
             }
         }
 
-        
+
+        foreach (var item in protocolMap.Protocols)
+        {
+            var protocol = await DeserializeProtocolAsync(item.Value.Path);
+            if (item.Value.MinecraftVersions.Contains("1.21"))
+                Debugger.Break();
+            //ProtocolValidator.Validate(protocol, item.Value);
+        }
+    }
+
+
+    static async Task<ProtodefProtocol> DeserializeProtocolAsync(AbsolutePath path)
+    {
+        var json = await path.ReadAllTextAsync();
+        return ProtodefProtocol.Deserialize(json);
     }
 }
 
-public class VersionFile
+public static class ProtocolValidator
 {
-    [JsonPropertyName("version")] public int Version { get; set; }
-    [JsonPropertyName("minecraftVersion")] public string? MinecraftVersion { get; set; }
-    [JsonPropertyName("majorVersion")] public string? MajorVersion { get; set; }
-    [JsonPropertyName("releaseType")] public string? ReleaseType { get; set; }
-
-    public static VersionFile Deserialize(string json)
+    public static void Validate(ProtodefProtocol protocol, ProtocolInfo info)
     {
-        return JsonSerializer.Deserialize<VersionFile>(json)!;
+        foreach (var ns in protocol.EnumerateNamespaces())
+        {
+            var packets = ns.Types.Keys.Where(x => x.StartsWith("packet_"));
+
+            var container = ns.Types["packet"] as ProtodefContainer;
+
+
+            var mapper = container["params"] as ProtodefSwitch;
+
+            foreach (var packet in packets)
+            {
+                if (!Contains(mapper, packet))
+                {
+                    throw new Exception(
+                        $"Packet {packet} does not contain in protocol {info.Path.RelativeTo(MinecraftPaths.DataPath)}");
+                }
+            }
+        }
     }
 
-    public static async Task<VersionFile> DeserializeAsync(AbsolutePath path)
+    private static bool Contains(ProtodefSwitch sw, string name)
     {
-        await using var fs = path.OpenRead();
-        return await DeserializeAsync(fs);
-    }
-
-
-    public static async Task<VersionFile> DeserializeAsync(Stream stream)
-    {
-        return (await JsonSerializer.DeserializeAsync<VersionFile>(stream))!;
+        return sw.Fields.Values.Cast<ProtodefCustomType>().Any(x => x.Name == name);
     }
 }

@@ -60,8 +60,6 @@ public sealed class ProtodefContainer : ProtodefType
         return Fields.Equals(other.Fields);
     }
 
-    
-
     public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children =>
         Fields.Select(f => new KeyValuePair<string?, ProtodefType>(f.Name, f.Type));
 }

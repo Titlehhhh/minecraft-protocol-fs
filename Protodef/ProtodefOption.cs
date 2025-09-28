@@ -48,3 +48,4 @@ public sealed class ProtodefOption : ProtodefType
         return Type.GetHashCode();
     }
 }
+

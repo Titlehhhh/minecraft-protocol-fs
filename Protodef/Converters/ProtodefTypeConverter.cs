@@ -85,6 +85,8 @@ public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
                     "switch" => JsonSerializer.Deserialize<ProtodefSwitch>(ref reader, options),
                     "topBitSetTerminatedArray" => JsonSerializer.Deserialize<ProtodefTopBitSetTerminatedArray>(
                         ref reader, options),
+                    "registryEntryHolder" => JsonSerializer.Deserialize<ProtodefRegistryEntryHolder>(ref reader, options),
+                    "registryEntryHolderSet" => JsonSerializer.Deserialize<ProtodefRegistryEntryHolderSet>(ref reader, options),
                     _ => ReadUnknownType(ref reader, options, name)
                 };
 
