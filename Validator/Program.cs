@@ -46,7 +46,7 @@ class Program
             var protocol = await DeserializeProtocolAsync(item.Value.Path);
             if (item.Value.MinecraftVersions.Contains("1.21"))
                 Debugger.Break();
-            //ProtocolValidator.Validate(protocol, item.Value);
+            ProtocolValidator.Validate(protocol, item.Value);
         }
     }
 
@@ -64,26 +64,38 @@ public static class ProtocolValidator
     {
         foreach (var ns in protocol.EnumerateNamespaces())
         {
-            var packets = ns.Types.Keys.Where(x => x.StartsWith("packet_"));
-
-            var container = ns.Types["packet"] as ProtodefContainer;
-
-
-            var mapper = container["params"] as ProtodefSwitch;
-
-            foreach (var packet in packets)
+            var relativePath = info.Path.RelativeTo(MinecraftPaths.DataPath);
+            try
             {
-                if (!Contains(mapper, packet))
+                var packets = ns.Types.Keys.Where(x => x.StartsWith("packet_"));
+
+                var container = ns.Types["packet"] as ProtodefContainer;
+
+
+                var mapper = container["params"] as ProtodefSwitch;
+
+                foreach (var packet in packets)
                 {
-                    throw new Exception(
-                        $"Packet {packet} does not contain in protocol {info.Path.RelativeTo(MinecraftPaths.DataPath)}");
+                    if (!Contains(mapper, packet))
+                    {
+                        throw new Exception(
+                            $"Packet {packet} does not contain in protocol {relativePath}");
+                    }
                 }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Exception in namespace {ns.Fullname} path {relativePath}");
+                Console.WriteLine(e.Message);
+                throw;
             }
         }
     }
 
     private static bool Contains(ProtodefSwitch sw, string name)
     {
-        return sw.Fields.Values.Cast<ProtodefCustomType>().Any(x => x.Name == name);
+        return sw.Fields.Values
+            .Select(x=>x.ToString())
+            .Any(x => x == name);
     }
 }
