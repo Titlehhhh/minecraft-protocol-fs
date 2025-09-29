@@ -6,7 +6,6 @@ using System.Runtime.Intrinsics.X86;
 using Humanizer;
 using MinecraftData;
 using Protodef;
-using Protodef.Enumerable;
 using TruePath;
 using TruePath.SystemIo;
 
@@ -43,11 +42,23 @@ class Program
 
         foreach (var item in protocolMap.Protocols)
         {
-            var protocol = await DeserializeProtocolAsync(item.Value.Path);
-            if (item.Value.MinecraftVersions.Contains("1.21"))
-                Debugger.Break();
+            ProtodefProtocol protocol;
+            try
+            {
+                protocol = await DeserializeProtocolAsync(item.Value.Path);
+            } 
+            catch (Exception e)
+            {
+                Console.WriteLine($"Deserialize error in protocol {item.Value.Path.RelativeTo(MinecraftPaths.DataPath)}");
+                Console.WriteLine(e.Message);
+                throw;
+            }
             ProtocolValidator.Validate(protocol, item.Value);
+            item.Value.Protocol = protocol;
         }
+        
+        
+        
     }
 
 
@@ -55,47 +66,5 @@ class Program
     {
         var json = await path.ReadAllTextAsync();
         return ProtodefProtocol.Deserialize(json);
-    }
-}
-
-public static class ProtocolValidator
-{
-    public static void Validate(ProtodefProtocol protocol, ProtocolInfo info)
-    {
-        foreach (var ns in protocol.EnumerateNamespaces())
-        {
-            var relativePath = info.Path.RelativeTo(MinecraftPaths.DataPath);
-            try
-            {
-                var packets = ns.Types.Keys.Where(x => x.StartsWith("packet_"));
-
-                var container = ns.Types["packet"] as ProtodefContainer;
-
-
-                var mapper = container["params"] as ProtodefSwitch;
-
-                foreach (var packet in packets)
-                {
-                    if (!Contains(mapper, packet))
-                    {
-                        throw new Exception(
-                            $"Packet {packet} does not contain in protocol {relativePath}");
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"Exception in namespace {ns.Fullname} path {relativePath}");
-                Console.WriteLine(e.Message);
-                throw;
-            }
-        }
-    }
-
-    private static bool Contains(ProtodefSwitch sw, string name)
-    {
-        return sw.Fields.Values
-            .Select(x=>x.ToString())
-            .Any(x => x == name);
     }
 }

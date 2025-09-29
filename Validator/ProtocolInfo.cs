@@ -1,21 +1,18 @@
-﻿using TruePath;
+﻿using Protodef;
+using TruePath;
 
 namespace Validator;
 
 public class ProtocolInfo(
-    int Protocol,
-    AbsolutePath Path,
+    int version,
+    AbsolutePath path,
+    ProtodefProtocol? protocol,
     SortedSet<string> MinecraftVersions
 )
 {
-    public int Protocol { get; init; } = Protocol;
-    public AbsolutePath Path { get; init; } = Path;
+    public int Version { get; init; } = version;
+    public AbsolutePath Path { get; init; } = path;
+    public ProtodefProtocol? Protocol { get; set; } = protocol;
     public SortedSet<string> MinecraftVersions { get; init; } = MinecraftVersions;
-
-    public void Deconstruct(out int Protocol, out AbsolutePath Path, out SortedSet<string> MinecraftVersions)
-    {
-        Protocol = this.Protocol;
-        Path = this.Path;
-        MinecraftVersions = this.MinecraftVersions;
-    }
+    
 }

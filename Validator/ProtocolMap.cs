@@ -21,8 +21,7 @@ public class ProtocolMap
         else
         {
             Protocols.Add(version, new ProtocolInfo(version,
-                protocolPath,
-                [minecraftVersion]));
+                protocolPath, null, [minecraftVersion]));
         }
 
         VersionToProtocol.Add(minecraftVersion, version);
