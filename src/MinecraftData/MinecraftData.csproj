@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="TruePath" Version="1.10.0" />
+        <PackageReference Include="TruePath.SystemIo" Version="1.10.0" />
+    </ItemGroup>
+    
+    
+    <ItemGroup>
+        <Content Include="$(MinecraftDataDir)\**" Link="data\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+    
+</Project>

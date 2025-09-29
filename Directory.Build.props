@@ -1,8 +1,27 @@
 <Project>
-  <PropertyGroup>
-    <MinecraftDataDir>$(SolutionDir)minecraft-data\data</MinecraftDataDir>    
-    <GeneratedConstantsDir>$(SolutionDir)Generated\Constants</GeneratedConstantsDir>
-  </PropertyGroup>
+    <PropertyGroup>
+        <MinecraftDataDir>$(SolutionDir)minecraft-data\data</MinecraftDataDir>
+        <GeneratedConstantsDir>$(SolutionDir)Generated\Constants</GeneratedConstantsDir>
+        <ArtifactsDir>$(MSBuildThisFileDirectory)artifacts</ArtifactsDir>
+
+        <GeneratedDir>$(SolutionDir)Generated\</GeneratedDir>
+        <DataDir>$(SolutionDir)minecraft-data</DataDir>        
+    </PropertyGroup>
+    
+    <ItemGroup>
+        <Compile Include="$(GeneratedDir)\**\*.cs">
+            <Link>Generated\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="$(ArtifactsDir)\**\*.*">
+            <Link>Artifacts\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <Visible>true</Visible>
+        </None>
+    </ItemGroup>
+    
+    
 
    
 </Project>
