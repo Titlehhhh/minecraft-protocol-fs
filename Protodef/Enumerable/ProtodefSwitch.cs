@@ -7,11 +7,15 @@ public class ProtodefSwitch : ProtodefType
     //TODO path parser
     [JsonPropertyName("compareTo")] public string CompareTo { get; set; }
 
-    [JsonPropertyName("compareToValue")] public string? CompareToValue { get; set; }
+    [JsonPropertyName("compareToValue")] 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CompareToValue { get; set; }
 
     [JsonPropertyName("fields")] public Dictionary<string, ProtodefType> Fields { get; set; } = new();
 
-    [JsonPropertyName("default")] public ProtodefType? Default { get; set; }
+    [JsonPropertyName("default")] 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProtodefType? Default { get; set; }
 
    
     public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children

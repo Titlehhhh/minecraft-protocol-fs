@@ -2,17 +2,17 @@ namespace Protodef.Primitive;
 
 public sealed class ProtodefNumericType : ProtodefType
 {
-    public ProtodefNumericType(string name, string originalName, bool signed, ByteOrder order)
+    public ProtodefNumericType(string name, string protodefName, bool signed, ByteOrder order)
     {
         NetName = name;
-        OriginalName = originalName;
+        ProtodefName = protodefName;
         Signed = signed;
         Order = order;
     }
 
     public string NetName { get; }
 
-    public string OriginalName { get; }
+    public string ProtodefName { get; }
 
     public bool Signed { get; }
 
@@ -20,7 +20,7 @@ public sealed class ProtodefNumericType : ProtodefType
 
     public override string ToString()
     {
-        return OriginalName;
+        return ProtodefName;
     }
 
     public override string? GetNetType()
@@ -30,12 +30,12 @@ public sealed class ProtodefNumericType : ProtodefType
 
     public override object Clone()
     {
-        return new ProtodefNumericType(NetName, OriginalName, Signed, Order);
+        return new ProtodefNumericType(NetName, ProtodefName, Signed, Order);
     }
 
     private bool Equals(ProtodefNumericType other)
     {
-        return NetName == other.NetName && OriginalName == other.OriginalName && Signed == other.Signed &&
+        return NetName == other.NetName && ProtodefName == other.ProtodefName && Signed == other.Signed &&
                Order == other.Order;
     }
 
@@ -46,6 +46,6 @@ public sealed class ProtodefNumericType : ProtodefType
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(NetName, OriginalName, Signed, (int)Order);
+        return HashCode.Combine(NetName, ProtodefName, Signed, (int)Order);
     }
 }

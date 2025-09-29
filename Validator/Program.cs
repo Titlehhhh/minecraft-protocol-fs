@@ -3,9 +3,11 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using System.Text.Json;
 using Humanizer;
 using MinecraftData;
 using Protodef;
+using Protodef.Converters;
 using TruePath;
 using TruePath.SystemIo;
 
@@ -46,19 +48,32 @@ class Program
             try
             {
                 protocol = await DeserializeProtocolAsync(item.Value.Path);
-            } 
+            }
             catch (Exception e)
             {
-                Console.WriteLine($"Deserialize error in protocol {item.Value.Path.RelativeTo(MinecraftPaths.DataPath)}");
+                Console.WriteLine(
+                    $"Deserialize error in protocol {item.Value.Path.RelativeTo(MinecraftPaths.DataPath)}");
                 Console.WriteLine(e.Message);
                 throw;
             }
+
             ProtocolValidator.Validate(protocol, item.Value);
             item.Value.Protocol = protocol;
         }
-        
-        
-        
+
+        Console.WriteLine();
+
+        var lastProtocol = protocolMap.Protocols[772];
+
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Converters = { new ProtodefTypeConverter() }
+        };
+
+        var json = JsonSerializer.Serialize(lastProtocol.Protocol.Types["Slot"], options);
+
+        Console.WriteLine(json);
     }
 
 

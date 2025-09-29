@@ -12,8 +12,12 @@ public sealed class ProtodefContainerField
         Type = type ?? throw new ArgumentNullException(nameof(type));
     }
 
-    [JsonPropertyName("anon")] public bool? Anon { get; }
-    [JsonPropertyName("name")] public string? Name { get; }
+    [JsonPropertyName("anon")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Anon { get; }
+    [JsonPropertyName("name")] 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; }
     [JsonPropertyName("type")] public ProtodefType Type { get; }
 
     [JsonIgnore] public bool IsPass { get; set; }

@@ -6,10 +6,14 @@ public sealed class ProtodefArray : ProtodefType
 {
     [JsonPropertyName("type")] public ProtodefType Type { get; set; }
 
-    [JsonPropertyName("countType")] public ProtodefType? CountType { get; set; }
+    [JsonPropertyName("countType")] 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProtodefType? CountType { get; set; }
 
 
-    [JsonPropertyName("count")] public object? Count { get; set; }
+    [JsonPropertyName("count")] 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public object? Count { get; set; }
 
     public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
     {

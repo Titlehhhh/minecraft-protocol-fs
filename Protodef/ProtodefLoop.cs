@@ -4,6 +4,13 @@ namespace Protodef;
 
 public sealed class ProtodefLoop : ProtodefType
 {
+    public ProtodefLoop()
+    {
+        
+    }
+    [JsonIgnore]
+    public string LoopName { get; set; }
+    
     private ProtodefType _type;
     [JsonPropertyName("endVal")] public uint EndValue { get; set; }
 

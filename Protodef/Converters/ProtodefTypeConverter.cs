@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Protodef.Enumerable;
 using Protodef.Primitive;
@@ -24,6 +25,7 @@ public static class ProtodefNames
     public const string Native = "native";
 
     #region Numbers
+
     public const string UInt8 = "uint8";
     public const string Int8 = "int8";
     public const string UInt16 = "uint16";
@@ -34,6 +36,7 @@ public static class ProtodefNames
     public const string Int64 = "int64";
     public const string Float32 = "float32";
     public const string Float64 = "float64";
+
     #endregion
 }
 
@@ -85,8 +88,10 @@ public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
                     "switch" => JsonSerializer.Deserialize<ProtodefSwitch>(ref reader, options),
                     "topBitSetTerminatedArray" => JsonSerializer.Deserialize<ProtodefTopBitSetTerminatedArray>(
                         ref reader, options),
-                    "registryEntryHolder" => JsonSerializer.Deserialize<ProtodefRegistryEntryHolder>(ref reader, options),
-                    "registryEntryHolderSet" => JsonSerializer.Deserialize<ProtodefRegistryEntryHolderSet>(ref reader, options),
+                    "registryEntryHolder" => JsonSerializer.Deserialize<ProtodefRegistryEntryHolder>(ref reader,
+                        options),
+                    "registryEntryHolderSet" => JsonSerializer.Deserialize<ProtodefRegistryEntryHolderSet>(ref reader,
+                        options),
                     _ => ReadUnknownType(ref reader, options, name)
                 };
 
@@ -124,7 +129,7 @@ public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
         }
 
         var loop = doc.Deserialize<ProtodefLoop>(options);
-
+        loop.LoopName = name;
         if (loop.Type is null) throw new Exception("is not loop");
 
         return loop;
@@ -181,6 +186,105 @@ public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
 
     public override void Write(Utf8JsonWriter writer, ProtodefType value, JsonSerializerOptions options)
     {
-        throw new NotImplementedException();
+        if (value is null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+
+        if (value is ProtodefVarInt)
+        {
+            writer.WriteStringValue("varint");
+            return;
+        }
+
+        if (value is ProtodefVarLong)
+        {
+            writer.WriteStringValue("varlong");
+            return;
+        }
+
+        if (value is ProtodefVoid)
+        {
+            writer.WriteStringValue("void");
+            return;
+        }
+
+        if (value is ProtodefString)
+        {
+            writer.WriteStringValue("string");
+            return;
+        }
+
+        if (value is ProtodefBool)
+        {
+            writer.WriteStringValue("bool");
+            return;
+        }
+
+        if (value is ProtodefCustomType customType)
+        {
+            writer.WriteStringValue(customType.Name);
+            return;
+        }
+
+        if (value is ProtodefNumericType numeric)
+        {
+            var token = numeric.ProtodefName;
+            writer.WriteStringValue(token);
+            return;
+        }
+
+        void WriteWrapper(string typeName, object payload)
+        {
+            writer.WriteStartArray();
+            writer.WriteStringValue(typeName);
+            JsonSerializer.Serialize(writer, payload, options);
+            writer.WriteEndArray();
+        }
+
+        switch (value)
+        {
+            // Типы, для которых payload — это внутренний объект, который должен быть сериализован как object/array:
+            case ProtodefBitField bf:
+                WriteWrapper("bitfield", bf);
+                return;
+            case ProtodefBuffer buf:
+                WriteWrapper("buffer", buf);
+                return;
+            case ProtodefMapper map:
+                WriteWrapper("mapper", map);
+                return;
+            case ProtodefArray arr:
+                WriteWrapper("array", arr);
+                return;
+            case ProtodefPrefixedString pstr:
+                WriteWrapper("pstring", pstr);
+                return;
+            case ProtodefTopBitSetTerminatedArray top:
+                WriteWrapper("topBitSetTerminatedArray", top);
+                return;
+            case ProtodefSwitch sw:
+                WriteWrapper("switch", sw);
+                return;
+            case ProtodefOption opt:
+                WriteWrapper("option", opt.Type);
+                return;
+            case ProtodefContainer container:
+                WriteWrapper("container", container.Fields.ToArray());
+                return;
+            case ProtodefRegistryEntryHolder reg:
+                WriteWrapper("registryEntryHolder", reg);
+                return;
+            case ProtodefRegistryEntryHolderSet regSet:
+                WriteWrapper("registryEntryHolderSet", regSet);
+                return;
+            case ProtodefLoop loop:
+                WriteWrapper(loop.LoopName, loop);
+                return;
+            default:
+                throw new NotSupportedException(
+                    $"Don't know how to serialize protodef type of runtime type {value.GetType().FullName}");
+        }
     }
 }
