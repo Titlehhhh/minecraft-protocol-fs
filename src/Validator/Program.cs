@@ -6,6 +6,7 @@ using System.Runtime.Intrinsics.X86;
 using System.Text.Json;
 using Humanizer;
 using MinecraftData;
+using PacketGenerator.Constants;
 using Protodef;
 using Protodef.Converters;
 using TruePath;
@@ -63,7 +64,6 @@ class Program
 
         Console.WriteLine();
 
-        var lastProtocol = protocolMap.Protocols[772];
 
         var options = new JsonSerializerOptions
         {
@@ -71,7 +71,32 @@ class Program
             Converters = { new ProtodefTypeConverter() }
         };
 
-        
+        AbsolutePath artifactsDir = AbsolutePath.Create(ArtifactsPaths.ArtifactsDir);
+
+
+        var typesPath = artifactsDir / "types";
+
+        typesPath.CreateDirectory();
+        typesPath.DeleteDirectoryRecursively();
+
+        Dictionary<string, ProtodefType> allTypes = new();
+
+        foreach (var (version, protocolInfo) in protocolMap.Protocols)
+        {
+            var dir = typesPath / $"v{version}";
+            dir.CreateDirectory();
+            foreach (var (k, v) in protocolInfo.Protocol.Types)
+            {
+                if (k.StartsWith("packet"))
+                    continue;
+                if (v.IsCustom("native"))
+                    continue;
+                
+                
+                var path = dir / $"{k.Pascalize()}.json";
+                await path.WriteAllTextAsync(JsonSerializer.Serialize(v, options));
+            }
+        }
     }
 
 

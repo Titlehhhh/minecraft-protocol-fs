@@ -6,7 +6,7 @@ public sealed class ProtodefTopBitSetTerminatedArray : ProtodefType
 {
     [JsonPropertyName("type")] public ProtodefType Type { get; set; }
 
-    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
     {
         get { yield return new KeyValuePair<string?, ProtodefType>("type", Type); }
     }

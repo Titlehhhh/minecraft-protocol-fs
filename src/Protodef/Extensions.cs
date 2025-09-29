@@ -129,6 +129,11 @@ public static class Extensions
     {
         return type is ProtodefCustomType;
     }
+    
+    public static bool IsCustom(this ProtodefType type, string name)
+    {
+        return type is ProtodefCustomType custom && custom.Name == name;
+    }
 
     public static bool IsCustomSwitch(this ProtodefType type)
     {

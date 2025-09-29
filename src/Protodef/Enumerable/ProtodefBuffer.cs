@@ -31,7 +31,7 @@ public sealed class ProtodefBuffer : ProtodefType
         return "byte[]";
     }
 
-    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
     {
         get
         {

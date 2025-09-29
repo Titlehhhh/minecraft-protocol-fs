@@ -10,7 +10,7 @@ public sealed class ProtodefOption : ProtodefType
 
     public ProtodefType Type { get; }
 
-    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
     {
         get
         {

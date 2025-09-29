@@ -35,7 +35,7 @@ public sealed class ProtodefPrefixedString : ProtodefType
         return ReferenceEquals(this, obj) || (obj is ProtodefPrefixedString other && Equals(other));
     }
 
-    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
     {
         get
         {

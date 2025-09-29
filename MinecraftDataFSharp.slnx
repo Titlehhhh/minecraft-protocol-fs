@@ -3,14 +3,10 @@
     <File Path="Directory.Build.props" />
     <File Path="Directory.Build.targets" />
   </Folder>
-    <Folder Name="/Artifacts/**/*.*">
-        
-    </Folder>
   <Project Path="src\ConsoleApp1\ConsoleApp1.csproj" Type="Classic C#" />
   <Project Path="src\MinecraftDataFSharp\MinecraftDataFSharp.fsproj" Type="Classic F#" />
   <Project Path="src\MinecraftData\MinecraftData.csproj" Type="Classic C#" />
   <Project Path="src\Protodef\Protodef.csproj" Type="Classic C#" />
   <Project Path="src\SandBoxLib\SandBoxLib.csproj" Type="Classic C#" />
   <Project Path="src\Validator\Validator.csproj" Type="Classic C#" />
-    
 </Solution>

@@ -21,7 +21,7 @@ public sealed class ProtodefLoop : ProtodefType
         set => _type = value ?? throw new ArgumentNullException("value");
     }
 
-    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
     {
         get
         {

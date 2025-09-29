@@ -6,7 +6,7 @@ public sealed class ProtodefNamespace : ProtodefType
 {
     public Dictionary<string, ProtodefType> Types { get; set; } = new();
 
-    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
         => Types.Select(x 
             => new KeyValuePair<string?, ProtodefType>(x.Key, x.Value));
 

@@ -18,7 +18,7 @@ public class ProtodefSwitch : ProtodefType
     public ProtodefType? Default { get; set; }
 
    
-    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
     {
         get
         {

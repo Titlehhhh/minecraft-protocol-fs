@@ -29,7 +29,7 @@ public class ProtodefRegistryEntryHolder : ProtodefType
         return ReferenceEquals(this, obj) || (obj is ProtodefRegistryEntryHolder other && Equals(other));
     }
 
-    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
     {
         get
         {

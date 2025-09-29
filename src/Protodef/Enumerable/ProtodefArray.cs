@@ -15,7 +15,7 @@ public sealed class ProtodefArray : ProtodefType
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public object? Count { get; set; }
 
-    public override IEnumerable<KeyValuePair<string?, ProtodefType>> Children
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
     {
         get
         {

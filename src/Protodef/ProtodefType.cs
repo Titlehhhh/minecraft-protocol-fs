@@ -30,10 +30,11 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
         return null;
     }
 
-    [JsonIgnore]
-    public virtual IEnumerable<KeyValuePair<string?, ProtodefType>> Children => [];
 
-    
+    protected virtual IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl => [];
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    public IEnumerable<KeyValuePair<string?, ProtodefType>> Children => ChildrenImpl;
     public static bool operator ==(ProtodefType? a, ProtodefType? b)
     {
         if (a is null && b is null) return true;
