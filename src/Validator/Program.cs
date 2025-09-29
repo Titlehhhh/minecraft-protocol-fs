@@ -75,28 +75,84 @@ class Program
 
 
         var typesPath = artifactsDir / "types";
+        var packetsPath = artifactsDir / "packets";
 
-        typesPath.CreateDirectory();
-        typesPath.DeleteDirectoryRecursively();
 
-        Dictionary<string, ProtodefType> allTypes = new();
+        HashSet<string> allTypeNames = new();
+        HashSet<string> allPacketsNames = new();
 
-        foreach (var (version, protocolInfo) in protocolMap.Protocols)
+        async Task WriteTypes(
+            AbsolutePath dir,
+            bool isPackets,
+            IEnumerable<KeyValuePair<string, ProtodefType>> types)
         {
-            var dir = typesPath / $"v{version}";
-            dir.CreateDirectory();
-            foreach (var (k, v) in protocolInfo.Protocol.Types)
+            var filterTypes = types.Where(x => Filter(x, isPackets));
+            if (filterTypes.Any())
+                dir.CreateDirectory();
+
+
+            foreach (var (k, v) in filterTypes)
             {
-                if (k.StartsWith("packet"))
-                    continue;
-                if (v.IsCustom("native"))
-                    continue;
-                
-                
-                var path = dir / $"{k.Pascalize()}.json";
+                var typeName = k.Pascalize();
+                allTypeNames.Add(typeName);
+                var path = dir / $"{typeName}.json";
+                if (path.Exists())
+                {
+                    throw new Exception($"File {path} already exists");
+                }
+
                 await path.WriteAllTextAsync(JsonSerializer.Serialize(v, options));
             }
+
+            return;
+
+            static bool Filter(KeyValuePair<string, ProtodefType> item, bool isPackets)
+            {
+                if (item.Key == "packet")
+                    return false;
+                if (item.Value.IsCustom("native"))
+                    return false;
+
+
+                if (isPackets)
+                {
+                    if (!item.Key.StartsWith("packet_"))
+                        return false;
+                }
+                else
+                {
+                    if (item.Key.StartsWith("packet_"))
+                        return false;
+                }
+
+                return true;
+            }
         }
+
+        (bool, AbsolutePath)[] paths = [(false, typesPath), (true, packetsPath)];
+
+        foreach (var (isPackets, path) in paths)
+        {
+            path.CreateDirectory();
+            path.DeleteDirectoryRecursively();
+            foreach (var (version, protocolInfo) in protocolMap.Protocols)
+            {
+                var dir = path / $"v{version}";
+                dir.CreateDirectory();
+
+
+                await WriteTypes(dir, isPackets,
+                    protocolInfo.Protocol!.Types);
+
+                foreach (var ns in protocolInfo.Protocol.EnumerateNamespaces())
+                {
+                    await WriteTypes(dir / ns.Fullname, isPackets, ns.Types);
+                }
+            }
+        }
+
+        var allTxt = artifactsDir / "all.txt";
+        await allTxt.WriteAllLinesAsync(allTypeNames.ToImmutableSortedSet());
     }
 
 

@@ -1,16 +1,21 @@
-﻿namespace Protodef;
+﻿using System.Text.Json.Serialization;
+
+namespace Protodef;
 
 
 public sealed class ProtodefBitFlags : ProtodefType
 {
-    
-    public string Type { get; }
+    [JsonPropertyName("type")]
+    public string Type { get; set; }
 
-    public object[] Flags { get; }
+    [JsonPropertyName("flags")]
+    public object[] Flags { get; set; }
 
-    public bool Big { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Big { get; set; }
 
-    public int Shift { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int Shift { get; set; }
 
     public ProtodefBitFlags(string type, object[] flags, bool big = false, int shift = 0)
     {

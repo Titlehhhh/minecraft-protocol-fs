@@ -80,6 +80,8 @@ public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
                         JsonSerializer.Deserialize<List<ProtodefContainerField>>(ref reader, options)),
                     "bitfield" => new ProtodefBitField(
                         JsonSerializer.Deserialize<List<ProtodefBitFieldNode>>(ref reader, options)),
+                    "bitflags" =>
+                        JsonSerializer.Deserialize<ProtodefBitFlags>(ref reader, options),
                     "buffer" => JsonSerializer.Deserialize<ProtodefBuffer>(ref reader, options),
                     "mapper" => JsonSerializer.Deserialize<ProtodefMapper>(ref reader, options),
                     "array" => JsonSerializer.Deserialize<ProtodefArray>(ref reader, options),
@@ -235,7 +237,7 @@ public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
             return;
         }
 
-        void WriteWrapper(string typeName, object payload)
+        void WriteWrapper<T>(string typeName, T payload) where T : notnull
         {
             writer.WriteStartArray();
             writer.WriteStringValue(typeName);
@@ -248,6 +250,9 @@ public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
             // Типы, для которых payload — это внутренний объект, который должен быть сериализован как object/array:
             case ProtodefBitField bf:
                 WriteWrapper("bitfield", bf);
+                return;
+            case ProtodefBitFlags bf:
+                WriteWrapper("bitflags", bf);
                 return;
             case ProtodefBuffer buf:
                 WriteWrapper("buffer", buf);
