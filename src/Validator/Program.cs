@@ -9,6 +9,7 @@ using MinecraftData;
 using PacketGenerator.Constants;
 using Protodef;
 using Protodef.Converters;
+using Protodef.Enumerable;
 using TruePath;
 using TruePath.SystemIo;
 
@@ -73,6 +74,8 @@ class Program
 
         AbsolutePath artifactsDir = AbsolutePath.Create(ArtifactsPaths.ArtifactsDir);
 
+        artifactsDir.CreateDirectory();
+        artifactsDir.DeleteDirectoryRecursively();
 
         var typesPath = artifactsDir / "types";
         var packetsPath = artifactsDir / "packets";
@@ -94,8 +97,26 @@ class Program
             foreach (var (k, v) in filterTypes)
             {
                 var typeName = k.Pascalize();
-                allTypeNames.Add(typeName);
-                var path = dir / $"{typeName}.json";
+                if (isPackets)
+                    allPacketsNames.Add(typeName);
+                else
+                    allTypeNames.Add(typeName);
+
+                
+
+                var newDir = dir;
+                if (IsSimpleType(v))
+                {
+                    newDir /= "primitive";
+                }
+                else
+                {
+                    newDir /= "complex";
+                }
+                
+                newDir.CreateDirectory();
+
+                var path = newDir / $"{typeName}.json";
                 if (path.Exists())
                 {
                     throw new Exception($"File {path} already exists");
@@ -140,6 +161,14 @@ class Program
                 var dir = path / $"v{version}";
                 dir.CreateDirectory();
 
+                var dirComplex = dir / "complex";
+                dirComplex.CreateDirectory();
+
+                var dirSimple = dir / "primitive";
+                dirSimple.CreateDirectory();
+
+                var verJson = dir / "version.json";
+                await verJson.WriteAllTextAsync(JsonSerializer.Serialize(protocolInfo.MinecraftVersions));
 
                 await WriteTypes(dir, isPackets,
                     protocolInfo.Protocol!.Types);
@@ -151,11 +180,46 @@ class Program
             }
         }
 
-        var allTxt = artifactsDir / "all.txt";
+        var allTxt = artifactsDir / "allTypes.txt";
         await allTxt.WriteAllLinesAsync(allTypeNames.ToImmutableSortedSet());
+
+        allTxt = artifactsDir / "allPackets.txt";
+        await allTxt.WriteAllLinesAsync(allPacketsNames.ToImmutableSortedSet());
     }
 
+    static bool IsSimpleType(ProtodefType type)
+    {
+        if (type.IsSimple())
+            return true;
 
+        if (type is ProtodefContainer container)
+        {
+            return container.IsAllFieldsSimple(KnownPrimitiveNames);
+        }
+
+        return false;
+    }
+    private static readonly string[] KnownPrimitiveNames = new[]
+    {
+        "position",
+        "vec2f",
+        "vec3f",
+        "vec3f64",
+        "vec4f",
+        "slot",
+        "ByteArray",
+        "ingredient",
+        "UUID",
+        "restBuffer",
+        "Slot",
+        "MovementFlags",
+        "PositionUpdateRelatives",
+        "optionalNbt",
+        "anonymousNbt",
+        "nbt",
+        "anonOptionalNbt",
+        "ContainerID"
+    };
     static async Task<ProtodefProtocol> DeserializeProtocolAsync(AbsolutePath path)
     {
         var json = await path.ReadAllTextAsync();

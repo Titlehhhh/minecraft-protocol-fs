@@ -18,7 +18,8 @@ public static class Extensions
             Console.WriteLine(item);
         }
     }
-    
+
+
     public static bool IsPrimitive(JsonObject jsonObject)
     {
         JsonSerializerOptions options = new();
@@ -89,68 +90,145 @@ public static class Extensions
         return true;
     }
 
+    /// <summary>
+    ///     Checks if the type is a variable long.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     public static bool IsVarLong(this ProtodefType type)
     {
         return type is ProtodefVarLong;
     }
 
+    /// <summary>
+    ///     Checks if the type is a variable integer.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     public static bool IsVarInt(this ProtodefType type)
     {
         return type is ProtodefVarInt;
     }
 
+    /// <summary>
+    ///     Checks if the type is a variable number.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     public static bool IsVariableNumber(this ProtodefType type)
     {
         return type.IsVarInt() || type.IsVarLong();
     }
 
+    /// <summary>
+    ///     Checks if the type is a number.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     public static bool IsNumber(this ProtodefType type)
     {
         return type is ProtodefNumericType || type.IsVariableNumber();
     }
 
 
+    /// <summary>
+    ///     Checks if the type is a boolean.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     private static bool IsBool(this ProtodefType type)
     {
         return type is ProtodefBool;
     }
 
+    /// <summary>
+    ///     Checks if the type is a string.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     private static bool IsString(this ProtodefType type)
     {
         return type is ProtodefString;
     }
 
+    /// <summary>
+    ///     Checks if the type is void.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     private static bool IsVoid(this ProtodefType type)
     {
         return type is ProtodefVoid;
     }
 
+    /// <summary>
+    ///     Checks if the type is custom.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     public static bool IsCustom(this ProtodefType type)
     {
         return type is ProtodefCustomType;
     }
-    
+
+    /// <summary>
+    ///     Checks if the type is custom with a specified name.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <param name="name"></param>
+    /// <returns></returns>
     public static bool IsCustom(this ProtodefType type, string name)
     {
         return type is ProtodefCustomType custom && custom.Name == name;
     }
 
+    /// <summary>
+    ///     Checks if the type is custom with a specified name.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <param name="names"></param>
+    /// <returns></returns>
+    public static bool IsCustom(this ProtodefType type, IEnumerable<string> names)
+    {
+        return type is ProtodefCustomType custom && names.Contains(custom.Name);
+    }
+
+    /// <summary>
+    ///     Checks if the type is a custom switch.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     public static bool IsCustomSwitch(this ProtodefType type)
     {
         return type is ProtodefCustomSwitch;
     }
 
+    /// <summary>
+    ///     Checks if the type is a conditional type.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     public static bool IsConditional(this ProtodefType type)
     {
         return type is ProtodefSwitch or ProtodefOption;
     }
 
+    /// <summary>
+    ///     Checks if the type is a structure type.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     public static bool IsStructure(this ProtodefType type)
     {
         return type is ProtodefArray or ProtodefContainer;
     }
 
 
+    /// <summary>
+    ///     Checks if the type is a primitive type.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     public static bool IsPrimitive(this ProtodefType type)
     {
         return IsBool(type)
@@ -158,6 +236,11 @@ public static class Extensions
                || IsVoid(type);
     }
 
+    /// <summary>
+    ///     Checks if the type is a simple type.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
     public static bool IsSimple(this ProtodefType type)
     {
         return type.IsPrimitive() ||
@@ -165,7 +248,6 @@ public static class Extensions
                type is ProtodefPrefixedString ||
                type.IsSimpleOption() ||
                type.IsSimpleArray();
-        //type.IsSimpleSwitch();
     }
 
     public static bool IsSimpleOption(this ProtodefType type)
@@ -198,14 +280,44 @@ public static class Extensions
         return false;
     }
 
-
-    public static bool IsAllFieldsSimple(this ProtodefContainer container, Predicate<ProtodefContainerField> custom)
+    public static bool IsAllFieldsSimple(this ProtodefContainer container,
+        Predicate<ProtodefContainerField> custom
+    )
     {
         return container.Fields.All(x =>
         {
             var result = x.Type.IsSimple()
                          || custom(x);
 
+            return result;
+        });
+    }
+
+    public static bool IsAllFieldsSimple(this ProtodefContainer container,
+        Predicate<ProtodefContainerField> custom,
+        IEnumerable<string> names)
+    {
+        bool IsTypePrimitive(ProtodefType type)
+        {
+            if (type.IsPrimitive())
+                return true;
+
+            if (type.IsCustom(names))
+                return true;
+
+            return type.Children.All(x => IsTypePrimitive(x.Value));
+        }
+
+        return IsTypePrimitive(container);
+    }
+
+    public static bool IsAllFieldsSimple(this ProtodefContainer container,
+        IEnumerable<string> names)
+    {
+        return container.Fields.All(x =>
+        {
+            var result = x.Type.IsSimple()
+                         || x.Type.IsCustom(names);
             return result;
         });
     }
