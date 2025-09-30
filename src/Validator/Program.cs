@@ -102,10 +102,9 @@ class Program
                 else
                     allTypeNames.Add(typeName);
 
-                
 
                 var newDir = dir;
-                if (IsSimpleType(v))
+                if (v.IsSimpleTypeForGenerator())
                 {
                     newDir /= "primitive";
                 }
@@ -113,7 +112,7 @@ class Program
                 {
                     newDir /= "complex";
                 }
-                
+
                 newDir.CreateDirectory();
 
                 var path = newDir / $"{typeName}.json";
@@ -187,39 +186,7 @@ class Program
         await allTxt.WriteAllLinesAsync(allPacketsNames.ToImmutableSortedSet());
     }
 
-    static bool IsSimpleType(ProtodefType type)
-    {
-        if (type.IsSimple())
-            return true;
 
-        if (type is ProtodefContainer container)
-        {
-            return container.IsAllFieldsSimple(KnownPrimitiveNames);
-        }
-
-        return false;
-    }
-    private static readonly string[] KnownPrimitiveNames = new[]
-    {
-        "position",
-        "vec2f",
-        "vec3f",
-        "vec3f64",
-        "vec4f",
-        "slot",
-        "ByteArray",
-        "ingredient",
-        "UUID",
-        "restBuffer",
-        "Slot",
-        "MovementFlags",
-        "PositionUpdateRelatives",
-        "optionalNbt",
-        "anonymousNbt",
-        "nbt",
-        "anonOptionalNbt",
-        "ContainerID"
-    };
     static async Task<ProtodefProtocol> DeserializeProtocolAsync(AbsolutePath path)
     {
         var json = await path.ReadAllTextAsync();
