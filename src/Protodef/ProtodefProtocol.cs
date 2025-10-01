@@ -25,6 +25,65 @@ public class ProtodefProtocol : ProtodefType
             .ToDictionary();
     }
 
+    public ProtodefType FindType(string typeName, IEqualityComparer<string>? comparer = null)
+    {
+        if (TryFindType(typeName, comparer, out var type)) 
+            return type;
+        throw new KeyNotFoundException($"Type '{typeName}' not found");
+    }
+
+    public bool TryFindType(string typeName, IEqualityComparer<string>? comparer, out ProtodefType? type)
+    {
+        if (Types is null)
+            throw new InvalidOperationException("Types dictionary is null");
+        if (Namespaces is null)
+            throw new InvalidOperationException("Namespaces dictionary is null");
+        
+        var types = GetDict(Types, comparer);
+
+        if (types.TryGetValue(typeName, out type))
+            return true;
+
+        foreach (var ns in EnumerateNamespaces())
+        {
+            types = GetDict(ns.Types, comparer);
+            if (types.TryGetValue(typeName, out type))
+                return true;
+        }
+
+        type = null;
+        return false;
+    }
+
+    public bool TryFindType(string typeName, out ProtodefType? type)
+    {
+        return TryFindType(typeName, null, out type);
+    }
+
+    private static Dictionary<string, ProtodefType> GetDict(Dictionary<string, ProtodefType> original,
+        IEqualityComparer<string>? comparer)
+    {
+        if (comparer is null)
+            return original;
+        return new Dictionary<string, ProtodefType>(original, comparer);
+    }
+
+    public IEnumerable<ProtodefType> GetAllTypes()
+    {
+        foreach (var item in Types)
+            yield return item.Value;
+
+        foreach (var ns in EnumerateNamespaces())
+        {
+            foreach (var item in ns.Types)
+            {
+                if (item.Value is null)
+                    throw new InvalidOperationException($"Namespace '{ns.Fullname}' has null type '{item.Key}'");
+                yield return item.Value;
+            }
+        }
+    }
+
     public Dictionary<string, ProtodefType> Types { get; set; }
 
     public Dictionary<string, ProtodefNamespace> Namespaces { get; }
@@ -188,7 +247,7 @@ public class ProtodefProtocol : ProtodefType
 public struct FullnameNamespace
 {
     public string Fullname { get; }
-    public Dictionary<string, ProtodefType> Types { get; }
+    public Dictionary<string, ProtodefType?> Types { get; }
 
     public FullnameNamespace(string fullName, Dictionary<string, ProtodefType> types)
     {

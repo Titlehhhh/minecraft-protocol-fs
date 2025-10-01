@@ -14,6 +14,31 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
     public string? ParentName { get; set; }
 
 
+    [JsonIgnore]
+    public string Path
+    {
+        get
+        {
+            var parts = new List<string>();
+            var current = this;
+
+            while (current is not null)
+            {
+                if (!string.IsNullOrEmpty(current.ParentName))
+                    parts.Add(current.ParentName);
+
+                current = current.Parent;
+            }
+
+            parts.Reverse();
+            return string.Join(".", parts);
+        }
+    }
+
+    public ProtodefType? GetByPath(string path)
+    {
+        throw new NotImplementedException();
+    }
     public abstract object Clone();
 
     public void OnDeserialized()

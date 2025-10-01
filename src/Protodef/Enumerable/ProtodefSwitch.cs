@@ -11,7 +11,9 @@ public class ProtodefSwitch : ProtodefType
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? CompareToValue { get; set; }
 
-    [JsonPropertyName("fields")] public Dictionary<string, ProtodefType> Fields { get; set; } = new();
+    [JsonPropertyName("fields")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public Dictionary<string, ProtodefType>? Fields { get; set; } 
 
     [JsonPropertyName("default")] 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -22,6 +24,9 @@ public class ProtodefSwitch : ProtodefType
     {
         get
         {
+            if (Fields is null)
+                yield break;
+            
             foreach (var item in Fields)
                 yield return new KeyValuePair<string?, ProtodefType>(item.Key, item.Value);
             if (Default is not null)

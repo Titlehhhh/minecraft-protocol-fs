@@ -270,7 +270,10 @@ public sealed class ProtodefTypeConverter : JsonConverter<ProtodefType>
                 WriteWrapper("topBitSetTerminatedArray", top);
                 return;
             case ProtodefSwitch sw:
-                WriteWrapper("switch", sw);
+                var name = "switch";
+                if (sw is ProtodefCustomSwitch cus)
+                    name = cus.Owner;
+                WriteWrapper(name, sw);
                 return;
             case ProtodefOption opt:
                 WriteWrapper("option", opt.Type);

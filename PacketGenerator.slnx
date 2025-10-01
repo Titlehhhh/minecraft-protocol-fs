@@ -11,5 +11,6 @@
   <Project Path="src\MinecraftDataFSharp\MinecraftDataFSharp.fsproj" Type="Classic F#" />
   <Project Path="src\MinecraftData\MinecraftData.csproj" Type="Classic C#" />
   <Project Path="src\PacketGenerator.Core\PacketGenerator.Core.csproj" Type="Classic C#" />
+  <Project Path="src\PacketGenerator\PacketGenerator.fsproj" Type="Classic F#" />
   <Project Path="src\Protodef\Protodef.csproj" Type="Classic C#" />
 </Solution>
