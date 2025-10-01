@@ -1,6 +1,6 @@
 ﻿using TruePath;
 
-namespace Validator;
+namespace PacketGenerator.Core;
 
 public class ProtocolMap
 {

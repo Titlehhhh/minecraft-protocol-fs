@@ -2,7 +2,7 @@
 using Protodef;
 using Protodef.Enumerable;
 
-namespace Validator;
+namespace PacketGenerator.Core;
 
 public static class ProtocolValidator
 {

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using TruePath;
 using TruePath.SystemIo;
 
-namespace Validator;
+namespace PacketGenerator.Core;
 
 public class VersionFile
 {

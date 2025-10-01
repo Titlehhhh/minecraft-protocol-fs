@@ -1,4 +1,8 @@
 ﻿<Solution>
+  <Folder Name="/Sandbox/">
+    <Project Path="src\SandBoxApp\SandBoxApp.csproj" Type="Classic C#" />
+    <Project Path="src\SandBoxLib\SandBoxLib.csproj" Type="Classic C#" />
+  </Folder>
   <Folder Name="/SolutionItems/">
     <File Path="Directory.Build.props" />
     <File Path="Directory.Build.targets" />
@@ -8,6 +12,4 @@
   <Project Path="src\MinecraftData\MinecraftData.csproj" Type="Classic C#" />
   <Project Path="src\PacketGenerator.Core\PacketGenerator.Core.csproj" Type="Classic C#" />
   <Project Path="src\Protodef\Protodef.csproj" Type="Classic C#" />
-  <Project Path="src\SandBoxLib\SandBoxLib.csproj" Type="Classic C#" />
-  <Project Path="src\Validator\Validator.csproj" Type="Classic C#" />
 </Solution>

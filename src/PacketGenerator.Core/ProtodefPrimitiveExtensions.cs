@@ -1,8 +1,8 @@
 ﻿using Protodef;
 
-namespace Validator;
+namespace PacketGenerator.Core;
 
-static class ProtodefPrimitiveExtensions
+public static class ProtodefPrimitiveExtensions
 {
     public static readonly string[] KnownPrimitiveNames =
     [

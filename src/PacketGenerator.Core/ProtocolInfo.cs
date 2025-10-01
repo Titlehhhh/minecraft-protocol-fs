@@ -1,7 +1,7 @@
 ﻿using Protodef;
 using TruePath;
 
-namespace Validator;
+namespace PacketGenerator.Core;
 
 public class ProtocolInfo(
     int version,

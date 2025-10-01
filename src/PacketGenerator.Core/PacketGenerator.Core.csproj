@@ -6,4 +6,9 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\MinecraftData\MinecraftData.csproj" />
+      <ProjectReference Include="..\Protodef\Protodef.csproj" />
+    </ItemGroup>
+
 </Project>
