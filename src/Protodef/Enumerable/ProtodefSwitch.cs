@@ -33,22 +33,34 @@ public class ProtodefSwitch : ProtodefType
                 yield return new KeyValuePair<string?, ProtodefType>("default", Default);
         }
     }
+
+    public override bool Equals(object? obj)
+    {
+         if (ReferenceEquals(this, obj)) return true;
+         if (obj is not ProtodefSwitch other) return false;
+         return Equals(other);
+    }
+
+    private bool EqualsFields(Dictionary<string, ProtodefType>? fields)
+    {
+        if (fields is null || this.Fields is null) return true;
+        
+        return this.Fields.SequenceEqual(fields, FieldsEqualityComparer.Instance);
+    }
     
     private bool Equals(ProtodefSwitch other)
     {
-        return CompareTo == other.CompareTo && CompareToValue == other.CompareToValue && Fields == other.Fields && Default == other.Default;
+        return CompareTo == other.CompareTo 
+                && EqualsFields(other.Fields) 
+                && Equals(Default, other.Default);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(CompareTo, CompareToValue, Fields, Default);
     }
     
-    public override bool Equals(object? obj)
-    {
-        if (obj is not ProtodefSwitch other)
-        {
-            return false;
-        }
-
-        return Equals(other);
-    }
-
+    
     public override object Clone()
     {
         var owner = new ProtodefSwitch
@@ -63,4 +75,20 @@ public class ProtodefSwitch : ProtodefType
 
         return owner;
     }
+    
+    private class FieldsEqualityComparer : IEqualityComparer<KeyValuePair<string, ProtodefType>>
+    {
+        public static readonly FieldsEqualityComparer Instance = new();
+        public bool Equals(KeyValuePair<string, ProtodefType> x, KeyValuePair<string, ProtodefType> y)
+        {
+            return x.Key == y.Key && Equals(x.Value, y.Value);
+        }
+
+        public int GetHashCode(KeyValuePair<string, ProtodefType> obj)
+        {
+            return HashCode.Combine(obj.Key, obj.Value);
+        }
+    }
+    
+    
 }

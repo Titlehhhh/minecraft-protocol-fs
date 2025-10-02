@@ -52,7 +52,7 @@ public sealed class ProtodefContainer : ProtodefType
             return false;
         }
 
-        return Fields == other.Fields;
+        return Fields.SequenceEqual(other.Fields, FieldEqualityComparer.Instance);
     }
 
     private bool Equals(ProtodefContainer other)
@@ -62,4 +62,25 @@ public sealed class ProtodefContainer : ProtodefType
 
     protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl =>
         Fields.Select(f => new KeyValuePair<string?, ProtodefType>(f.Name, f.Type));
+    
+    private class FieldEqualityComparer : IEqualityComparer<ProtodefContainerField>
+    {
+        public static readonly IEqualityComparer<ProtodefContainerField> Instance = new FieldEqualityComparer();
+        public bool Equals(ProtodefContainerField? x, ProtodefContainerField? y)
+        {
+            if (ReferenceEquals(x, y)) return true;
+            if (x is null) return false;
+            if (y is null) return false;
+            if (x.GetType() != y.GetType()) return false;
+            var a = x.Anon;
+            var b = y.Anon;
+            var c = x.Type.Equals(y.Type);
+            return a == b && x.Name == y.Name && c;
+        }
+
+        public int GetHashCode(ProtodefContainerField obj)
+        {
+            return HashCode.Combine(obj.Anon, obj.Name, obj.Type, obj.IsPass);
+        }
+    }
 }

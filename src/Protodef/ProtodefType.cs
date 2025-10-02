@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Protodef.Converters;
 
@@ -7,11 +8,22 @@ namespace Protodef;
 [JsonConverter(typeof(ProtodefTypeConverter))]
 public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
 {
-    [JsonIgnore]
-    public ProtodefType? Parent { get; set; }
+    public static readonly JsonSerializerOptions DefaultJsonOptions = new()
+    {
+        Converters = { new ProtodefTypeConverter() },
+        WriteIndented = true
+    };
     
-    [JsonIgnore]
-    public string? ParentName { get; set; }
+    public virtual string ToJson()
+    {
+        return JsonSerializer.Serialize(this, DefaultJsonOptions);
+    }
+    
+    
+
+    [JsonIgnore] public ProtodefType? Parent { get; set; }
+
+    [JsonIgnore] public string? ParentName { get; set; }
 
 
     [JsonIgnore]
@@ -39,6 +51,7 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
     {
         throw new NotImplementedException();
     }
+
     public abstract object Clone();
 
     public void OnDeserialized()
@@ -60,6 +73,7 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
 
     [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public IEnumerable<KeyValuePair<string?, ProtodefType>> Children => ChildrenImpl;
+
     public static bool operator ==(ProtodefType? a, ProtodefType? b)
     {
         if (a is null && b is null) return true;
@@ -68,7 +82,7 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
 
         return a.Equals(b);
     }
-    
+
     public static bool operator !=(ProtodefType? a, ProtodefType? b)
     {
         return !(a == b);

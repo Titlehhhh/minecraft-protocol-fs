@@ -48,7 +48,7 @@ public sealed class ProtodefArray : ProtodefType
 
     private bool Equals(ProtodefArray other)
     {
-        return Type.Equals(other.Type) && CountType.Equals(other.CountType) && Equals(Count, other.Count);
+        return Type.Equals(other.Type) && Equals(CountType, other.CountType) && Equals(Count, other.Count);
     }
 
     public override bool Equals(object? obj)
