@@ -10,7 +10,6 @@ open MinecraftDataFSharp.Models
 
 let findRanges (input: VerAndPacket array) =
     let jsonObj = JsonObject()
-
     input
     |> List.ofArray
     |> List.fold

@@ -1,20 +1,30 @@
 ﻿// For more information see https://aka.ms/fsharp-console-apps
 open System
+open System.Text.Json.Nodes
+open System.Threading.Tasks
+open System.Xml.Linq
 open Humanizer
 open PacketGenerator.Core
 open Protodef
 open PacketGenerator.Extensions
 
-let protoMap = ProtocolLoader.LoadProtocolsAsync(735, 772).GetAwaiter().GetResult()
 
 
+
+
+
+
+exit 0
+
+let protoMap =
+    ProtocolLoader.LoadProtocolsAsync(735, 772)
+    |> Async.AwaitTask
+    |> Async.RunSynchronously
 
 
 let isPacket (s: string) = s.StartsWith("packet_") || s = "packet"
 
 let filterTypes = [| "native" |]
-
-
 
 let allTypes =
     protoMap.Protocols
@@ -25,13 +35,3 @@ let allTypes =
     |> Seq.filter (isPacket >> not)
     |> Seq.map _.Pascalize()
     |> Set
-
-
-
-let fType = protoMap.Protocols.Values |> Seq.head
-
-let comparer = PascalizeStringComparer.Instance
-
-let gg = fType.Protocol.TryFindTypeOption("Slot", comparer)
-
-printfn "%A" gg
