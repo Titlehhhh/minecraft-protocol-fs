@@ -27,4 +27,4 @@ module ProtocolMapExtensions =
             this.Protocols
             |> Seq.map (fun x ->
                 { Version = x.Key
-                  Structure = x.Value.Protocol.findTypeByPath path  })
+                  Structure = x.Value.Protocol.tryFindByPath path  })

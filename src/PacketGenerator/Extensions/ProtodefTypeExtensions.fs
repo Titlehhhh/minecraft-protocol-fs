@@ -23,4 +23,4 @@ module ProtodefTypeExtensions =
                 None
 
     type ProtodefType with
-        member this.findTypeByPath path = this.GetByPath(path) |> Option.ofObj
+        member this.tryFindByPath path = this.GetByPath(path) |> Option.ofObj

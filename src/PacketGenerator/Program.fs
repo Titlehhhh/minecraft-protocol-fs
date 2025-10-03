@@ -4,28 +4,13 @@ open PacketGenerator.Extensions
 open PacketGenerator.History
 open PacketGenerator.Types
 open PacketGenerator.Core
+open PacketGenerator.Utils
 open Protodef
 open TruePath
 open TruePath.SystemIo
 
 
 let artifacts = ArtifactsPathHelper.ArtifactsPath
-
-
-let des (p: AbsolutePath) =
-    let json = p.ReadAllText()
-    JsonSerializer.Deserialize<ProtodefType>(json, ProtodefType.DefaultJsonOptions)
-
-let obj1 = des (artifacts / "test1.json")
-let obj2 = des (artifacts / "test2.json")
-
-let eq = obj1.Equals(obj2)
-
-printf $"{eq}"
-
-
-
-
 
 let protoMap =
     ProtocolLoader.LoadProtocolsAsync(735, 772)
@@ -34,10 +19,9 @@ let protoMap =
 
 let allTypes = protoMap.AllTypesPath()
 
-// filter types "packet"
-let isNamePacket (s: NamePathPair) = s.Name.StartsWith("Packet")
-let packets = allTypes |> Array.filter isNamePacket
-let types = allTypes |> Array.filter (not << isNamePacket)
+
+let packets = allTypes |> Array.filter (fun x-> x.Name |> NameUtils.isPacket) 
+let types = allTypes |> Array.filter ((fun x-> x.Name |> NameUtils.isPacket) >> not)
 
 
 
@@ -64,7 +48,7 @@ let historyToDict (history: TypeStructureHistory) =
     |> dict
 
 for p in packets do    
-    let diff = HistoryBuilder.build p.Path protoMap
+    let diff = HistoryBuilder.buildForPath p.Path protoMap
     let dir = getDir p.Path diffDir
     let file = dir / $"{p.Name}.json"
     if file.Exists() then failwith $"File {file} exists" 
