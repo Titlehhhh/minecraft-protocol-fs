@@ -1,13 +1,11 @@
 ﻿
-open System.Linq
 open System.Text.Json
-open PacketGenerator.Constants
+open PacketGenerator.Types
 open PacketGenerator.Core
 open Protodef
 open Test
 open TruePath
 open TruePath.SystemIo
-open TypeDiff
 
 
 let artifacts = ArtifactsPathHelper.ArtifactsPath

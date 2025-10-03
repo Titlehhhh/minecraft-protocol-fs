@@ -6,6 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Types.fs" />
         <Compile Include="Extensions\ProtodefProtocolExtensions.fs" />
         <Compile Include="Extensions\ProtocolMap.fs" />
         <Compile Include="Extensions\AbsolutePathExtensions.fs" />

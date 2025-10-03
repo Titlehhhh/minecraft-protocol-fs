@@ -1,13 +1,11 @@
 ﻿module Test
 
 open System
-open System.Runtime.InteropServices
 open Humanizer
+open PacketGenerator.Types
 open PacketGenerator.Core
-open PacketGenerator.Extensions
 open Protodef
 
-type NamePathPair = { Name: string; Path: string }
 
 let private isPacketMapper (s: string) =
     s.Equals("packet", StringComparison.OrdinalIgnoreCase)
@@ -17,9 +15,7 @@ let private findTypeByPath (path: string) (protocol: ProtodefProtocol) : Protode
     protocol.GetByPath(path) |> Option.ofObj
 
 
-type TypeFinderResult =
-    { Version: int
-      Structure: ProtodefType option }
+
 
 type ProtocolMap with
     member this.AllTypesPath() =

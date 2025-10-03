@@ -3,24 +3,9 @@
 open System
 open System.Collections.Generic
 open PacketGenerator.Core
+open PacketGenerator.Types
 open Protodef
 open Test
-
-type VersionRange =
-    { StartVersion: int; EndVersion: int }
-    
-    override this.ToString() =
-        if this.StartVersion = this.EndVersion then $"{this.StartVersion}" else $"{this.StartVersion}-{this.EndVersion}"
-
-type TypeStructureRecord =
-    { Interval: VersionRange
-      Structure: ProtodefType option }
-    
-    
-
-type TypeStructureHistory =
-    TypeStructureRecord list
-
 
 
 let private createRange ver : VersionRange =
