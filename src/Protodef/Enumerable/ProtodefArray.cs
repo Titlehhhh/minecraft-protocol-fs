@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using Protodef.Converters;
 
 namespace Protodef.Enumerable;
 
@@ -12,6 +13,7 @@ public sealed class ProtodefArray : ProtodefType
 
 
     [JsonPropertyName("count")] 
+    [JsonConverter(typeof(FlexibleCountConverter))]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public object? Count { get; set; }
 

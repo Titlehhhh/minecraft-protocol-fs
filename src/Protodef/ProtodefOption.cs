@@ -8,7 +8,7 @@ public sealed class ProtodefOption : ProtodefType
         Type = type;
     }
 
-    public ProtodefType Type { get; }
+    public ProtodefType Type { get; set; }
 
     protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
     {
@@ -33,19 +33,24 @@ public sealed class ProtodefOption : ProtodefType
         return null;
     }
 
+
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is null) return false;
+        if (ReferenceEquals(this, obj)) return true;
+        if (obj.GetType() != GetType()) return false;
+        return Equals((ProtodefOption)obj);
+    }
+
     private bool Equals(ProtodefOption other)
     {
         return Type.Equals(other.Type);
     }
 
-    public override bool Equals(object? obj)
-    {
-        return ReferenceEquals(this, obj) || (obj is ProtodefOption other && Equals(other));
-    }
-
     public override int GetHashCode()
     {
-        return Type.GetHashCode();
+        return HashCode.Combine(Type.GetHashCode());
     }
 }
 

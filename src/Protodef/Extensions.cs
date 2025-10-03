@@ -100,7 +100,7 @@ public static class Extensions
     /// <returns></returns>
     public static bool IsCustom(this ProtodefType type, string name)
     {
-        return type is ProtodefCustomType custom && custom.Name == name;
+        return IsCustom(type, [name]);
     }
 
     /// <summary>

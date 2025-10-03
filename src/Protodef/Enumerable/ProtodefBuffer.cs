@@ -1,28 +1,24 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
+using Protodef.Converters;
 
 namespace Protodef.Enumerable;
 
+
+
 public sealed class ProtodefBuffer : ProtodefType
 {
-    [JsonConstructor]
-    public ProtodefBuffer(ProtodefType? countType, object? count, bool? rest)
-    {
-        CountType = countType;
-        Count = count;
-        Rest = rest;
-    }
+    
+    [JsonPropertyName("countType")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProtodefType? CountType { get; set; }
 
-    public ProtodefBuffer()
-    {
-    }
-
-    [JsonPropertyName("countType")] public ProtodefType? CountType { get; set; }
-
-    [JsonPropertyName("count")] 
+    [JsonPropertyName("count")]
+    [JsonConverter(typeof(FlexibleCountConverter))]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public object? Count { get; set; }
 
-    [JsonPropertyName("rest")] 
+    [JsonPropertyName("rest")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Rest { get; set; }
 
@@ -51,14 +47,21 @@ public sealed class ProtodefBuffer : ProtodefType
         if (owner.CountType is not null) owner.CountType.Parent = owner;
         return owner;
     }
-    
+
     public override bool Equals(object? obj)
     {
-        if (obj is not ProtodefBuffer other)
-        {
-            return false;
-        }
+        if (obj is ProtodefBuffer other)
+            return Equals(other);
+        return false;
+    }
 
-        return CountType == other.CountType && Count == other.Count && Rest == other.Rest;
+    private bool Equals(ProtodefBuffer other)
+    {
+        return Equals(CountType, other.CountType) && Equals(Count, other.Count) && Rest == other.Rest;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(CountType, Count, Rest);
     }
 }
