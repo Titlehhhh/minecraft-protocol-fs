@@ -49,8 +49,19 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
 
     public ProtodefType? GetByPath(string path)
     {
-        throw new NotImplementedException();
+        var parts = path.Split('.');
+        var current = this;
+
+        foreach (var part in parts)
+        {
+            if (current is null) return null;
+            current = current.Children.FirstOrDefault(x => x.Key == part).Value;
+        }
+
+        return current;
     }
+    
+    
 
     public abstract object Clone();
 

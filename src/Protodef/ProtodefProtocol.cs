@@ -28,8 +28,20 @@ public class ProtodefProtocol : ProtodefType
     public ProtodefType FindType(string typeName, IEqualityComparer<string>? comparer = null)
     {
         if (TryFindType(typeName, comparer, out var type)) 
-            return type;
+            return type!;
         throw new KeyNotFoundException($"Type '{typeName}' not found");
+    }
+
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
+    {
+        get
+        {
+            foreach (var kv in Types)
+                yield return new KeyValuePair<string?, ProtodefType>(kv.Key, kv.Value);
+            
+            foreach (var kv in Namespaces)
+                yield return new KeyValuePair<string?, ProtodefType>(kv.Key, kv.Value);
+        }
     }
 
     public bool TryFindType(string typeName, IEqualityComparer<string>? comparer, out ProtodefType? type)
