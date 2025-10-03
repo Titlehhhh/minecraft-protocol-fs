@@ -1,29 +1,30 @@
-﻿// For more information see https://aka.ms/fsharp-console-apps
-open System
+﻿
+open System.Linq
 open System.Text.Json
-open System.Text.Json.Nodes
-open System.Threading.Tasks
-open System.Xml.Linq
-open Humanizer
+open PacketGenerator.Constants
 open PacketGenerator.Core
-open PacketGenerator.Protocol
 open Protodef
-open PacketGenerator.Extensions
+open Test
+open TruePath
 open TruePath.SystemIo
+open TypeDiff
 
 
 let artifacts = ArtifactsPathHelper.ArtifactsPath
 
-let test1 = artifacts / "test1.json"
-let test2 = artifacts / "test2.json"
 
-let test1Json = test1.ReadAllText()
-let test2Json = test2.ReadAllText()
+let des (p: AbsolutePath) =
+    let json = p.ReadAllText()
+    JsonSerializer.Deserialize<ProtodefType>(json, ProtodefType.DefaultJsonOptions)
 
-let test1Obj = JsonSerializer.Deserialize<ProtodefType>(test1Json, ProtodefType.DefaultJsonOptions)
-let test2Obj = JsonSerializer.Deserialize<ProtodefType>(test2Json, ProtodefType.DefaultJsonOptions)
+let obj1 = des (artifacts / "test1.json")
+let obj2 = des (artifacts / "test2.json")
 
-let eq = test1Obj.Equals(test2Obj)
+let eq = obj1.Equals(obj2)
+
+printf $"{eq}"
+
+
 
 
 
@@ -32,35 +33,54 @@ let protoMap =
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
+let allTypes = protoMap.AllTypesPath()
 
-let isPacket (s: string) = s.StartsWith("packet_") || s = "packet"
+// filter types "packet"
+let isNamePacket (s: NamePathPair) = s.Name.StartsWith("Packet")
+let packets = allTypes |> Array.filter isNamePacket
+let types = allTypes |> Array.filter (not << isNamePacket)
 
-let filterTypes = [| "native" |]
 
-let allTypes =
-    protoMap.Protocols
-    |> Seq.map _.Value.Protocol.GetAllTypes()
-    |> Seq.concat
-    |> Seq.filter (_.IsCustom(filterTypes) >> not)
-    |> Seq.map _.ParentName
-    |> Seq.filter (isPacket >> not)
-    |> Seq.map _.Pascalize()
-    |> Set
 
-let testDir = artifacts / "test"
-testDir.CreateDirectory()
-for t in allTypes do
-
-    let typeDiff = TypeDiffHistory.diffForType protoMap t
-
-    let json = typeDiff.ToJson().ToJsonString(ProtodefType.DefaultJsonOptions)
+let getDir (p: string) (basePath: AbsolutePath) =
+    let parts = p.Split(".")
+    match parts with
+    | [| state; side; name |] -> basePath / state / side
+    | _ -> basePath / "types"
     
-    let jsonFile = testDir / $"{t}.json"
+let diffDir = artifacts / "diff"
 
-    jsonFile.WriteAllText(json)
+diffDir.CreateClearDirectory()
 
+let un = packets
+        |> Array.map (fun p -> getDir p.Path diffDir)
+        |> uniquePaths
 
+for gg in un do
+    gg.CreateClearDirectory()
 
+let historyToDict (history: TypeStructureHistory) =
+    history
+    |> Seq.map (fun x-> (x.Interval.ToString(), x.Structure))
+    |> dict
 
+for p in packets do    
+    let diff = TypeDiff.find p.Path protoMap
+    let dir = getDir p.Path diffDir
+    let file = dir / $"{p.Name}.json"
+    if file.Exists() then failwith $"File {file} exists" 
+    
+    let d = diff |> historyToDict
+    let json = JsonSerializer.Serialize(d, ProtodefType.DefaultJsonOptions)
+    file.WriteAllText(json) 
+       
+    
+exit 0
+let pairs = packets |> Seq.pairwise
 
-
+for p1, p2 in pairs do
+    let diff1 = TypeDiff.find p1.Path protoMap
+    let diff2 = TypeDiff.find p2.Path protoMap
+    
+    if TypeDiff.canMerge diff1 diff2 then
+        printfn $"cant merge Type1: {p1.Name} ({p2.Path}); Type2: {p2.Name} ({p2.Path})"
