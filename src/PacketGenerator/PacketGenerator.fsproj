@@ -7,10 +7,11 @@
 
     <ItemGroup>
         <Compile Include="Types.fs" />
-        <Compile Include="Extensions\ProtodefProtocolExtensions.fs" />
-        <Compile Include="Extensions\ProtocolMap.fs" />
+        <Compile Include="Utils.fs" />
+        <Compile Include="Extensions\ProtodefTypeExtensions.fs" />
+        <Compile Include="Extensions\ProtocolMapExtensions.fs" />
         <Compile Include="Extensions\AbsolutePathExtensions.fs" />
-        <Compile Include="TypeDiff.fs" />
+        <Compile Include="HistoryBuilder.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
 

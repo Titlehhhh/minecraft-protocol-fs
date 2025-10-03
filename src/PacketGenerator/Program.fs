@@ -1,9 +1,10 @@
 ﻿
 open System.Text.Json
+open PacketGenerator.Extensions
+open PacketGenerator.History
 open PacketGenerator.Types
 open PacketGenerator.Core
 open Protodef
-open Test
 open TruePath
 open TruePath.SystemIo
 
@@ -63,7 +64,7 @@ let historyToDict (history: TypeStructureHistory) =
     |> dict
 
 for p in packets do    
-    let diff = TypeDiff.find p.Path protoMap
+    let diff = HistoryBuilder.build p.Path protoMap
     let dir = getDir p.Path diffDir
     let file = dir / $"{p.Name}.json"
     if file.Exists() then failwith $"File {file} exists" 
@@ -77,8 +78,8 @@ exit 0
 let pairs = packets |> Seq.pairwise
 
 for p1, p2 in pairs do
-    let diff1 = TypeDiff.find p1.Path protoMap
-    let diff2 = TypeDiff.find p2.Path protoMap
+    let diff1 = HistoryBuilder.buildForPath p1.Path protoMap
+    let diff2 = HistoryBuilder.buildForPath p2.Path protoMap
     
-    if TypeDiff.canMerge diff1 diff2 then
+    if HistoryBuilder.canMerge diff1 diff2 then
         printfn $"cant merge Type1: {p1.Name} ({p2.Path}); Type2: {p2.Name} ({p2.Path})"
