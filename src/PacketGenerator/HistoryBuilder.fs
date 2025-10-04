@@ -7,10 +7,10 @@ open PacketGenerator.Extensions
 
 
 
-module HistoryBuilder = 
+module HistoryBuilder =
     let buildForPath (path: string) (map: ProtocolMap) : TypeStructureHistory =
         let comparer = PascalizeStringComparer.Instance
-        let types = map.findTypesByPath path       
+        let types = map.findTypesByPath path
 
         types
         |> Seq.fold
@@ -35,23 +35,38 @@ module HistoryBuilder =
     let canMerge (h1: TypeStructureHistory) (h2: TypeStructureHistory) =
         let toMap h =
             h |> Seq.map (fun x -> x.Interval, x.Structure) |> Map.ofSeq
-
-        let m1 = toMap h1
-        let m2 = toMap h2
-
-        let m1Keys = m1 |> Map.keys |> Set
-        let m2Keys = m2 |> Map.keys |> Set
         
-        let intervals = Set.union m1Keys m2Keys
-
-        intervals
-        |> Seq.forall (fun i ->
-            match Map.tryFind i m1, Map.tryFind i m2 with
-            | None, None -> false        // обе пустые → бесполезно
-            | Some s1, None -> true      // h1 даёт структуру
-            | None, Some s2 -> true      // h2 даёт структуру
-            | Some _, Some _ -> false    // конфликт
-        )
+        let isEmpty (x:TypeStructureRecord) =
+            x.Structure |> Option.isNone
+        let isNonEmpty (x:TypeStructureRecord) =
+            x.Structure |> Option.isSome
         
+        let getEmptyIntervals h =
+            h
+            |> Seq.filter isEmpty
+            |> Seq.map _.Interval
+            |> Seq.map _.ToArray()
+            |> Seq.concat
+            |> Set
+        
+        let getNonEmptyIntervals h =
+            h
+            |> Seq.filter isNonEmpty
+            |> Seq.map _.Interval
+            |> Seq.map _.ToArray()
+            |> Seq.concat
+            |> Set
+            
+        
+        let emptyInts1 = h1 |> getEmptyIntervals
+        let emptyInts2 = h2 |> getEmptyIntervals
+        
+        let nonEmptyInts1 = h1 |> getNonEmptyIntervals
+        let nonEmptyInts2 = h2 |> getNonEmptyIntervals
+        
+        let a = (emptyInts1 |> Set.intersect emptyInts2) |> Set.isEmpty
+        let b = (nonEmptyInts1 |> Set.intersect nonEmptyInts2) |> Set.isEmpty
+        
+        a && b
+
     let build map path = buildForPath path map
-        

@@ -4,11 +4,17 @@ open Protodef
 
 type VersionRange =
     { StartVersion: int; EndVersion: int }
+    
+    member this.Contains(version: int) =
+        version >= this.StartVersion && version <= this.EndVersion
+    
+    member this.ToArray() = [|this.StartVersion..this.EndVersion|]
     override this.ToString() =
         if this.StartVersion = this.EndVersion then
             $"{this.StartVersion}"
         else
             $"{this.StartVersion}-{this.EndVersion}"
+            
 
 type TypeStructureRecord =
     { Interval: VersionRange
