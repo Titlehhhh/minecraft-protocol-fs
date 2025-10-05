@@ -34,4 +34,9 @@ public sealed class ProtodefBitFieldNode : ICloneable
 
         return Name == other.Name && Size == other.Size && Signed == other.Signed;
     }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Name, Size, Signed);
+    }
 }

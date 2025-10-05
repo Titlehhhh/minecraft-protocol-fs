@@ -48,9 +48,6 @@ public sealed class ProtodefContainer : ProtodefType
     {
         if (Fields.Count != other.Count)
             return false;
-
-        if (Fields.Count <= 0)
-            return false;
         
         var comparer = FieldEqualityComparer.Instance;
         
