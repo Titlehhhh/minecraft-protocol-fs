@@ -6,14 +6,16 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Protodef\Types.fs" />
         <Compile Include="Types.fs" />
         <Compile Include="Utils.fs" />
         <Compile Include="Extensions\ProtodefTypeExtensions.fs" />
         <Compile Include="Extensions\ProtocolMapExtensions.fs" />
         <Compile Include="Extensions\AbsolutePathExtensions.fs" />
         <Compile Include="HistoryBuilder.fs" />
+        <Compile Include="CodeGeneration\Mappings.fs" />
+        <Compile Include="CodeGeneration\Types.fs" />
         <Compile Include="Program.fs" />
-        <Folder Include="CodeGeneration\" />
     </ItemGroup>
 
     <ItemGroup>

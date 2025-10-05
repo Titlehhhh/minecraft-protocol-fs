@@ -1,5 +1,6 @@
 ﻿open System.Diagnostics
 open System.Linq
+open System.Reflection
 open System.Text.Json
 open PacketGenerator.Extensions
 open PacketGenerator.History
@@ -10,6 +11,14 @@ open Protodef
 open TruePath
 open TruePath.SystemIo
 
+
+
+let allTypes1 = Assembly.GetAssembly(typeof<ProtodefType>).GetTypes() |> Array.filter _.Name.StartsWith("Protodef")
+            
+for t in allTypes1 do
+    printfn $"{t.Name}"
+
+exit 0
 
 let artifacts = ArtifactsPathHelper.ArtifactsPath
 
