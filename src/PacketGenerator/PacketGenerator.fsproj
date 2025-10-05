@@ -13,6 +13,7 @@
         <Compile Include="Extensions\AbsolutePathExtensions.fs" />
         <Compile Include="HistoryBuilder.fs" />
         <Compile Include="Program.fs" />
+        <Folder Include="CodeGeneration\" />
     </ItemGroup>
 
     <ItemGroup>

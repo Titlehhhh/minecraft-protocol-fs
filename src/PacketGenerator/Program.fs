@@ -1,4 +1,5 @@
 ﻿open System.Diagnostics
+open System.Linq
 open System.Text.Json
 open PacketGenerator.Extensions
 open PacketGenerator.History
@@ -47,6 +48,10 @@ for gg in un do
 let historyToDict (history: TypeStructureHistory) =
     history |> Seq.map (fun x -> (x.Interval.ToString(), x.Structure)) |> dict
 
+let historyToJson (h: TypeStructureHistory) =
+    let asDict = historyToDict h
+    JsonSerializer.Serialize(asDict, ProtodefType.DefaultJsonOptions)
+
 for p in packets do
     let diff = HistoryBuilder.buildForPath p.Path protoMap
     let dir = getDir p.Path diffDir
@@ -78,10 +83,20 @@ let pairs =
     |> Seq.filter (fun x-> x ||> equalNs)
 
 
+let ps = [|"play.toServer.packet_chat"; "play.toServer.packet_chat_message"|]
+
+let isPs p1 p2 = ps.Contains(p1.Path) || ps.Contains(p2.Path)
 
 for p1, p2 in pairs do
     let diff1 = HistoryBuilder.buildForPath p1.Path protoMap
     let diff2 = HistoryBuilder.buildForPath p2.Path protoMap
 
     if HistoryBuilder.canMerge diff1 diff2 then
+        
+        if isPs p1 p2 then
+            let testFile = artifacts / "testMerge.json"
+            let merged = HistoryBuilder.merge diff1 diff2
+            let json = historyToJson merged
+            testFile.WriteAllText(json)
+        
         printfn $"cant merge Type1: {p1.Name} ({p1.Path}); Type2: {p2.Name} ({p2.Path})"
