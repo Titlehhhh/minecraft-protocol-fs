@@ -36,7 +36,17 @@ public sealed class ProtodefBitField : ProtodefType, IEnumerable<ProtodefBitFiel
 
         return true;
     }
-    
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is ProtodefBitField other)
+        {
+            return OrderingEquals(other.nodes);
+        }
+
+        return false;
+    }
+
     public IEnumerator<ProtodefBitFieldNode> GetEnumerator()
     {
         return nodes.GetEnumerator();
