@@ -22,7 +22,7 @@ public sealed class ProtodefBuffer : ProtodefType
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Rest { get; set; }
 
-    public override string? GetNetType()
+    public override string? GetClrType()
     {
         return "byte[]";
     }

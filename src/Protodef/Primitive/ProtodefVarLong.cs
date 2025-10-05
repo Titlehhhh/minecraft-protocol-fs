@@ -9,7 +9,7 @@ public sealed class ProtodefVarLong : ProtodefType
         return "varlong";
     }
 
-    public override string? GetNetType()
+    public override string? GetClrType()
     {
         return "long";
     }

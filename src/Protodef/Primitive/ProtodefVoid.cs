@@ -9,7 +9,7 @@ public sealed class ProtodefVoid : ProtodefType
         return "void";
     }
 
-    public override string? GetNetType()
+    public override string? GetClrType()
     {
         return "void";
     }

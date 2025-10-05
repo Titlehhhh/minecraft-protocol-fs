@@ -9,7 +9,7 @@ public sealed class ProtodefVarInt : ProtodefType
         return "varint";
     }
 
-    public override string? GetNetType()
+    public override string? GetClrType()
     {
         return "int";
     }

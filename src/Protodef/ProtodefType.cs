@@ -74,7 +74,7 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
         }
     }
 
-    public virtual string? GetNetType()
+    public virtual string? GetClrType()
     {
         return null;
     }

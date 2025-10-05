@@ -13,7 +13,7 @@ public sealed class ProtodefPrefixedString : ProtodefType
 
     [JsonPropertyName("countType")] public ProtodefType CountType { get; }
 
-    public override string? GetNetType()
+    public override string? GetClrType()
     {
         return "string";
     }

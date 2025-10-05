@@ -23,7 +23,7 @@ public sealed class ProtodefNumericType : ProtodefType
         return ProtodefName;
     }
 
-    public override string? GetNetType()
+    public override string? GetClrType()
     {
         return NetName;
     }

@@ -26,9 +26,9 @@ public sealed class ProtodefOption : ProtodefType
         return owner;
     }
 
-    public override string? GetNetType()
+    public override string? GetClrType()
     {
-        var netType = Type.GetNetType();
+        var netType = Type.GetClrType();
         if (netType is not null) return netType + "?";
         return null;
     }

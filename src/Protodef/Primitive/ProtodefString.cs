@@ -9,7 +9,7 @@ public sealed class ProtodefString : ProtodefType
         return "string";
     }
 
-    public override string? GetNetType()
+    public override string? GetClrType()
     {
         return "string";
     }

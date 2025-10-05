@@ -9,7 +9,7 @@ public sealed class ProtodefBool : ProtodefType
         return "bool";
     }
 
-    public override string? GetNetType()
+    public override string? GetClrType()
     {
         return "bool";
     }
