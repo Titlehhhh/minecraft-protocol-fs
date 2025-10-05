@@ -31,16 +31,14 @@ type ProtodefKind =
     | RegistryEntryHolder of ProtodefRegistryEntryHolder
     | RegistryEntryHolderSet of ProtodefRegistryEntryHolderSet
     | Switch of ProtodefSwitch
-    | Unknown of obj
+    | Unknown of ProtodefType
     
 [<AutoOpen>]
 module ProtodefPatterns =
-    let (|Protodef|) (t: obj) : ProtodefKind =
+    let (|Protodef|) (t: ProtodefType) : ProtodefKind =
         match t with
         | :? ProtodefBitField as x -> BitField x
-        | :? ProtodefBitFieldNode as x -> BitFieldNode x
         | :? ProtodefBitFlags as x -> BitFlags x
-        | :? ProtodefContainerField as x -> ContainerField x
         | :? ProtodefCustomType as x -> CustomType x
         | :? ProtodefLoop as x -> Loop x
         | :? ProtodefNamespace as x -> Namespace x

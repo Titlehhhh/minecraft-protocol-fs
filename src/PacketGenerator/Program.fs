@@ -1,7 +1,9 @@
-﻿open System.Diagnostics
+﻿open System.Collections.Generic
+open System.Diagnostics
 open System.Linq
 open System.Reflection
 open System.Text.Json
+open PacketGenerator.CodeGeneration
 open PacketGenerator.Extensions
 open PacketGenerator.History
 open PacketGenerator.Types
@@ -12,16 +14,23 @@ open TruePath
 open TruePath.SystemIo
 
 
-
-let allTypes1 = Assembly.GetAssembly(typeof<ProtodefType>).GetTypes() |> Array.filter _.Name.StartsWith("Protodef")
-            
-for t in allTypes1 do
-    printfn $"{t.Name}"
-
-exit 0
-
 let artifacts = ArtifactsPathHelper.ArtifactsPath
 
+let intersectStrings (sq: seq<seq<string>>) =
+    let nonEmpty = sq |> Seq.filter (fun s -> not (Seq.isEmpty s)) |> Seq.toList
+    match nonEmpty with
+    | [] -> HashSet<string>()  // пусто, если нет ни одной непустой последовательности
+    | first :: rest ->
+        let acc = HashSet<string>(first)   // начальный HashSet из первой последовательности
+        rest |> List.iter (fun s -> acc.IntersectWith(s))  // пересечение со всеми остальными
+        acc
+        
+let seq1 = seq ["apple"; "banana"; "cherry"]
+let seq2 = seq ["banana"; "cherry"; "date"]
+let seq3 = seq ["cherry"; "banana"; "fig"]
+
+let result = intersectStrings [seq1; seq2; seq3]
+printfn "%A" (result |> Seq.toList)  // ["banana"; "cherry"]
 
 let protoMap =
     ProtocolLoader.LoadProtocolsAsync(735, 772)
@@ -90,6 +99,17 @@ let pairs =
         for j in i+1 .. packets.Length - 1 do
             yield packets.[i], packets.[j] ]
     |> Seq.filter (fun x-> x ||> equalNs)
+
+
+
+for p in packets do
+    if p.Path = "play.toServer.packet_look" then
+        let diff = HistoryBuilder.buildForPath p.Path protoMap
+        
+        let spec = Helpers.toSpec diff
+        printfn ""
+    
+exit 0
 
 
 let ps = [|"play.toServer.packet_chat"; "play.toServer.packet_chat_message"|]

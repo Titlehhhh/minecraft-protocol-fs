@@ -1,6 +1,7 @@
 ﻿namespace PacketGenerator.CodeGeneration
 
 open System.Runtime.InteropServices
+open PacketGenerator.Protodef
 open PacketGenerator.Types
 open Protodef
 
@@ -15,7 +16,7 @@ type PacketMeta =
 type FieldDefinition =
   {
     Name: string
-    OriginalType: ProtodefType
+    OriginalType: ProtodefKind
     ClrType: string option    
   }
 
