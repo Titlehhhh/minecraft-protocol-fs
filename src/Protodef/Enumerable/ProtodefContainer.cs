@@ -43,7 +43,29 @@ public sealed class ProtodefContainer : ProtodefType
     {
         return new ProtodefContainer(this);
     }
-    
+
+    private bool OrderingEquals(List<ProtodefContainerField> other)
+    {
+        if (Fields.Count != other.Count)
+            return false;
+
+        if (Fields.Count <= 0)
+            return false;
+        
+        var comparer = FieldEqualityComparer.Instance;
+        
+        for (int i = 0; i < Fields.Count; i++)
+        {
+            var f1 = Fields[i];
+            var f2 = other[i];
+            if (comparer.GetHashCode(f1) != comparer.GetHashCode(f2))
+                return false;
+            if (!comparer.Equals(f1, f2))
+                return false;
+        }
+
+        return true;
+    }
     
     public override bool Equals(object? obj)
     {
@@ -52,7 +74,7 @@ public sealed class ProtodefContainer : ProtodefType
             return false;
         }
 
-        return Fields.SequenceEqual(other.Fields, FieldEqualityComparer.Instance);
+        return OrderingEquals(other.Fields);
     }
 
     private bool Equals(ProtodefContainer other)
@@ -80,7 +102,7 @@ public sealed class ProtodefContainer : ProtodefType
 
         public int GetHashCode(ProtodefContainerField obj)
         {
-            return HashCode.Combine(obj.Anon, obj.Name, obj.Type, obj.IsPass);
+            return obj.GetHashCode();
         }
     }
 }
