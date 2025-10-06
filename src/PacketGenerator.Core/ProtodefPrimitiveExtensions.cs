@@ -31,7 +31,7 @@ public static class ProtodefPrimitiveExtensions
     {
         public bool IsSimpleTypeForGenerator(int maxDepth = -1)
         {
-            bool IsPrimitiveRecursive(ProtodefType pt, int depth)
+            static bool IsPrimitiveRecursive(ProtodefType pt, int depth)
             {
                 if (pt.IsPrimitive())
                     return true;
@@ -42,7 +42,7 @@ public static class ProtodefPrimitiveExtensions
                     return false;
 
                 return pt.Children
-                    .All(x => 
+                    .All(x =>
                         IsPrimitiveRecursive(x.Value, depth + 1));
             }
 

@@ -14,7 +14,7 @@ module Util =
         | None, None -> true
         | _ -> false
 
-module NameUtils =
+module Filters =
     let isPacketMapper (s: string) =
         s.Equals("packet", StringComparison.OrdinalIgnoreCase)
     

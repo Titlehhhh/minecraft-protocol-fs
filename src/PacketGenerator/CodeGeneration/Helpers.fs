@@ -29,11 +29,11 @@ let getDiff (common: HashSet<ProtodefContainerField>) (fields: seq<ProtodefConta
     fields |> Seq.filter (common.Contains >> not)
 
 let toField (contField: ProtodefContainerField) : FieldDefinition =
-    { Name = contField.Name
+    { Name = contField.Name |> Naming.property
       ClrType = contField.ClrTypeOption
       OriginalType = contField.Type }
 
-let toSpec (h: TypeStructureHistory) : PacketSpec =
+let toSpec (h: TypeStructureHistory) (name: string) : PacketSpec =
     let containers = h |> Seq.map toOptionContainer |> Seq.toArray
     let commonFields = intersect containers
 
@@ -46,13 +46,15 @@ let toSpec (h: TypeStructureHistory) : PacketSpec =
                 Some (x.Interval, diff)
             | None -> None
         )
+        |> Seq.filter (snd >> List.isEmpty >> not)
         |> Seq.toList
+    
     let commonFields = 
         commonFields 
         |> Seq.map toField 
         |> Seq.toList
     let meta =
-        { Name = "PacketBlockPlace"
+        { Name = name |> Naming.className
           Aliases = []
           CanonicalName = Some ""
           Direction = Some ""

@@ -15,7 +15,7 @@ module ProtocolMapExtensions =
             |> Seq.map _.Value.Protocol
             |> Seq.collect _.GetAllTypes()
             |> Seq.filter (not << _.IsCustom("native"))
-            |> Seq.filter (fun x -> not (NameUtils.isPacketMapper x.ParentName))
+            |> Seq.filter (fun x -> not (Filters.isPacketMapper x.ParentName))
             |> Seq.map (fun x ->
                 { Name = x.ParentName.Pascalize()
                   Path = x.Path })

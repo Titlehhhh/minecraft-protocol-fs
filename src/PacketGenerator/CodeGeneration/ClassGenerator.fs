@@ -53,6 +53,16 @@ let generate (spec: PacketSpec) =
         let str = interval.ToString().Underscore()
         $"V{str}Fields"
     
+    let propsForVersioned =
+        spec.Versioned |> Seq.map (fun (i, _) ->
+            let structName = i |> naming
+            let propName = $"V{i.ToString().Underscore()}"
+            createProperty structName propName
+            )
+        |> Seq.toArray
+    
+    let rootClass = rootClass.AddMembers(propsForVersioned)
+    
     let versioned = spec.Versioned |> Seq.map (fun (i, fields) ->
         let name = i |> naming
         let props = fields |> toProperties
@@ -60,5 +70,7 @@ let generate (spec: PacketSpec) =
     
     let rootClass = rootClass.AddMembers(versioned)
     
+    
+    
     let str = rootClass.NormalizeWhitespace().ToFullString()
-    printfn $"{str}"
+    str

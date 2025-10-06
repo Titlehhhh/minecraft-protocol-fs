@@ -15,6 +15,7 @@
         <Compile Include="HistoryBuilder.fs" />
         <Compile Include="CodeGeneration\Mappings.fs" />
         <Compile Include="CodeGeneration\Types.fs" />
+        <Compile Include="CodeGeneration\Naming.fs" />
         <Compile Include="CodeGeneration\Helpers.fs" />
         <Compile Include="CodeGeneration\ClassGenerator.fs" />
         <Compile Include="Program.fs" />

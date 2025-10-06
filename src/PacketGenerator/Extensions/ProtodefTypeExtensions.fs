@@ -2,6 +2,7 @@
 
 open System
 open System.Collections.Generic
+open PacketGenerator.Core
 open Protodef
 
 [<AutoOpen>]
@@ -25,7 +26,7 @@ module ProtodefTypeExtensions =
 
     type ProtodefType with
         member this.tryFindByPath path = this.GetByPath(path) |> Option.ofObj
-
+        member this.isSimpleTypeForGenerator = ProtodefPrimitiveExtensions.IsSimpleTypeForGenerator(this,1)
     type ProtodefContainerField with
         member this.ClrTypeOption =
             let str = this.Type.GetClrType()
@@ -34,3 +35,4 @@ module ProtodefTypeExtensions =
                 Some str
             else
                 None
+    
