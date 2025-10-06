@@ -88,11 +88,11 @@ let pairs =
 
 
 for p in packets do
-    if p.Path = "play.toServer.packet_look" then
+    if p.Path = "play.toServer.packet_block_place" then
         let diff = HistoryBuilder.buildForPath p.Path protoMap
         
         let spec = Helpers.toSpec diff
-        printfn ""
+        ClassGenerator.generate spec
     
 exit 0
 

@@ -23,5 +23,9 @@
     <ItemGroup>
       <ProjectReference Include="..\PacketGenerator.Core\PacketGenerator.Core.csproj" />
     </ItemGroup>
+    
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+    </ItemGroup>
 
 </Project>

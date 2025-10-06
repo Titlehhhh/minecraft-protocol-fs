@@ -1,5 +1,6 @@
 ﻿namespace PacketGenerator.Extensions
 
+open System
 open System.Collections.Generic
 open Protodef
 
@@ -24,3 +25,12 @@ module ProtodefTypeExtensions =
 
     type ProtodefType with
         member this.tryFindByPath path = this.GetByPath(path) |> Option.ofObj
+
+    type ProtodefContainerField with
+        member this.ClrTypeOption =
+            let str = this.Type.GetClrType()
+
+            if str |> (String.IsNullOrWhiteSpace >> not) then
+                Some str
+            else
+                None

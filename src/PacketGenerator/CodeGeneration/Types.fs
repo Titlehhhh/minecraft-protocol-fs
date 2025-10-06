@@ -16,7 +16,7 @@ type PacketMeta =
 type FieldDefinition =
   {
     Name: string
-    OriginalType: ProtodefKind
+    OriginalType: ProtodefType
     ClrType: string option    
   }
 
