@@ -16,21 +16,6 @@ open TruePath.SystemIo
 
 let artifacts = ArtifactsPathHelper.ArtifactsPath
 
-let intersectStrings (sq: seq<seq<string>>) =
-    let nonEmpty = sq |> Seq.filter (fun s -> not (Seq.isEmpty s)) |> Seq.toList
-    match nonEmpty with
-    | [] -> HashSet<string>()  // пусто, если нет ни одной непустой последовательности
-    | first :: rest ->
-        let acc = HashSet<string>(first)   // начальный HashSet из первой последовательности
-        rest |> List.iter (fun s -> acc.IntersectWith(s))  // пересечение со всеми остальными
-        acc
-        
-let seq1 = seq ["apple"; "banana"; "cherry"]
-let seq2 = seq ["banana"; "cherry"; "date"]
-let seq3 = seq ["cherry"; "banana"; "fig"]
-
-let result = intersectStrings [seq1; seq2; seq3]
-printfn "%A" (result |> Seq.toList)  // ["banana"; "cherry"]
 
 let protoMap =
     ProtocolLoader.LoadProtocolsAsync(735, 772)

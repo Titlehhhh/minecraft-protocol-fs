@@ -44,47 +44,29 @@ public sealed class ProtodefContainer : ProtodefType
         return new ProtodefContainer(this);
     }
 
-    private bool OrderingEquals(List<ProtodefContainerField> other)
-    {
-        if (Fields.Count != other.Count)
-            return false;
-        
-        var comparer = FieldEqualityComparer.Instance;
-        
-        for (int i = 0; i < Fields.Count; i++)
-        {
-            var f1 = Fields[i];
-            var f2 = other[i];
-            if (comparer.GetHashCode(f1) != comparer.GetHashCode(f2))
-                return false;
-            if (!comparer.Equals(f1, f2))
-                return false;
-        }
 
-        return true;
-    }
-    
     public override bool Equals(object? obj)
     {
-        if (obj is not ProtodefContainer other)
+        if (obj is ProtodefContainer other)
         {
-            return false;
+            return Fields.SequenceEqual(other.Fields, FieldEqualityComparer.Instance);
         }
 
-        return OrderingEquals(other.Fields);
+        return false;
     }
 
-    private bool Equals(ProtodefContainer other)
+    public override int GetHashCode()
     {
-        return Fields.Equals(other.Fields);
+        return HashCode.Combine(Fields);
     }
 
     protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl =>
         Fields.Select(f => new KeyValuePair<string?, ProtodefType>(f.Name, f.Type));
-    
+
     private class FieldEqualityComparer : IEqualityComparer<ProtodefContainerField>
     {
         public static readonly IEqualityComparer<ProtodefContainerField> Instance = new FieldEqualityComparer();
+
         public bool Equals(ProtodefContainerField? x, ProtodefContainerField? y)
         {
             if (ReferenceEquals(x, y)) return true;

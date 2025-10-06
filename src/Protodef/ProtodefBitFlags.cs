@@ -30,21 +30,7 @@ public sealed class ProtodefBitFlags : ProtodefType
         return new ProtodefBitFlags(Type, Flags, Big, Shift);
     }
 
-    private bool OrderingEquals(object[] other)
-    {
-        if (Flags.Length != other.Length)
-            return false;
-
-        for (int i = 0; i < Flags.Length; i++)
-        {
-            var f1 = Flags[i];
-            var f2 = other[i];
-            if (!f1.Equals(f2))
-                return false;
-        }
-
-        return true;
-    }
+    
     
     public override bool Equals(object? obj)
     {
@@ -53,7 +39,7 @@ public sealed class ProtodefBitFlags : ProtodefType
             return false;
         }
 
-        return Type == other.Type && OrderingEquals(other.Flags) && Big == other.Big && Shift == other.Shift;
+        return Type == other.Type && Flags.SequenceEqual(other.Flags) && Big == other.Big && Shift == other.Shift;
     }
 
     public override int GetHashCode()
