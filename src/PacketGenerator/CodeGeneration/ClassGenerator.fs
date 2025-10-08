@@ -5,12 +5,10 @@ open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
 open PacketGenerator.CodeGeneration.Mapping
-open Protodef
-open PacketGenerator.Protodef
 
 
 let createProperty (``type``: string) (name: string) =
-    SyntaxFactory
+    SF
         .PropertyDeclaration(SyntaxFactory.ParseTypeName(``type``), name)
         .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
         .AddAccessorListAccessors(
@@ -42,7 +40,16 @@ let createStruct (name: string) =
         .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword),
                       SyntaxFactory.Token(SyntaxKind.PartialKeyword))
 
-let generate (spec: PacketSpec) =
+
+
+let generateImplClass (baseName: string) =
+    SF
+        .ClassDeclaration(SF.Identifier("Impl"))
+        .AddModifiers(SF.Token(SyntaxKind.PrivateKeyword))
+        .AddBaseListTypes(SF.SimpleBaseType(SF.ParseTypeName(baseName)))
+        .AddMembers()
+
+let generate (spec: ClassSpec) =
     let rootClass = createAbstractClass spec.Meta.Name
     
     let toProperties fs = fs |> Seq.map toProperty |> Seq.toArray
@@ -56,6 +63,7 @@ let generate (spec: PacketSpec) =
     let propsForVersioned =
         spec.Versioned |> Seq.map (fun (i, _) ->
             let structName = i |> naming
+            let structName = $"{structName}?"
             let propName = $"V{i.ToString().Underscore()}"
             createProperty structName propName
             )
@@ -67,6 +75,9 @@ let generate (spec: PacketSpec) =
         let name = i |> naming
         let props = fields |> toProperties
         (createStruct name).AddMembers(props) :> MemberDeclarationSyntax) |> Seq.toArray
+    let impl = (generateImplClass spec.Meta.Name) :> MemberDeclarationSyntax
+    
+    let versioned = Array.append versioned [|impl|]
     
     let rootClass = rootClass.AddMembers(versioned)
     

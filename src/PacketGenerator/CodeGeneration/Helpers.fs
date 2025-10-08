@@ -17,7 +17,8 @@ let toOptionContainer (x: TypeStructureRecord) =
 
 let intersect (sq: ProtodefContainer option seq) =
     let nonOption = sq |> Seq.choose id |> Seq.toList
-    let comparer = ProtodefContainerField.ClrNameComparer;
+    let comparer = ProtodefContainerField.ClrNameComparer
+
     (match nonOption with
      | [] -> HashSet<ProtodefContainerField>(comparer)
      | first :: rest ->
@@ -28,12 +29,19 @@ let intersect (sq: ProtodefContainer option seq) =
 let getDiff (common: HashSet<ProtodefContainerField>) (fields: seq<ProtodefContainerField>) =
     fields |> Seq.filter (common.Contains >> not)
 
-let toField (contField: ProtodefContainerField) : FieldDefinition =
+let toField (isCommon: bool) (contField: ProtodefContainerField)  : FieldDefinition =
+    
+    let kind = 
+        match contField.Type with
+        | Protodef f -> f
+    
     { Name = contField.Name |> Naming.property
       ClrType = contField.ClrTypeOption
-      OriginalType = contField.Type }
+      OriginalType = contField.Type
+      Kind = kind
+      IsCommon = isCommon }
 
-let toSpec (h: TypeStructureHistory) (name: string) : PacketSpec =
+let toSpec (h: TypeStructureHistory) (name: string) : ClassSpec =
     let containers = h |> Seq.map toOptionContainer |> Seq.toArray
     let commonFields = intersect containers
 
@@ -42,17 +50,29 @@ let toSpec (h: TypeStructureHistory) (name: string) : PacketSpec =
         |> Seq.choose (fun x ->
             match toOptionContainer x with
             | Some cont ->
-                let diff = getDiff commonFields cont.Fields |> Seq.map toField |> Seq.toList
-                Some (x.Interval, diff)
-            | None -> None
-        )
+                let diff = getDiff commonFields cont.Fields |> Seq.map (toField false) |> Seq.toList
+                Some(x.Interval, diff)
+            | None -> None)
         |> Seq.filter (snd >> List.isEmpty >> not)
         |> Seq.toList
     
-    let commonFields = 
-        commonFields 
-        |> Seq.map toField 
+    
+    let contDefList (c: ProtodefContainer) =
+        let comm (f: ProtodefContainerField) =
+            (commonFields.Contains(f), f) ||> toField
+        
+        c.Fields |> Seq.map comm |> Seq.toList
+
+    let ordered =
+        h
+        |> Seq.map (fun x -> (x.Interval, toOptionContainer x))
+        |> Seq.filter (snd >> Option.isSome)
+        |> Seq.map (fun (i, cont) -> (i, cont |> Option.get |> contDefList))
         |> Seq.toList
+
+
+    let commonFields = commonFields |> Seq.map (toField true) |> Seq.toList
+
     let meta =
         { Name = name |> Naming.className
           Aliases = []
@@ -62,4 +82,5 @@ let toSpec (h: TypeStructureHistory) (name: string) : PacketSpec =
 
     { Meta = meta
       CommonFields = commonFields
-      Versioned = versioned }
+      Versioned = versioned
+      Ordered = ordered }

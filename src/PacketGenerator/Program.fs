@@ -93,6 +93,13 @@ let codeGenDir = artifacts / "codeGen"
 
 codeGenDir.CreateClearDirectory()
 
+let mutable generated = 0
+let allPackets = packets.Length
+//Code gen
+let messages1 = ResizeArray<string>()
+let messages2 = ResizeArray<string>()
+
+
 for p in packets do
     let diff = HistoryBuilder.buildForPath p.Path protoMap
     
@@ -109,10 +116,19 @@ for p in packets do
             let spec = Helpers.toSpec diff p.Name  
             let code = ClassGenerator.generate spec
             (codeGenDir / $"{p.Path.Pascalize()}.cs").WriteAllText(code)
+            generated <- generated + 1
+        else
+            $"Non-primitive: {p.Path}" |> messages1.Add
     with
     | :? Exception as ex ->
-        printfn $"Exception {ex} in path: {p.Path}"
+        $"Exception {ex.Message} in path: {p.Path}" |> messages2.Add
 
+messages1 |> Seq.iter (fun x-> printfn $"{x}")
+printfn ""
+messages2 |> Seq.sort |> Seq.iter (fun x-> printfn $"{x}")
+
+printfn ""
+printfn $"Generated {generated}/{allPackets}"
 
 exit 0
 

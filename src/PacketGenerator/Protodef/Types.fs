@@ -32,6 +32,12 @@ type ProtodefKind =
     | RegistryEntryHolderSet of ProtodefRegistryEntryHolderSet
     | Switch of ProtodefSwitch
     | Unknown of ProtodefType
+
+type Counting =
+    | Rest
+    | Fixed of int
+    | Field of string
+    | Number of ProtodefType
     
 [<AutoOpen>]
 module ProtodefPatterns =
@@ -60,3 +66,16 @@ module ProtodefPatterns =
         | :? ProtodefRegistryEntryHolderSet as x -> RegistryEntryHolderSet x
         | :? ProtodefSwitch as x -> Switch x
         | _ -> Unknown t
+    
+    let (|BufferCount|) (t: ProtodefBuffer) =
+        if t.Rest.HasValue then
+            Rest
+        elif isNull t.CountType then
+            Number t.CountType
+        else
+            match t.Count with
+            | :? int as num -> Fixed num
+            | :? string as s -> Field s
+            | _ -> failwith $"Unknow {t.Count}"
+        
+    

@@ -13,10 +13,12 @@
         <Compile Include="Extensions\ProtocolMapExtensions.fs" />
         <Compile Include="Extensions\AbsolutePathExtensions.fs" />
         <Compile Include="HistoryBuilder.fs" />
+        <Compile Include="CodeGeneration\Shared.fs" />
         <Compile Include="CodeGeneration\Mappings.fs" />
         <Compile Include="CodeGeneration\Types.fs" />
         <Compile Include="CodeGeneration\Naming.fs" />
         <Compile Include="CodeGeneration\Helpers.fs" />
+        <Compile Include="CodeGeneration\WriteGen.fs" />
         <Compile Include="CodeGeneration\ClassGenerator.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>

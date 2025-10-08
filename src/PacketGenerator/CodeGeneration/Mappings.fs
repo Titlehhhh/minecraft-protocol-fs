@@ -7,6 +7,27 @@ open Protodef.Primitive
 
 
 module Mapping =
+    
+    let TypeToWriteMethodMap =
+        Map
+            [ "bool", "WriteBoolean"
+              "i8", "WriteSignedByte"
+              "u8", "WriteUnsignedByte"
+              "i16", "WriteSignedShort"
+              "u16", "WriteUnsignedShort"
+              "i32", "WriteSignedInt"
+              "u32", "WriteUnsignedInt"
+              "i64", "WriteSignedLong"
+              "u64", "WriteUnsignedLong"
+              "f32", "WriteFloat"
+              "f64", "WriteDouble"
+              "UUID", "WriteUUID"
+              "restBuffer", "WriteBuffer"
+              "varint", "WriteVarInt"
+              "varlong", "WriteVarLong"
+              "string", "WriteString"
+              "pstring", "WriteString" ]
+    
     let NameToCSharpType =
         Map["ByteArray", "byte[]"
             "Slot", "Slot"

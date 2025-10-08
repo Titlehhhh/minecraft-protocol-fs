@@ -85,8 +85,30 @@ public abstract class PositionLookPacket : IPacket<PositionLookPacket>
 
         protected override void ReadPacket(IMinecraftPrimitiveReader reader, int protocolVersion)
         {
-            if (protocolVersion is >= 765 and < 768)
-                V765To767 = ReadV765To767Fields(reader, protocolVersion);
+            switch (protocolVersion)
+            {
+                case >= 765 and < 768:
+                {
+                    var v765_767 = new V765To767Fields();
+                    v765_767.OnGround = reader.ReadBoolean();
+                    V765To767 = v765_767;
+                    break;
+                }
+                
+            }
+        }
+
+        private void WritePacket(IMinecraftPrimitiveWriter writer, int protocolVersion)
+        {
+            switch (protocolVersion)
+            {
+                case >= 765 and < 768:
+                {
+                    var v765_767 = V765To767.GetValueOrDefault();
+                    writer.WriteBoolean(v765_767.OnGround);
+                    break;
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -3,7 +3,10 @@
 open System.Runtime.InteropServices
 open PacketGenerator.Protodef
 open PacketGenerator.Types
+open PacketGenerator.Utils
 open Protodef
+
+
 
 type PacketMeta =
   { Name: string
@@ -17,10 +20,13 @@ type FieldDefinition =
   {
     Name: string
     OriginalType: ProtodefType
-    ClrType: string option    
+    Kind: ProtodefKind
+    ClrType: string option
+    IsCommon: bool
   }
 
-type PacketSpec =
+type ClassSpec =
   { Meta: PacketMeta
     CommonFields: FieldDefinition list
-    Versioned: (VersionRange * FieldDefinition list) list }
+    Versioned: (VersionRange * FieldDefinition list) list
+    Ordered: (VersionRange * FieldDefinition list) list }
