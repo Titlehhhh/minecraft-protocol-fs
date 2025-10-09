@@ -2,6 +2,6 @@
 namespace PacketGenerator.CodeGeneration
 
 [<AutoOpen>]
-module Shared
+module Shared =
 
-type SF = Microsoft.CodeAnalysis.CSharp.SyntaxFactory
+    type SF = Microsoft.CodeAnalysis.CSharp.SyntaxFactory

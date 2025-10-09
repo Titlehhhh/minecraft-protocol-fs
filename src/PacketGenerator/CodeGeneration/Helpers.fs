@@ -1,6 +1,7 @@
 ﻿module PacketGenerator.CodeGeneration.Helpers
 
 open System.Collections.Generic
+open System.Diagnostics
 open System.Linq
 open PacketGenerator.Core
 open PacketGenerator.Extensions
@@ -42,6 +43,9 @@ let toField (isCommon: bool) (contField: ProtodefContainerField)  : FieldDefinit
       IsCommon = isCommon }
 
 let toSpec (h: TypeStructureHistory) (name: string) : ClassSpec =
+    
+    
+    
     let containers = h |> Seq.map toOptionContainer |> Seq.toArray
     let commonFields = intersect containers
 
@@ -57,12 +61,16 @@ let toSpec (h: TypeStructureHistory) (name: string) : ClassSpec =
         |> Seq.toList
     
     
+    
     let contDefList (c: ProtodefContainer) =
         let comm (f: ProtodefContainerField) =
             (commonFields.Contains(f), f) ||> toField
         
         c.Fields |> Seq.map comm |> Seq.toList
-
+    
+    if name = "PacketEntityEffect" then
+        Debugger.Break()
+    
     let ordered =
         h
         |> Seq.map (fun x -> (x.Interval, toOptionContainer x))

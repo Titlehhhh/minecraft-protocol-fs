@@ -94,6 +94,10 @@ public abstract class PositionLookPacket : IPacket<PositionLookPacket>
                     V765To767 = v765_767;
                     break;
                 }
+                case 769:
+                {
+                    break;
+                }
                 
             }
         }

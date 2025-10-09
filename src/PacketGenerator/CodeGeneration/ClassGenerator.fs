@@ -1,5 +1,6 @@
 ﻿module PacketGenerator.CodeGeneration.ClassGenerator
 
+open System.Diagnostics
 open Humanizer
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
@@ -43,6 +44,9 @@ let createStruct (name: string) =
 
 
 let generateImplClass (baseName: string) =
+    
+    
+    
     SF
         .ClassDeclaration(SF.Identifier("Impl"))
         .AddModifiers(SF.Token(SyntaxKind.PrivateKeyword))
@@ -75,11 +79,21 @@ let generate (spec: ClassSpec) =
         let name = i |> naming
         let props = fields |> toProperties
         (createStruct name).AddMembers(props) :> MemberDeclarationSyntax) |> Seq.toArray
-    let impl = (generateImplClass spec.Meta.Name) :> MemberDeclarationSyntax
+    let impl = (generateImplClass spec.Meta.Name)
+    
+    if spec.Meta.Name = "PacketEntityEffect" then
+        Debugger.Break()
+    
+    let wr = WriteGen.generateWrite spec.Ordered
+    let impl = impl.AddMembers(wr)
+    
+    let impl = impl :> MemberDeclarationSyntax
     
     let versioned = Array.append versioned [|impl|]
     
     let rootClass = rootClass.AddMembers(versioned)
+    
+    
     
     
     
