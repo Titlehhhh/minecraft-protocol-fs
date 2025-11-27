@@ -65,13 +65,16 @@ let rec genWriteExpr (exprName: string) (typ: ProtodefType) : StatementSyntax li
         | SupportedCustom name -> [ parse $"writer.WriteType<{name.Pascalize()}>({exprName}, protocolVersion);" ]
         | SpecialCustom "UUID" _ -> [ parse $"writer.WriteUUID({exprName});" ]
         | SpecialCustom "ByteArray" -> [ parse $"writer.WriteBuffer<VarInt>({exprName});" ]
+        | SpecialCustom "restBuffer" _ -> [ parse $"writer.WriteRestBuffer({exprName});" ]
+        | SpecialCustom "anonymousNbt" -> [ parse $"writer.WriteType<NbtTag>({exprName}, protocolVersion);" ]
+        | SpecialCustom "nbt" -> [ parse $"writer.WriteType<NbtTag>({exprName}, protocolVersion);" ]
         | _ -> [ parse $"writer.WriteType<{c.Name}>({exprName}, protocolVersion);" ]
 
     | Option opt ->
         // рекурсивно пишем Optional, вложенный тип — тот же
-        [ parse $"writer.WriteOptional({exprName}, protocolVersion, static writer =>" ]
-        @ (genWriteExpr "writer" opt.Type)
-        @ [ parse ");" ]
+        [ parse $"writer.WriteOptional({exprName}, protocolVersion, static writer => \n{{" ]
+        @ (genWriteExpr "writer" opt.Type) 
+        @ [ parse "});" ]
 
     // | Array arr ->
     //     match arr.Count with

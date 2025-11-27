@@ -7,8 +7,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="TruePath" Version="1.10.0" />
-        <PackageReference Include="TruePath.SystemIo" Version="1.10.0" />
+        <PackageReference Include="TruePath" Version="1.11.0" />
+        <PackageReference Include="TruePath.SystemIo" Version="1.11.0" />
     </ItemGroup>
     
     

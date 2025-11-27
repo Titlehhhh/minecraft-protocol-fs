@@ -35,13 +35,13 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="System.Net.ServerSentEvents" Version="9.0.0" />
+        <PackageReference Include="System.Net.ServerSentEvents" Version="10.0.0" />
         <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0" />
         <PackageReference Include="Semver" Version="3.0.0"/>
-        <PackageReference Include="OllamaSharp" Version="4.0.7"/>
+        <PackageReference Include="OllamaSharp" Version="5.4.11" />
         <PackageReference Include="FSharp.Control.AsyncSeq" Version="3.2.1"/>
         
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
     </ItemGroup>
 
     <ItemGroup>

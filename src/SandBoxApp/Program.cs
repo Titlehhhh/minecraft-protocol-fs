@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Net.Sockets;
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
@@ -19,6 +20,8 @@ class Program
 {
     static async Task Main(string[] args)
     {
+        Socket s = new Socket(new SafeSocketHandle());
+
         
     }
 
