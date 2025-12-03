@@ -38,6 +38,20 @@ public sealed class ProtodefContainer : ProtodefType
             throw new KeyNotFoundException();
         }
     }
+    
+    public override bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
+    {
+        base.TryReplaceChild(key, oldChild, newChild);
+        foreach (var field in Fields)
+        {
+            if (field.Type == oldChild || field.Name == key)
+            {
+                field.Type = newChild;
+                return true;
+            }
+        }
+        return false;
+    }
 
     public override object Clone()
     {

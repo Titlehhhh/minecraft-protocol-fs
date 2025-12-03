@@ -21,7 +21,7 @@ public sealed class ProtodefContainerField
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Name { get; }
 
-    [JsonPropertyName("type")] public ProtodefType Type { get; }
+    [JsonPropertyName("type")] public ProtodefType Type { get; set; }
 
     [JsonIgnore] public bool IsPass { get; set; }
     [JsonIgnore] public bool IsAnon => Anon == true;

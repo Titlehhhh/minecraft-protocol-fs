@@ -11,7 +11,7 @@ public sealed class ProtodefPrefixedString : ProtodefType
         CountType = countType;
     }
 
-    [JsonPropertyName("countType")] public ProtodefType CountType { get; }
+    [JsonPropertyName("countType")] public ProtodefType CountType { get; set; }
 
     public override string? GetClrType()
     {
@@ -41,6 +41,18 @@ public sealed class ProtodefPrefixedString : ProtodefType
         {
             yield return new KeyValuePair<string?, ProtodefType>("countType", CountType);
         }
+    }
+    
+    public override bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
+    {
+        base.TryReplaceChild(key, oldChild, newChild);
+        if (CountType == oldChild || key == "countType")
+        {
+            CountType = newChild;
+            return true;
+        }
+
+        return false;
     }
 
 

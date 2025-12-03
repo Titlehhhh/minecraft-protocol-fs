@@ -10,6 +10,19 @@ public sealed class ProtodefNamespace : ProtodefType
         => Types.Select(x 
             => new KeyValuePair<string?, ProtodefType>(x.Key, x.Value));
 
+    public override bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
+    {
+        base.TryReplaceChild(key, oldChild, newChild);
+        ArgumentException.ThrowIfNullOrEmpty(key);
+        if (Types[key] == oldChild || key == "types")
+        {
+            Types[key] = newChild;
+            return true;
+        }
+
+        return false;
+    }
+    
     public override object Clone()
     {
         var owner = new ProtodefNamespace

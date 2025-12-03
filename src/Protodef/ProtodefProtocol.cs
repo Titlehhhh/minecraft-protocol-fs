@@ -44,6 +44,34 @@ public class ProtodefProtocol : ProtodefType
         }
     }
 
+    public override bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
+    {
+         base.TryReplaceChild(key, oldChild, newChild);
+        
+         if (key != null && Types.TryGetValue(key, out var t))
+         {
+             if (t == oldChild)
+             {
+                 Types[key] = newChild;
+                 return true;
+             }
+         }
+         else
+         {
+             foreach (var kv in Types)
+             {
+                 if (kv.Value == oldChild)
+                 {
+                     Types[kv.Key] = newChild;
+                     return true;
+                 }
+             }
+         }
+
+         return false;
+    }
+
+
     public bool TryFindType(string typeName, IEqualityComparer<string>? comparer, out ProtodefType? type)
     {
         if (Types is null)

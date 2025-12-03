@@ -7,12 +7,12 @@ public sealed class ProtodefArray : ProtodefType
 {
     [JsonPropertyName("type")] public ProtodefType Type { get; set; }
 
-    [JsonPropertyName("countType")] 
+    [JsonPropertyName("countType")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ProtodefType? CountType { get; set; }
 
 
-    [JsonPropertyName("count")] 
+    [JsonPropertyName("count")]
     [JsonConverter(typeof(FlexibleCountConverter))]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public object? Count { get; set; }
@@ -25,6 +25,23 @@ public sealed class ProtodefArray : ProtodefType
             if (CountType is not null)
                 yield return new KeyValuePair<string?, ProtodefType>("countType", CountType);
         }
+    }
+
+    public override bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
+    {
+        if (CountType == oldChild || key == "countType")
+        {
+            CountType = newChild;
+            return true;
+        }
+
+        if (Type == oldChild || key == "type")
+        {
+            Type = newChild;
+            return true;
+        }
+
+        return false;
     }
 
     public override string? GetClrType()

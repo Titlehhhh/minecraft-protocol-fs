@@ -36,4 +36,16 @@ public class ProtodefRegistryEntryHolder : ProtodefType
             yield return new KeyValuePair<string?, ProtodefType>("otherwise", Otherwise.Type);
         }
     }
+    
+    public override bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
+    {
+        base.TryReplaceChild(key, oldChild, newChild);
+        if (Otherwise.Type == oldChild || key == "otherwise")
+        {
+            Otherwise.Type = newChild;
+            return true;
+        }
+
+        return false;
+    }
 }

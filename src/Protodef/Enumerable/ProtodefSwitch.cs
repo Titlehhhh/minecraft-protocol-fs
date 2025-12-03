@@ -33,6 +33,31 @@ public class ProtodefSwitch : ProtodefType
                 yield return new KeyValuePair<string?, ProtodefType>("default", Default);
         }
     }
+    
+    public override bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
+    {
+        base.TryReplaceChild(key, oldChild, newChild);
+        if (Fields is not null)
+        {
+            foreach (var kv in Fields)
+            {
+                var k = $"{kv.Key}";
+                if (kv.Value == oldChild || k == key)
+                {
+                    Fields[kv.Key] = newChild;
+                    return true;
+                }
+            }
+        }
+
+        if (Default == oldChild || key == "default")
+        {
+            Default = newChild;
+            return true;
+        }
+
+        return false;
+    }
 
     public override bool Equals(object? obj)
     {

@@ -18,6 +18,17 @@ public sealed class ProtodefOption : ProtodefType
         }
     }
 
+    public override bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
+    {
+        base.TryReplaceChild(key, oldChild, newChild);
+        if (Type == oldChild || key == "type")
+        {
+            Type = newChild;
+            return true;
+        }
+
+        return false;
+    }
 
     public override object Clone()
     {

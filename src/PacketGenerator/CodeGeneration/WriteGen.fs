@@ -51,13 +51,9 @@ let rec genWriteExpr (exprName: string) (typ: ProtodefType) : StatementSyntax li
 
     match kind with
     | NumericType num -> [ parse $"writer.{TypeToWriteMethodMap[num.ProtodefName]}({exprName});" ]
-
     | VarInt _ -> [ parse $"writer.WriteVarInt({exprName});" ]
-
     | VarLong _ -> [ parse $"writer.WriteVarLong({exprName});" ]
-
     | String _ -> [ parse $"writer.WriteString({exprName});" ]
-
     | Bool _ -> [ parse $"writer.WriteBool({exprName});" ]
 
     | CustomType c ->

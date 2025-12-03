@@ -79,11 +79,21 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
         return null;
     }
 
+    public virtual bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(oldChild);
+        ArgumentNullException.ThrowIfNull(newChild);
+        return false;
+    }
 
     protected virtual IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl => [];
 
     [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
     public IEnumerable<KeyValuePair<string?, ProtodefType>> Children => ChildrenImpl;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+    public Guid Id { get; } = Guid.NewGuid();
 
     public static bool operator ==(ProtodefType? a, ProtodefType? b)
     {
@@ -97,29 +107,5 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
     public static bool operator !=(ProtodefType? a, ProtodefType? b)
     {
         return !(a == b);
-    }
-}
-
-public sealed class PassableType : ProtodefType
-{
-    public PassableType(ProtodefType type)
-    {
-        if (type is PassableType pass)
-            Type = pass.Type;
-        else
-            Type = type;
-
-        //Type.Parent = this;
-    }
-
-    public ProtodefType Type { get; set; }
-
-    public override object Clone()
-    {
-        var g = new PassableType((ProtodefType)this.Type.Clone())
-        {
-        };
-
-        return g;
     }
 }
