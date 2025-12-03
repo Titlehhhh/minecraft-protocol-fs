@@ -13,13 +13,14 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
         Converters = { new ProtodefTypeConverter() },
         WriteIndented = true
     };
-    
+
     public virtual string ToJson()
     {
         return JsonSerializer.Serialize(this, DefaultJsonOptions);
     }
+
     
-    
+
 
     [JsonIgnore] public ProtodefType? Parent { get; set; }
 
@@ -60,8 +61,7 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
 
         return current;
     }
-    
-    
+
 
     public abstract object Clone();
 
