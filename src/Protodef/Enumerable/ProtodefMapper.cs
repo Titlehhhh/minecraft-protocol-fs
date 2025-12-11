@@ -5,7 +5,7 @@ namespace Protodef.Enumerable;
 public sealed class ProtodefMapper : ProtodefType
 {
     [JsonConstructor]
-    public ProtodefMapper(string type, Dictionary<string, string> mappings)
+    public ProtodefMapper(ProtodefType type, Dictionary<string, string> mappings)
     {
         Type = type;
         Mappings = mappings;
@@ -13,11 +13,11 @@ public sealed class ProtodefMapper : ProtodefType
 
     private ProtodefMapper(ProtodefMapper other)
     {
-        Type = other.Type;
+        Type = (ProtodefType)other.Type.Clone();
         Mappings = new Dictionary<string, string>(other.Mappings);
     }
 
-    [JsonPropertyName("type")] public string Type { get; }
+    [JsonPropertyName("type")] public ProtodefType Type { get; }
 
     [JsonPropertyName("mappings")] public Dictionary<string, string> Mappings { get; } = new();
 

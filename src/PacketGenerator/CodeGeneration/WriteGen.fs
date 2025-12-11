@@ -150,8 +150,9 @@ let generateWrite (fields: (VersionRange * FieldDefinition list) list) : MemberD
         sb.AppendLine("{") |> ignore
         let varStruct = vrange |> Naming.versionedVar
         let propStruct = vrange |> Naming.versionedStruct
-        sb.AppendLine($"var {varStruct} = {propStruct}.GetValueOrDefault();")
-        |> ignore
+        if fieldList.IsEmpty |> not then 
+            sb.AppendLine($"var {varStruct} = {propStruct}.GetValueOrDefault();")
+            |> ignore
 
         fieldStmts |> Seq.iter (fun f -> sb.AppendLine(f.ToFullString()) |> ignore)
         sb.AppendLine("break;") |> ignore

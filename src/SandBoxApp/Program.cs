@@ -20,8 +20,7 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        Socket s = new Socket(new SafeSocketHandle());
-
+        
         
     }
 

@@ -54,6 +54,9 @@ let generateImplClass (baseName: string) =
         .AddMembers()
 
 let generate (spec: ClassSpec) =
+    
+    if spec.Meta.Name = "PacketCommonTransfer" then
+        Debugger.Break()
     let rootClass = createAbstractClass spec.Meta.Name
     
     let toProperties fs = fs |> Seq.map toProperty |> Seq.toArray
@@ -81,8 +84,7 @@ let generate (spec: ClassSpec) =
         (createStruct name).AddMembers(props) :> MemberDeclarationSyntax) |> Seq.toArray
     let impl = (generateImplClass spec.Meta.Name)
     
-    if spec.Meta.Name = "PacketEntityEffect" then
-        Debugger.Break()
+    
     
     let wr = WriteGen.generateWrite spec.Ordered
     let impl = impl.AddMembers(wr)

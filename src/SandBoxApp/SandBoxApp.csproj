@@ -11,6 +11,7 @@
     <ItemGroup>
       <ProjectReference Include="..\MinecraftData\MinecraftData.csproj" />
       <ProjectReference Include="..\Protodef\Protodef.csproj" />
+      <ProjectReference Include="..\SandBoxLib\SandBoxLib.csproj" />
     </ItemGroup>
 
     <ItemGroup>

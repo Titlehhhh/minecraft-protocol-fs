@@ -4,6 +4,7 @@ open System.Diagnostics
 open System.Linq
 open System.Reflection
 open System.Text.Json
+open System.Text.Json.Nodes
 open Humanizer
 open PacketGenerator.CodeGeneration
 open PacketGenerator.Extensions
@@ -27,6 +28,16 @@ let protoMap =
     |> Async.RunSynchronously
 
 let allTypes = protoMap.AllTypesPath()
+
+let last = protoMap.Protocols[772].Protocol
+
+let test = last.GetByPath("play.toClient.packet_spawn_position")
+
+let testPos = last.GetByPath("position");
+
+let testDedup = test.CreateDeduplicatedCopy();
+
+let testJson = testDedup.ToJson();
 
 
 let packets1 = allTypes |> Array.filter (fun x -> x.Name |> Filters.isPacket)
@@ -59,17 +70,45 @@ let historyToJson (h: TypeStructureHistory) =
     let asDict = historyToDict h
     JsonSerializer.Serialize(asDict, ProtodefType.DefaultJsonOptions)
 
-for p in packets do
+
+let combined = packets |> Array.append types
+
+for p in combined do
+    if p.Name = "PacketEntityEquipment" then
+        Debugger.Break()
+    
     let diff = HistoryBuilder.buildForPath p.Path protoMap
     let dir = getDir p.Path diffDir
     let file = dir / $"{p.Name}.json"
 
-    if file.Exists() then
-        printfn $"File {file} exists. Path: {p.Path}"
-    else
-        let d = diff |> historyToDict
-        let json = JsonSerializer.Serialize(d, ProtodefType.DefaultJsonOptions)
-        file.WriteAllText($"//{p.Path}\n{json}")
+    
+    let d = diff |> historyToDict
+    let json = JsonSerializer.SerializeToNode(d, ProtodefType.DefaultJsonOptions)
+    
+    let obj = JsonObject()
+    
+    let lastIndex = p.Path.LastIndexOf(".")
+    
+    let path =
+        if lastIndex = -1 then
+            ""
+        else
+            p.Path.Substring(0, lastIndex)
+    
+    obj.Add("path", path)
+    obj.Add("name", p.Name)
+    obj.Add("history", json)
+    
+    let mutable file = dir / $"{p.Name}.json"
+    
+    let mutable i = 0;
+    while file.ExistsFile() do
+        i <- i + 1
+        file <- dir / $"{p.Name}_{i}.json"
+    
+        
+    file.WriteAllText(obj.ToJsonString(ProtodefType.DefaultJsonOptions))
+    //file.WriteAllText($"//{p.Path}\n{json}")
 
 
 // play.toClient.xxx == play.toServer.xxx

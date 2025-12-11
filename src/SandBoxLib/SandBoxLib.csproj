@@ -14,4 +14,11 @@
         <PackageReference Include="System.Reactive" Version="7.0.0-preview.1" />
         <PackageReference Include="Dunet" Version="1.11.3"/>
     </ItemGroup>
+    <ItemGroup>
+      <None Update="TestFile.tt">
+        <Generator>TextTemplatingFileGenerator</Generator>
+        <LastGenOutput>TestFile.cs</LastGenOutput>
+      </None>
+    </ItemGroup>
+
 </Project>

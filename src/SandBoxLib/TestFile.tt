@@ -1,0 +1,11 @@
+﻿<#@ template language="C#" #>
+<#@ output extension=".cs" #>
+namespace MyProject.Packets
+{
+    public class TestPacket
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+    }
+}

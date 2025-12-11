@@ -75,14 +75,23 @@ public static class Extensions
     /// <param name="type"></param>
     extension(ProtodefType type)
     {
+        public string ToJson()
+        {
+            return JsonSerializer.Serialize(type, ProtodefType.DefaultJsonOptions);
+        }
+        
         public ProtodefType CreateDeduplicatedCopy()
         {
             if (type.Clone() is not ProtodefType clone)
                 throw new InvalidOperationException("Clone returned incorrect type");
 
-            clone.FixParentsRecursive();
+            
 
+            clone.Parent = type.Parent;
             clone.DeduplicateTypes();
+            clone.Parent = null;
+            clone.FixParentsRecursive();
+            
             return clone;
         }
 
