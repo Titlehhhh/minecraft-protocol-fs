@@ -1,0 +1,144 @@
+[
+  "container",
+  [
+    {
+      "name": "team",
+      "type": "string"
+    },
+    {
+      "name": "mode",
+      "type": "i8"
+    },
+    {
+      "name": "name",
+      "type": [
+        "switch",
+        {
+          "compareTo": "mode",
+          "fields": {
+            "0": "string",
+            "2": "string"
+          },
+          "default": "void"
+        }
+      ]
+    },
+    {
+      "name": "friendlyFire",
+      "type": [
+        "switch",
+        {
+          "compareTo": "mode",
+          "fields": {
+            "0": "i8",
+            "2": "i8"
+          },
+          "default": "void"
+        }
+      ]
+    },
+    {
+      "name": "nameTagVisibility",
+      "type": [
+        "switch",
+        {
+          "compareTo": "mode",
+          "fields": {
+            "0": "string",
+            "2": "string"
+          },
+          "default": "void"
+        }
+      ]
+    },
+    {
+      "name": "collisionRule",
+      "type": [
+        "switch",
+        {
+          "compareTo": "mode",
+          "fields": {
+            "0": "string",
+            "2": "string"
+          },
+          "default": "void"
+        }
+      ]
+    },
+    {
+      "name": "formatting",
+      "type": [
+        "switch",
+        {
+          "compareTo": "mode",
+          "fields": {
+            "0": "varint",
+            "2": "varint"
+          },
+          "default": "void"
+        }
+      ]
+    },
+    {
+      "name": "prefix",
+      "type": [
+        "switch",
+        {
+          "compareTo": "mode",
+          "fields": {
+            "0": "string",
+            "2": "string"
+          },
+          "default": "void"
+        }
+      ]
+    },
+    {
+      "name": "suffix",
+      "type": [
+        "switch",
+        {
+          "compareTo": "mode",
+          "fields": {
+            "0": "string",
+            "2": "string"
+          },
+          "default": "void"
+        }
+      ]
+    },
+    {
+      "name": "players",
+      "type": [
+        "switch",
+        {
+          "compareTo": "mode",
+          "fields": {
+            "0": [
+              "array",
+              {
+                "countType": "varint",
+                "type": "string"
+              }
+            ],
+            "3": [
+              "array",
+              {
+                "countType": "varint",
+                "type": "string"
+              }
+            ],
+            "4": [
+              "array",
+              {
+                "countType": "varint",
+                "type": "string"
+              }
+            ]
+          },
+          "default": "void"
+        }
+      ]
+    }
+  ]
+]

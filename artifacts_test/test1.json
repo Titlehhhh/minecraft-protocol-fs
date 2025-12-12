@@ -1,0 +1,198 @@
+[
+  "container",
+  [
+    {
+      "name": "team",
+      "type": "string"
+    },
+    {
+      "name": "mode",
+      "type": [
+        "mapper",
+        {
+          "type": "i8",
+          "mappings": {
+            "0": "add",
+            "1": "remove",
+            "2": "change",
+            "3": "join",
+            "4": "leave"
+          }
+        }
+      ]
+    },
+    {
+      "anon": true,
+      "type": [
+        "switch",
+        {
+          "compareTo": "mode",
+          "fields": {
+            "add": [
+              "container",
+              [
+                {
+                  "name": "name",
+                  "type": "anonymousNbt"
+                },
+                {
+                  "name": "flags",
+                  "type": [
+                    "bitflags",
+                    {
+                      "type": "u8",
+                      "flags": [
+                        "friendly_fire",
+                        "see_friendly_invisible"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "nameTagVisibility",
+                  "type": [
+                    "mapper",
+                    {
+                      "type": "varint",
+                      "mappings": {
+                        "0": "always",
+                        "1": "never",
+                        "2": "hide_for_other_teams",
+                        "3": "hide_for_own_team"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "collisionRule",
+                  "type": [
+                    "mapper",
+                    {
+                      "type": "varint",
+                      "mappings": {
+                        "0": "always",
+                        "1": "never",
+                        "2": "push_other_teams",
+                        "3": "push_own_team"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "formatting",
+                  "type": "varint"
+                },
+                {
+                  "name": "prefix",
+                  "type": "anonymousNbt"
+                },
+                {
+                  "name": "suffix",
+                  "type": "anonymousNbt"
+                }
+              ]
+            ],
+            "change": [
+              "container",
+              [
+                {
+                  "name": "name",
+                  "type": "anonymousNbt"
+                },
+                {
+                  "name": "flags",
+                  "type": [
+                    "bitflags",
+                    {
+                      "type": "u8",
+                      "flags": [
+                        "friendly_fire",
+                        "see_friendly_invisible"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "nameTagVisibility",
+                  "type": [
+                    "mapper",
+                    {
+                      "type": "varint",
+                      "mappings": {
+                        "0": "always",
+                        "1": "never",
+                        "2": "hide_for_other_teams",
+                        "3": "hide_for_own_team"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "collisionRule",
+                  "type": [
+                    "mapper",
+                    {
+                      "type": "varint",
+                      "mappings": {
+                        "0": "always",
+                        "1": "never",
+                        "2": "push_other_teams",
+                        "3": "push_own_team"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "formatting",
+                  "type": "varint"
+                },
+                {
+                  "name": "prefix",
+                  "type": "anonymousNbt"
+                },
+                {
+                  "name": "suffix",
+                  "type": "anonymousNbt"
+                }
+              ]
+            ]
+          },
+          "default": "void"
+        }
+      ]
+    },
+    {
+      "name": "players",
+      "type": [
+        "switch",
+        {
+          "compareTo": "mode",
+          "fields": {
+            "add": [
+              "array",
+              {
+                "countType": "varint",
+                "type": "string"
+              }
+            ],
+            "join": [
+              "array",
+              {
+                "countType": "varint",
+                "type": "string"
+              }
+            ],
+            "leave": [
+              "array",
+              {
+                "countType": "varint",
+                "type": "string"
+              }
+            ]
+          },
+          "default": "void"
+        }
+      ]
+    }
+  ]
+]
