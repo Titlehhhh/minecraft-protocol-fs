@@ -1,16 +1,15 @@
 ﻿<Solution>
   <Folder Name="/Sandbox/">
-    <Project Path="src\SandBoxApp\SandBoxApp.csproj" Type="Classic C#" />
-    <Project Path="src\SandBoxLib\SandBoxLib.csproj" Type="Classic C#" />
+    <Project Path="src\SandBoxApp\SandBoxApp.csproj" Type="C#" />
+    <Project Path="src\SandBoxLib\SandBoxLib.csproj" Type="C#" />
   </Folder>
   <Folder Name="/SolutionItems/">
     <File Path="Directory.Build.props" />
     <File Path="Directory.Build.targets" />
   </Folder>
-  <Project Path="src\ConsoleApp1\ConsoleApp1.csproj" Type="Classic C#" />
-  <Project Path="src\MinecraftDataFSharp\MinecraftDataFSharp.fsproj" Type="Classic F#" />
-  <Project Path="src\MinecraftData\MinecraftData.csproj" Type="Classic C#" />
-  <Project Path="src\PacketGenerator.Core\PacketGenerator.Core.csproj" Type="Classic C#" />
-  <Project Path="src\PacketGenerator\PacketGenerator.fsproj" Type="Classic F#" />
-  <Project Path="src\Protodef\Protodef.csproj" Type="Classic C#" />
+  <Project Path="src\ConsoleApp1\ConsoleApp1.csproj" Type="C#" />
+  <Project Path="src\MinecraftData\MinecraftData.csproj" Type="C#" />
+  <Project Path="src\PacketGenerator.Core\PacketGenerator.Core.csproj" Type="C#" />
+  <Project Path="src\PacketGenerator\PacketGenerator.fsproj" Type="F#" />
+  <Project Path="src\Protodef\Protodef.csproj" Type="C#" />
 </Solution>
