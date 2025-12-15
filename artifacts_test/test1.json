@@ -1,198 +1,1329 @@
-[
-  "container",
-  [
-    {
-      "name": "team",
-      "type": "string"
-    },
-    {
-      "name": "mode",
-      "type": [
-        "mapper",
+{
+  "path": "",
+  "name": "SlotComponent",
+  "history": {
+    "735-765": null,
+    "766": [
+      "container",
+      [
         {
-          "type": "i8",
-          "mappings": {
-            "0": "add",
-            "1": "remove",
-            "2": "change",
-            "3": "join",
-            "4": "leave"
-          }
+          "name": "type",
+          "type": "SlotComponentType"
+        },
+        {
+          "name": "data",
+          "type": [
+            "switch",
+            {
+              "compareTo": "type",
+              "fields": {
+                "custom_data": "anonymousNbt",
+                "max_stack_size": "varint",
+                "max_damage": "varint",
+                "damage": "varint",
+                "unbreakable": "bool",
+                ...
+                "lock": "anonymousNbt",
+                "container_loot": "anonymousNbt"
+              }
+            }
+          ]
         }
       ]
-    },
-    {
-      "anon": true,
-      "type": [
-        "switch",
+    ],
+    "767": [
+      "container",
+      [
         {
-          "compareTo": "mode",
-          "fields": {
-            "add": [
-              "container",
-              [
-                {
-                  "name": "name",
-                  "type": "anonymousNbt"
-                },
-                {
-                  "name": "flags",
-                  "type": [
-                    "bitflags",
+          "name": "type",
+          "type": "SlotComponentType"
+        },
+        {
+          "name": "data",
+          "type": [
+            "switch",
+            {
+              "compareTo": "type",
+              "fields": {
+                "custom_data": "anonymousNbt",
+                "max_stack_size": "varint",
+                "max_damage": "varint",
+                ....
+                "lock": "anonymousNbt",
+                "container_loot": "anonymousNbt"
+              }
+            }
+          ]
+        }
+      ]
+    ],
+    "768-769": [
+      "container",
+      [
+        {
+          "name": "type",
+          "type": "SlotComponentType"
+        },
+        {
+          "name": "data",
+          "type": [
+            "switch",
+            {
+              "compareTo": "type",
+              "fields": {
+                "custom_data": "anonymousNbt",
+                "max_stack_size": "varint",
+                "max_damage": "varint",
+                "damage": "varint",
+                "unbreakable": "bool",
+                "custom_name": "anonymousNbt",
+                "item_name": "anonymousNbt",
+                "item_model": "string",
+                "lore": [
+                  "array",
+                  {
+                    "type": "anonOptionalNbt",
+                    "countType": "varint"
+                  }
+                ],
+                "rarity": [
+                  "mapper",
+                  {
+                    "type": "varint",
+                    "mappings": {
+                      "0": "common",
+                      "1": "uncommon",
+                      "2": "rare",
+                      "3": "epic"
+                    }
+                  }
+                ],
+                "enchantments": [
+                  "container",
+                  [
                     {
-                      "type": "u8",
-                      "flags": [
-                        "friendly_fire",
-                        "see_friendly_invisible"
+                      "name": "enchantments",
+                      "type": [
+                        "array",
+                        {
+                          "type": [
+                            "container",
+                            [
+                              {
+                                "name": "id",
+                                "type": "varint"
+                              },
+                              {
+                                "name": "level",
+                                "type": "varint"
+                              }
+                            ]
+                          ],
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "showTooltip",
+                      "type": "bool"
+                    }
+                  ]
+                ],
+                "can_place_on": [
+                  "container",
+                  [
+                    {
+                      "name": "predicates",
+                      "type": [
+                        "array",
+                        {
+                          "type": "ItemBlockPredicate",
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "showTooltip",
+                      "type": "bool"
+                    }
+                  ]
+                ],
+                "can_break": [
+                  "container",
+                  [
+                    {
+                      "name": "predicates",
+                      "type": [
+                        "array",
+                        {
+                          "type": "ItemBlockPredicate",
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "showTooltip",
+                      "type": "bool"
+                    }
+                  ]
+                ],
+                "attribute_modifiers": [
+                  "container",
+                  [
+                    {
+                      "name": "attributes",
+                      "type": [
+                        "array",
+                        {
+                          "type": [
+                            "container",
+                            [
+                              {
+                                "name": "typeId",
+                                "type": "varint"
+                              },
+                              {
+                                "name": "name",
+                                "type": "string"
+                              },
+                              {
+                                "name": "value",
+                                "type": "f64"
+                              },
+                              {
+                                "name": "operation",
+                                "type": [
+                                  "mapper",
+                                  {
+                                    "type": "varint",
+                                    "mappings": {
+                                      "0": "add",
+                                      "1": "multiply_base",
+                                      "2": "multiply_total"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "name": "slot",
+                                "type": [
+                                  "mapper",
+                                  {
+                                    "type": "varint",
+                                    "mappings": {
+                                      "0": "any",
+                                      "1": "main_hand",
+                                      "2": "off_hand",
+                                      "3": "hand",
+                                      "4": "feet",
+                                      "5": "legs",
+                                      "6": "chest",
+                                      "7": "head",
+                                      "8": "armor",
+                                      "9": "body"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          ],
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "showTooltip",
+                      "type": "bool"
+                    }
+                  ]
+                ],
+                "custom_model_data": [
+                  "container",
+                  [
+                    {
+                      "name": "floats",
+                      "type": [
+                        "array",
+                        {
+                          "type": "f32",
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "flags",
+                      "type": [
+                        "array",
+                        {
+                          "type": "bool",
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "strings",
+                      "type": [
+                        "array",
+                        {
+                          "type": "string",
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "colors",
+                      "type": [
+                        "array",
+                        {
+                          "type": "i32",
+                          "countType": "varint"
+                        }
                       ]
                     }
                   ]
-                },
-                {
-                  "name": "nameTagVisibility",
-                  "type": [
-                    "mapper",
+                ],
+                "hide_additional_tooltip": "void",
+                "hide_tooltip": "void",
+                "repair_cost": "varint",
+                "creative_slot_lock": "void",
+                "enchantment_glint_override": "bool",
+                "intangible_projectile": "anonymousNbt",
+                "food": [
+                  "container",
+                  [
                     {
-                      "type": "varint",
-                      "mappings": {
-                        "0": "always",
-                        "1": "never",
-                        "2": "hide_for_other_teams",
-                        "3": "hide_for_own_team"
-                      }
+                      "name": "nutrition",
+                      "type": "varint"
+                    },
+                    {
+                      "name": "saturationModifier",
+                      "type": "f32"
+                    },
+                    {
+                      "name": "canAlwaysEat",
+                      "type": "bool"
                     }
                   ]
-                },
-                {
-                  "name": "collisionRule",
-                  "type": [
-                    "mapper",
+                ],
+                "consumable": [
+                  "container",
+                  [
                     {
-                      "type": "varint",
-                      "mappings": {
-                        "0": "always",
-                        "1": "never",
-                        "2": "push_other_teams",
-                        "3": "push_own_team"
-                      }
-                    }
-                  ]
-                },
-                {
-                  "name": "formatting",
-                  "type": "varint"
-                },
-                {
-                  "name": "prefix",
-                  "type": "anonymousNbt"
-                },
-                {
-                  "name": "suffix",
-                  "type": "anonymousNbt"
-                }
-              ]
-            ],
-            "change": [
-              "container",
-              [
-                {
-                  "name": "name",
-                  "type": "anonymousNbt"
-                },
-                {
-                  "name": "flags",
-                  "type": [
-                    "bitflags",
+                      "name": "consume_seconds",
+                      "type": "f32"
+                    },
                     {
-                      "type": "u8",
-                      "flags": [
-                        "friendly_fire",
-                        "see_friendly_invisible"
+                      "name": "animation",
+                      "type": [
+                        "mapper",
+                        {
+                          "type": "varint",
+                          "mappings": {
+                            "0": "none",
+                            "1": "eat",
+                            "2": "drink",
+                            "3": "block",
+                            "4": "bow",
+                            "5": "spear",
+                            "6": "crossbow",
+                            "7": "spyglass",
+                            "8": "toot_horn",
+                            "9": "brush"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "name": "sound",
+                      "type": "ItemSoundHolder"
+                    },
+                    {
+                      "name": "makes_particles",
+                      "type": "bool"
+                    },
+                    {
+                      "name": "effects",
+                      "type": [
+                        "array",
+                        {
+                          "type": "ItemConsumeEffect",
+                          "countType": "varint"
+                        }
                       ]
                     }
                   ]
-                },
-                {
-                  "name": "nameTagVisibility",
-                  "type": [
-                    "mapper",
+                ],
+                "use_remainder": "Slot",
+                "use_cooldown": [
+                  "container",
+                  [
                     {
-                      "type": "varint",
-                      "mappings": {
-                        "0": "always",
-                        "1": "never",
-                        "2": "hide_for_other_teams",
-                        "3": "hide_for_own_team"
-                      }
+                      "name": "seconds",
+                      "type": "f32"
+                    },
+                    {
+                      "name": "cooldownGroup",
+                      "type": [
+                        "option",
+                        "string"
+                      ]
                     }
                   ]
-                },
-                {
-                  "name": "collisionRule",
-                  "type": [
-                    "mapper",
+                ],
+                "damage_resistant": "string",
+                "tool": [
+                  "container",
+                  [
                     {
-                      "type": "varint",
-                      "mappings": {
-                        "0": "always",
-                        "1": "never",
-                        "2": "push_other_teams",
-                        "3": "push_own_team"
-                      }
+                      "name": "rules",
+                      "type": [
+                        "array",
+                        {
+                          "type": [
+                            "container",
+                            [
+                              {
+                                "name": "blocks",
+                                "type": "IDSet"
+                              },
+                              {
+                                "name": "speed",
+                                "type": [
+                                  "option",
+                                  "f32"
+                                ]
+                              },
+                              {
+                                "name": "correctDropForBlocks",
+                                "type": [
+                                  "option",
+                                  "bool"
+                                ]
+                              }
+                            ]
+                          ],
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "defaultMiningSpeed",
+                      "type": "f32"
+                    },
+                    {
+                      "name": "damagePerBlock",
+                      "type": "varint"
                     }
                   ]
-                },
-                {
-                  "name": "formatting",
-                  "type": "varint"
-                },
-                {
-                  "name": "prefix",
-                  "type": "anonymousNbt"
-                },
-                {
-                  "name": "suffix",
-                  "type": "anonymousNbt"
-                }
-              ]
-            ]
-          },
-          "default": "void"
+                ],
+                "enchantable": "varint",
+                "equippable": [
+                  "container",
+                  [
+                    {
+                      "name": "slot",
+                      "type": [
+                        "mapper",
+                        {
+                          "type": "varint",
+                          "mappings": {
+                            "0": "main_hand",
+                            "1": "off_hand",
+                            "2": "feet",
+                            "3": "legs",
+                            "4": "chest",
+                            "5": "head",
+                            "6": "body"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "name": "sound",
+                      "type": "ItemSoundHolder"
+                    },
+                    {
+                      "name": "model",
+                      "type": [
+                        "option",
+                        "string"
+                      ]
+                    },
+                    {
+                      "name": "cameraOverlay",
+                      "type": [
+                        "option",
+                        "string"
+                      ]
+                    },
+                    {
+                      "name": "allowedEntities",
+                      "type": [
+                        "option",
+                        "IDSet"
+                      ]
+                    },
+                    {
+                      "name": "dispensable",
+                      "type": "bool"
+                    },
+                    {
+                      "name": "swappable",
+                      "type": "bool"
+                    },
+                    {
+                      "name": "damageable",
+                      "type": "bool"
+                    }
+                  ]
+                ],
+                "repairable": [
+                  "container",
+                  [
+                    {
+                      "name": "items",
+                      "type": "IDSet"
+                    }
+                  ]
+                ],
+                "glider": "void",
+                "tooltip_style": "string",
+                "death_protection": [
+                  "container",
+                  [
+                    {
+                      "name": "effects",
+                      "type": [
+                        "array",
+                        {
+                          "type": "ItemConsumeEffect",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "stored_enchantments": [
+                  "container",
+                  [
+                    {
+                      "name": "enchantments",
+                      "type": [
+                        "array",
+                        {
+                          "type": [
+                            "container",
+                            [
+                              {
+                                "name": "id",
+                                "type": "varint"
+                              },
+                              {
+                                "name": "level",
+                                "type": "varint"
+                              }
+                            ]
+                          ],
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "showInTooltip",
+                      "type": "bool"
+                    }
+                  ]
+                ],
+                "dyed_color": [
+                  "container",
+                  [
+                    {
+                      "name": "color",
+                      "type": "i32"
+                    },
+                    {
+                      "name": "showTooltip",
+                      "type": "bool"
+                    }
+                  ]
+                ],
+                "map_color": "i32",
+                "map_id": "varint",
+                "map_decorations": "anonymousNbt",
+                "map_post_processing": "varint",
+                "charged_projectiles": [
+                  "container",
+                  [
+                    {
+                      "name": "projectiles",
+                      "type": [
+                        "array",
+                        {
+                          "type": "Slot",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "bundle_contents": [
+                  "container",
+                  [
+                    {
+                      "name": "contents",
+                      "type": [
+                        "array",
+                        {
+                          "type": "Slot",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "potion_contents": [
+                  "container",
+                  [
+                    {
+                      "name": "potionId",
+                      "type": [
+                        "option",
+                        "varint"
+                      ]
+                    },
+                    {
+                      "name": "customColor",
+                      "type": [
+                        "option",
+                        "i32"
+                      ]
+                    },
+                    {
+                      "name": "customEffects",
+                      "type": [
+                        "array",
+                        {
+                          "type": "ItemPotionEffect",
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "customName",
+                      "type": [
+                        "option",
+                        "string"
+                      ]
+                    }
+                  ]
+                ],
+                "suspicious_stew_effects": [
+                  "container",
+                  [
+                    {
+                      "name": "effects",
+                      "type": [
+                        "array",
+                        {
+                          "type": [
+                            "container",
+                            [
+                              {
+                                "name": "effect",
+                                "type": "varint"
+                              },
+                              {
+                                "name": "duration",
+                                "type": "varint"
+                              }
+                            ]
+                          ],
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "writable_book_content": [
+                  "container",
+                  [
+                    {
+                      "name": "pages",
+                      "type": [
+                        "array",
+                        {
+                          "type": "ItemBookPage",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "written_book_content": [
+                  "container",
+                  [
+                    {
+                      "name": "rawTitle",
+                      "type": "string"
+                    },
+                    {
+                      "name": "filteredTitle",
+                      "type": [
+                        "option",
+                        "string"
+                      ]
+                    },
+                    {
+                      "name": "author",
+                      "type": "string"
+                    },
+                    {
+                      "name": "generation",
+                      "type": "varint"
+                    },
+                    {
+                      "name": "pages",
+                      "type": [
+                        "array",
+                        {
+                          "type": "ItemWrittenBookPage",
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "resolved",
+                      "type": "bool"
+                    }
+                  ]
+                ],
+                "trim": [
+                  "container",
+                  [
+                    {
+                      "name": "material",
+                      "type": [
+                        "registryEntryHolder",
+                        {
+                          "baseName": "materialId",
+                          "otherwise": {
+                            "name": "data",
+                            "type": "ArmorTrimMaterial"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "name": "pattern",
+                      "type": [
+                        "registryEntryHolder",
+                        {
+                          "baseName": "patternId",
+                          "otherwise": {
+                            "name": "data",
+                            "type": "ArmorTrimPattern"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "name": "showInTooltip",
+                      "type": "bool"
+                    }
+                  ]
+                ],
+                "debug_stick_state": "anonymousNbt",
+                "entity_data": "anonymousNbt",
+                "bucket_entity_data": "anonymousNbt",
+                "block_entity_data": "anonymousNbt",
+                "instrument": [
+                  "registryEntryHolder",
+                  {
+                    "baseName": "instrumentId",
+                    "otherwise": {
+                      "name": "data",
+                      "type": "InstrumentData"
+                    }
+                  }
+                ],
+                "ominous_bottle_amplifier": "varint",
+                "jukebox_playable": [
+                  "container",
+                  [
+                    {
+                      "name": "hasHolder",
+                      "type": "bool"
+                    },
+                    {
+                      "name": "song",
+                      "type": [
+                        "switch",
+                        {
+                          "compareTo": "hasHolder",
+                          "fields": {
+                            "true": [
+                              "registryEntryHolder",
+                              {
+                                "baseName": "songId",
+                                "otherwise": {
+                                  "name": "data",
+                                  "type": "JukeboxSongData"
+                                }
+                              }
+                            ],
+                            "false": "string"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "name": "showInTooltip",
+                      "type": "bool"
+                    }
+                  ]
+                ],
+                "recipes": "anonymousNbt",
+                "lodestone_tracker": [
+                  "container",
+                  [
+                    {
+                      "name": "globalPosition",
+                      "type": [
+                        "option",
+                        [
+                          "container",
+                          [
+                            {
+                              "name": "dimension",
+                              "type": "string"
+                            },
+                            {
+                              "name": "position",
+                              "type": "position"
+                            }
+                          ]
+                        ]
+                      ]
+                    },
+                    {
+                      "name": "tracked",
+                      "type": "bool"
+                    }
+                  ]
+                ],
+                "firework_explosion": "ItemFireworkExplosion",
+                "fireworks": [
+                  "container",
+                  [
+                    {
+                      "name": "flightDuration",
+                      "type": "varint"
+                    },
+                    {
+                      "name": "explosions",
+                      "type": [
+                        "array",
+                        {
+                          "type": "ItemFireworkExplosion",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "profile": [
+                  "container",
+                  [
+                    {
+                      "name": "name",
+                      "type": [
+                        "option",
+                        "string"
+                      ]
+                    },
+                    {
+                      "name": "uuid",
+                      "type": [
+                        "option",
+                        "UUID"
+                      ]
+                    },
+                    {
+                      "name": "properties",
+                      "type": [
+                        "array",
+                        {
+                          "type": [
+                            "container",
+                            [
+                              {
+                                "name": "name",
+                                "type": "string"
+                              },
+                              {
+                                "name": "value",
+                                "type": "string"
+                              },
+                              {
+                                "name": "signature",
+                                "type": [
+                                  "option",
+                                  "string"
+                                ]
+                              }
+                            ]
+                          ],
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "note_block_sound": "string",
+                "banner_patterns": [
+                  "container",
+                  [
+                    {
+                      "name": "layers",
+                      "type": [
+                        "array",
+                        {
+                          "type": "BannerPatternLayer",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "base_color": "varint",
+                "pot_decorations": [
+                  "container",
+                  [
+                    {
+                      "name": "decorations",
+                      "type": [
+                        "array",
+                        {
+                          "type": "varint",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "container": [
+                  "container",
+                  [
+                    {
+                      "name": "contents",
+                      "type": [
+                        "array",
+                        {
+                          "type": "Slot",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "block_state": [
+                  "container",
+                  [
+                    {
+                      "name": "properties",
+                      "type": [
+                        "array",
+                        {
+                          "type": [
+                            "container",
+                            [
+                              {
+                                "name": "name",
+                                "type": "string"
+                              },
+                              {
+                                "name": "value",
+                                "type": "string"
+                              }
+                            ]
+                          ],
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "bees": [
+                  "container",
+                  [
+                    {
+                      "name": "bees",
+                      "type": [
+                        "array",
+                        {
+                          "type": [
+                            "container",
+                            [
+                              {
+                                "name": "nbtData",
+                                "type": "anonymousNbt"
+                              },
+                              {
+                                "name": "ticksInHive",
+                                "type": "varint"
+                              },
+                              {
+                                "name": "minTicksInHive",
+                                "type": "varint"
+                              }
+                            ]
+                          ],
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "lock": "anonymousNbt",
+                "container_loot": "anonymousNbt"
+              }
+            }
+          ]
         }
       ]
-    },
-    {
-      "name": "players",
-      "type": [
-        "switch",
+    ],
+    "770": [
+      "container",
+      [
         {
-          "compareTo": "mode",
-          "fields": {
-            "add": [
-              "array",
-              {
-                "countType": "varint",
-                "type": "string"
+          "name": "type",
+          "type": "SlotComponentType"
+        },
+        {
+          "name": "data",
+          "type": [
+            "switch",
+            {
+              "compareTo": "type",
+              "fields": {
+                "custom_data": "anonymousNbt",
+                "max_stack_size": "varint",
+                "max_damage": "varint",
+                "damage": "varint",
+                "unbreakable": "void",
+                "custom_name": "anonymousNbt",
+                "item_name": "anonymousNbt",
+                ...
+                "cat/collar": "varint",
+                "sheep/color": "varint",
+                "shulker/color": "varint"
               }
-            ],
-            "join": [
-              "array",
-              {
-                "countType": "varint",
-                "type": "string"
-              }
-            ],
-            "leave": [
-              "array",
-              {
-                "countType": "varint",
-                "type": "string"
-              }
-            ]
-          },
-          "default": "void"
+            }
+          ]
         }
       ]
-    }
-  ]
-]
+    ],
+    "771-772": [
+      "container",
+      [
+        {
+          "name": "type",
+          "type": "SlotComponentType"
+        },
+        {
+          "name": "data",
+          "type": [
+            "switch",
+            {
+              "compareTo": "type",
+              "fields": {
+                "custom_data": "anonymousNbt",
+                "max_stack_size": "varint",
+                "max_damage": "varint",
+                "damage": "varint",
+                "unbreakable": "void",
+                "custom_name": "anonymousNbt",
+                "item_name": "anonymousNbt",
+                "item_model": "string",
+                "lore": [
+                  "array",
+                  {
+                    "type": "anonymousNbt",
+                    "countType": "varint"
+                  }
+                ],
+                "rarity": [
+                  "mapper",
+                  {
+                    "type": "varint",
+                    "mappings": {
+                      "0": "common",
+                      "1": "uncommon",
+                      "2": "rare",
+                      "3": "epic"
+                    }
+                  }
+                ],
+                "enchantments": [
+                  "container",
+                  [
+                    {
+                      "name": "enchantments",
+                      "type": [
+                        "array",
+                        {
+                          "type": [
+                            "container",
+                            [
+                              {
+                                "name": "id",
+                                "type": "varint"
+                              },
+                              {
+                                "name": "level",
+                                "type": "varint"
+                              }
+                            ]
+                          ],
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "stored_enchantments": [
+                  "container",
+                  [
+                    {
+                      "name": "enchantments",
+                      "type": [
+                        "array",
+                        {
+                          "type": [
+                            "container",
+                            [
+                              {
+                                "name": "id",
+                                "type": "varint"
+                              },
+                              {
+                                "name": "level",
+                                "type": "varint"
+                              }
+                            ]
+                          ],
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "can_place_on": [
+                  "container",
+                  [
+                    {
+                      "name": "predicates",
+                      "type": [
+                        "array",
+                        {
+                          "type": "ItemBlockPredicate",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "can_break": [
+                  "container",
+                  [
+                    {
+                      "name": "predicates",
+                      "type": [
+                        "array",
+                        {
+                          "type": "ItemBlockPredicate",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "attribute_modifiers": [
+                  "container",
+                  [
+                    {
+                      "name": "attributes",
+                      "type": [
+                        "array",
+                        {
+                          "type": [
+                            "container",
+                            [
+                              {
+                                "name": "typeId",
+                                "type": "varint"
+                              },
+                              {
+                                "name": "name",
+                                "type": "string"
+                              },
+                              {
+                                "name": "value",
+                                "type": "f64"
+                              },
+                              {
+                                "name": "operation",
+                                "type": [
+                                  "mapper",
+                                  {
+                                    "type": "varint",
+                                    "mappings": {
+                                      "0": "add",
+                                      "1": "multiply_base",
+                                      "2": "multiply_total"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "name": "slot",
+                                "type": [
+                                  "mapper",
+                                  {
+                                    "type": "varint",
+                                    "mappings": {
+                                      "0": "any",
+                                      "1": "main_hand",
+                                      "2": "off_hand",
+                                      "3": "hand",
+                                      "4": "feet",
+                                      "5": "legs",
+                                      "6": "chest",
+                                      "7": "head",
+                                      "8": "armor",
+                                      "9": "body",
+                                      "10": "saddle"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          ],
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "display",
+                      "type": [
+                        "container",
+                        [
+                          {
+                            "name": "type",
+                            "type": [
+                              "mapper",
+                              {
+                                "type": "varint",
+                                "mappings": {
+                                  "0": "default",
+                                  "1": "hidden",
+                                  "2": "override"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "name": "component",
+                            "type": [
+                              "switch",
+                              {
+                                "compareTo": "type",
+                                "fields": {
+                                  "override": "anonymousNbt"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    }
+                  ]
+                ],
+                "custom_model_data": [
+                  "container",
+                  [
+                    {
+                      "name": "floats",
+                      "type": [
+                        "array",
+                        {
+                          "type": "f32",
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "flags",
+                      "type": [
+                        "array",
+                        {
+                          "type": "bool",
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "strings",
+                      "type": [
+                        "array",
+                        {
+                          "type": "string",
+                          "countType": "varint"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "colors",
+                      "type": [
+                        "array",
+                        {
+                          "type": "i32",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "tooltip_display": [
+                  "container",
+                  [
+                    {
+                      "name": "hideTooltip",
+                      "type": "bool"
+                    },
+                    {
+                      "name": "hiddenComponents",
+                      "type": [
+                        "array",
+                        {
+                          "type": "varint",
+                          "countType": "varint"
+                        }
+                      ]
+                    }
+                  ]
+                ],
+                "repair_cost": "varint",
+                "creative_slot_lock": "void",
+                "enchantment_glint_override": "bool",
+                "intangible_projectile": "void",
+                //...//
+                "shulker/color": "varint"
+              }
+            }
+          ]
+        }
+      ]
+    ]
+  }
+}
