@@ -5,14 +5,14 @@
     
     <Target Name="GenerateMinecraftPaths" BeforeTargets="BeforeBuild">
         <PropertyGroup>
-            <GeneratedFile>$(GeneratedDir)MinecraftPaths.generated.cs</GeneratedFile>
+            <GeneratedFile>$(GeneratedDir)/MinecraftPaths.generated.cs</GeneratedFile>
             <GenCode>
                 <![CDATA[
 namespace PacketGenerator.Constants%3B
 
 public static partial class MinecraftDataPaths
 {
-    public const string DataDir = @"$(MinecraftDataDir)\"%3B
+    public const string DataDir = @"$(MinecraftDataDir)$(DirSep)"%3B
 }
     ]]>
             </GenCode>
@@ -31,14 +31,14 @@ public static partial class MinecraftDataPaths
 
     <Target Name="GenerateArtifactsPaths" BeforeTargets="BeforeBuild">
         <PropertyGroup>
-            <GeneratedFile>$(GeneratedDir)ArtifactsPaths.generated.cs</GeneratedFile>
+            <GeneratedFile>$(GeneratedDir)/ArtifactsPaths.generated.cs</GeneratedFile>
             <GenCode>
                 <![CDATA[
 namespace PacketGenerator.Constants%3B
 
 public static partial class ArtifactsPaths
 {
-    public const string ArtifactsDir = @"$(ArtifactsDir)\"%3B
+    public const string ArtifactsDir = @"$(ArtifactsDir)$(DirSep)"%3B
 }
     ]]>
             </GenCode>

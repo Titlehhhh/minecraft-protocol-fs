@@ -17,6 +17,6 @@ module Util =
 module Filters =
     let isPacketMapper (s: string) =
         s.Equals("packet", StringComparison.OrdinalIgnoreCase)
-    
+
     let isPacket (s: string) =
         s.StartsWith("packet", StringComparison.OrdinalIgnoreCase) && not (isPacketMapper s)

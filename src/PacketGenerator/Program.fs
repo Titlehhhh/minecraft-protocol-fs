@@ -58,10 +58,12 @@ let diffDir = artifacts / "diff"
 
 diffDir.CreateClearDirectory()
 
-let un = packets |> Array.map (fun p -> getDir p.Path diffDir) |> uniquePaths
+let un = allTypes |> Array.map (fun p -> getDir p.Path diffDir) |> uniquePaths
 
 for gg in un do
     gg.CreateClearDirectory()
+
+
 
 let historyToDict (history: TypeStructureHistory) =
     history |> Seq.map (fun x -> (x.Interval.ToString(), x.Structure)) |> dict
@@ -71,43 +73,43 @@ let historyToJson (h: TypeStructureHistory) =
     JsonSerializer.Serialize(asDict, ProtodefType.DefaultJsonOptions)
 
 
-let combined = packets |> Array.append types
+let combined = allTypes
 
 for p in combined do
     if p.Name = "PacketEntityEquipment" then
         Debugger.Break()
-    
+
     let diff = HistoryBuilder.buildForPath p.Path protoMap
     let dir = getDir p.Path diffDir
     let file = dir / $"{p.Name}.json"
 
-    
+
     let d = diff |> historyToDict
     let json = JsonSerializer.SerializeToNode(d, ProtodefType.DefaultJsonOptions)
-    
+
     let obj = JsonObject()
-    
+
     let lastIndex = p.Path.LastIndexOf(".")
-    
+
     let path =
         if lastIndex = -1 then
             ""
         else
             p.Path.Substring(0, lastIndex)
-    
+
     obj.Add("path", path)
     obj.Add("name", p.Name)
     obj.Add("history", json)
-    
+
     let mutable file = dir / $"{p.Name}.json"
-    
+
     let mutable i = 0;
     while file.ExistsFile() do
         i <- i + 1
         file <- dir / $"{p.Name}_{i}.json"
-    
-        
+
     file.WriteAllText(obj.ToJsonString(ProtodefType.DefaultJsonOptions))
+
     //file.WriteAllText($"//{p.Path}\n{json}")
 
 
@@ -141,18 +143,18 @@ let messages2 = ResizeArray<string>()
 
 for p in packets do
     let diff = HistoryBuilder.buildForPath p.Path protoMap
-    
-    let isPrim = diff |> Seq.forall (fun x -> 
+
+    let isPrim = diff |> Seq.forall (fun x ->
         match x.Structure with
         | None -> true
         | Some t when t.IsContainer() ->
             let cont: ProtodefContainer = t :?> ProtodefContainer
             cont.isSimpleTypeForGenerator
         | _ -> false)
-    
-    try    
+
+    try
         if isPrim then
-            let spec = Helpers.toSpec diff p.Name  
+            let spec = Helpers.toSpec diff p.Name
             let code = ClassGenerator.generate spec
             (codeGenDir / $"{p.Path.Pascalize()}.cs").WriteAllText(code)
             generated <- generated + 1

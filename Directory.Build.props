@@ -1,22 +1,23 @@
 <Project>
     <PropertyGroup>
-        <MinecraftDataDir>$(SolutionDir)minecraft-data\data</MinecraftDataDir>
-        <GeneratedConstantsDir>$(SolutionDir)Generated\Constants</GeneratedConstantsDir>
-        <ArtifactsDir>$(MSBuildThisFileDirectory)artifacts</ArtifactsDir>
-
-        <GeneratedDir>$(SolutionDir)Generated\</GeneratedDir>
-        <DataDir>$(SolutionDir)minecraft-data</DataDir>        
+        <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))</RepoRoot>
+        <DirSep>$([System.IO.Path]::DirectorySeparatorChar)</DirSep>
+        <MinecraftDataDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)minecraft-data/data'))</MinecraftDataDir>
+        <GeneratedConstantsDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)Generated/Constants'))</GeneratedConstantsDir>
+        <ArtifactsDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)artifacts'))</ArtifactsDir>
+        <GeneratedDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)Generated'))</GeneratedDir>
+        <DataDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)minecraft-data'))</DataDir>
     </PropertyGroup>
     
     <ItemGroup>
-        <Compile Include="$(GeneratedDir)\**\*.cs">
-            <Link>Generated\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        <Compile Include="$(GeneratedDir)/**/*.cs">
+            <Link>Generated/%(RecursiveDir)%(Filename)%(Extension)</Link>
         </Compile>
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="$(ArtifactsDir)\**\*.*">
-            <Link>Artifacts\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        <None Include="$(ArtifactsDir)/**/*.*">
+            <Link>Artifacts/%(RecursiveDir)%(Filename)%(Extension)</Link>
             <Visible>true</Visible>
         </None>
     </ItemGroup>

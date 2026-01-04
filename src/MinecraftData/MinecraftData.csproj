@@ -13,7 +13,7 @@
     
     
     <ItemGroup>
-        <Content Include="$(MinecraftDataDir)\**" Link="data\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest"/>
+        <Content Include="$(MinecraftDataDir)/**" Link="data/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
     
     
