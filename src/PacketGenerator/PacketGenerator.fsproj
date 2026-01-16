@@ -24,7 +24,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\PacketGenerator.Core\PacketGenerator.Core.csproj" />
+      <ProjectReference Include="..\ProtoCore\ProtoCore.csproj" />
     </ItemGroup>
     
     <ItemGroup>

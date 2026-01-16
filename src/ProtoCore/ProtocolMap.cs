@@ -1,6 +1,6 @@
 ﻿using TruePath;
 
-namespace PacketGenerator.Core;
+namespace ProtoCore;
 
 public class ProtocolMap
 {

@@ -108,6 +108,22 @@ public class ProtodefProtocol : ProtodefType
         return new Dictionary<string, ProtodefType>(original, comparer);
     }
 
+    public IEnumerable<KeyValuePair<string, ProtodefType>> EnumerateTypes()
+    {
+        foreach (var kv in Types)
+            yield return kv;
+        foreach (var ns in EnumerateNamespaces())
+        {
+            foreach (var item in ns.Types)
+            {
+                if (item.Value is null)
+                    throw new InvalidOperationException($"Namespace '{ns.Fullname}' has null type '{item.Key}'");
+                yield return 
+                    new KeyValuePair<string, ProtodefType>(item.Key, item.Value!);
+            }
+        }
+    }
+    
     public IEnumerable<ProtodefType> GetAllTypes()
     {
         foreach (var item in Types)

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using TruePath;
 using TruePath.SystemIo;
 
-namespace PacketGenerator.Core;
+namespace ProtoCore;
 
 public class VersionFile
 {

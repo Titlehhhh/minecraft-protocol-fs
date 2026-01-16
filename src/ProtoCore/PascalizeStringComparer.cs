@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using Humanizer;
 
-namespace PacketGenerator.Core;
+namespace ProtoCore;
 
 public class PascalizeStringComparer : IEqualityComparer<string>
 {

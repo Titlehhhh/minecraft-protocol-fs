@@ -1,6 +1,6 @@
 ﻿using Protodef;
 
-namespace PacketGenerator.Core;
+namespace ProtoCore;
 
 public static class ProtodefPrimitiveExtensions
 {

@@ -3,7 +3,7 @@ using Protodef;
 using TruePath;
 using TruePath.SystemIo;
 
-namespace PacketGenerator.Core;
+namespace ProtoCore;
 
 public static class ProtocolLoader
 {

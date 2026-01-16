@@ -1,7 +1,7 @@
 ﻿using Protodef;
 using TruePath;
 
-namespace PacketGenerator.Core;
+namespace ProtoCore;
 
 public class ProtocolInfo(
     int version,
