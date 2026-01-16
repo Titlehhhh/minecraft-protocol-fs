@@ -15,7 +15,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\src\ProtoCore\ProtoCore.csproj" />
+      <ProjectReference Include="..\ProtoCore\ProtoCore.csproj" />
     </ItemGroup>
 
     <ItemGroup>

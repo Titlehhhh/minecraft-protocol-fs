@@ -7,7 +7,7 @@
     <File Path="Directory.Build.props" />
     <File Path="Directory.Build.targets" />
   </Folder>
-  <Project Path="McpServer/McpServer.csproj" />
+  <Project Path="src/McpServer/McpServer.csproj" />
   <Project Path="src/ProtoCore/ProtoCore.csproj" />
   <Project Path="src\ConsoleApp1\ConsoleApp1.csproj" />
   <Project Path="src\MinecraftData\MinecraftData.csproj" />

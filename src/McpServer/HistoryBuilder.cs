@@ -10,7 +10,7 @@ using Protodef;
 
 namespace McpServer;
 
-public class HistoryBuilder
+public static class HistoryBuilder
 {
     public static IReadOnlyDictionary<string, TypeHistory> Build(ProtocolMap map)
     {
