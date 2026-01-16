@@ -1,19 +1,23 @@
 using System.Linq;
 using Humanizer;
 using McpServer;
+using McpServer.Repositories;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ProtoCore;
 
-var protocols = await ProtocolLoader.LoadProtocolsAsync(735, 772);
+var start = 735;
+var end = 772;
 
-HistoryBuilder.Build(protocols);
+var protocols = await ProtocolLoader.LoadProtocolsAsync(start, end);
 
+var dict = HistoryBuilder.Build(protocols);
 
+var repository = new ProtocolRepository(new ProtocolRange(start, end), protocols, dict);
 
-
-var builder = Host.CreateApplicationBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 
 builder.Logging.AddConsole(consoleLogOptions =>
@@ -21,8 +25,15 @@ builder.Logging.AddConsole(consoleLogOptions =>
     // Configure all logs to go to stderr
     consoleLogOptions.LogToStandardErrorThreshold = LogLevel.Trace;
 });
+
+builder.Services.AddSingleton<IProtocolRepository>(repository);
+
 builder.Services
     .AddMcpServer()
-    .WithStdioServerTransport()
+    .WithHttpTransport()
     .WithToolsFromAssembly();
-await builder.Build().RunAsync();
+var webApp = builder.Build();
+
+webApp.MapMcp("/mcp");
+await webApp.RunAsync();
+

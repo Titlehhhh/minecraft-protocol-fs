@@ -188,7 +188,7 @@ public class HistoryBuilder
             .ToArray();
     }
 
-    private static string NameFromPath(string path)
+    public static string NameFromPath(string path)
     {
         var strings = path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (strings.Length > 1)
