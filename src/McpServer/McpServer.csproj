@@ -15,6 +15,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\toon-dotnet\src\ToonFormat\ToonFormat.csproj" />
       <ProjectReference Include="..\ProtoCore\ProtoCore.csproj" />
     </ItemGroup>
 

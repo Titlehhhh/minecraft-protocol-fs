@@ -2,6 +2,7 @@ using System.Linq;
 using Humanizer;
 using McpServer;
 using McpServer.Repositories;
+using McpServer.Tools;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

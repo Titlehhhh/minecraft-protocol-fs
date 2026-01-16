@@ -13,4 +13,5 @@
   <Project Path="src\MinecraftData\MinecraftData.csproj" />
   <Project Path="src\PacketGenerator\PacketGenerator.fsproj" />
   <Project Path="src\Protodef\Protodef.csproj" />
+  <Project Path="toon-dotnet/src/ToonFormat/ToonFormat.csproj" />
 </Solution>

@@ -1,7 +1,10 @@
 using System;
+using System.Text.Json.Serialization;
+using McpServer.Converters;
 
 namespace McpServer;
 
+[JsonConverter(typeof(ProtocolRangeJsonConverter))]
 public readonly record struct ProtocolRange
 {
     public int From { get; }

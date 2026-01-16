@@ -10,4 +10,6 @@ public interface IProtocolRepository
     IEnumerable<string> GetPackets();
 
     IEnumerable<string> GetPacketMappers();
+    
+    TypeHistory GetTypeHistory(string id);
 }

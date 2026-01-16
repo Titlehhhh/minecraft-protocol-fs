@@ -1,3 +1,6 @@
 [submodule "minecraft-data"]
 	path = minecraft-data
 	url = https://github.com/PrismarineJS/minecraft-data
+[submodule "toon-dotnet"]
+	path = toon-dotnet
+	url = https://github.com/toon-format/toon-dotnet

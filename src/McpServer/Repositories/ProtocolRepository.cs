@@ -53,4 +53,9 @@ public class ProtocolRepository : IProtocolRepository
             where name.Equals("packet", StringComparison.OrdinalIgnoreCase)  
             select key;
     }
+
+    public TypeHistory GetTypeHistory(string id)
+    {
+        return _types[id];
+    }
 }
