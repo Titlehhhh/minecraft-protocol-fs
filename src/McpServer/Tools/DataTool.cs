@@ -1,49 +1,101 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using McpServer.Repositories;
-using Microsoft.Extensions.AI;
 using ModelContextProtocol.Server;
 using Protodef;
 using Toon.Format;
 
 namespace McpServer.Tools;
 
+public enum PacketFilterMode
+{
+    Contains,
+    StartsWith,
+    Exact
+}
+
 [McpServerToolType]
 public static class DataTool
 {
-    [McpServerTool, Description("All types")]
+    [McpServerTool, Description(
+         "Returns a list of all known protocol type identifiers. " +
+         "Each identifier uniquely represents a data type defined in the protocol. " +
+         "The result is intended for discovery and inspection, not for bulk data transfer."
+     )]
     public static string GetTypes(IProtocolRepository repository)
     {
         return string.Join(", ", repository.GetTypes());
     }
 
-    [McpServerTool, Description("All packets")]
+    [McpServerTool, Description(
+         "Returns a list of all known packet identifiers.\n\n" +
+         "Filtering:\n" +
+         "- The optional 'filter' parameter is a plain text filter, NOT a regular expression.\n" +
+         "- The filter is case-insensitive.\n" +
+         "- Multiple filter tokens can be provided, separated by '|'.\n" +
+         "- A packet identifier is included only if it contains ALL specified tokens.\n\n" +
+         "Examples:\n" +
+         "- filter = \"player\" → matches PlayerMove, PlayerJoin\n" +
+         "- filter = \"player|move\" → matches PlayerMove\n" +
+         "- filter = \"auth|login\" → matches AuthLoginRequest\n\n" +
+         "Do NOT use wildcards (*), regex syntax, or anchors. " +
+         "This tool is intended for safe discovery and selection of packet identifiers."
+     )]
     public static string GetPackets(
         IProtocolRepository repository,
-        [Description("Regex filter, optional")]
-        string? filter = null)
+        string? filter = null
+    )
     {
+        var packets = repository.GetPackets();
+
         if (string.IsNullOrWhiteSpace(filter))
+            return string.Join(", ", packets);
+
+        static string Normalize(string value)
         {
-            return string.Join(", ", repository.GetPackets());
+            // Insert spaces before PascalCase transitions: StepTick -> Step Tick
+            value = Regex.Replace(value, "([a-z0-9])([A-Z])", "$1 $2");
+
+            // Remove separators and lowercase
+            return new string(
+                value
+                    .Where(char.IsLetterOrDigit)
+                    .Select(char.ToLowerInvariant)
+                    .ToArray()
+            );
         }
 
-        var regex = new Regex(filter);
-        var packets = repository.GetPackets().Where(x => regex.IsMatch(x));
+        var tokens = filter
+            .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(Normalize)
+            .ToArray();
+
+        packets = packets.Where(packet =>
+        {
+            var normalizedPacket = Normalize(packet);
+            return tokens.All(t => normalizedPacket.Contains(t));
+        });
+
         return string.Join(", ", packets);
     }
 
-    [McpServerTool(UseStructuredContent = false), Description("Get type from id")]
+    [McpServerTool(UseStructuredContent = false), Description(
+         "Returns the full versioned definition of a protocol type (or packet) identified by its id. " +
+         "The definition includes structural changes across protocol versions. " +
+         "The result is returned as formatted text for inspection or analysis, " +
+         "not as structured data for further automated processing."
+     )]
     public static string GetType(
         IProtocolRepository repository,
         string id,
-        [Description("Format: toon(optimized, use) or json")]
+        [Description(
+            "Output format of the type definition. " +
+            "Use 'toon' (default) for a compact, optimized, human-readable format suitable for LLM inspection. " +
+            "Use 'json' for a fully expanded JSON representation intended for debugging or manual review."
+        )]
         string format = "toon")
     {
         var hist = repository.GetTypeHistory(id);
@@ -68,68 +120,7 @@ public class GenerationResult
     public string Link { get; set; }
 }
 
-[McpServerToolType]
-public static class CodeGenTool
-{
-    [McpServerTool]
-    public static async Task<GenerationResult> GeneratePacket(
-        ModelContextProtocol.Server.McpServer thisServer,
-        IProtocolRepository repository,
-        string id,
-        CancellationToken cancellationToken)
-    {
-        var history = repository.GetTypeHistory(id);
 
-        var json = JsonSerializer.SerializeToNode(history, ProtodefType.DefaultJsonOptions)!;
-        var toon = ToonEncoder.EncodeNode(json, new ToonEncodeOptions());
-
-
-        var prompt = new StringBuilder();
-
-        prompt.AppendLine("Packet type specification:");
-        prompt.AppendLine();
-        prompt.AppendLine(toon);
-        prompt.AppendLine();
-        prompt.AppendLine("Generate C# packet code according to the rules.");
-
-        ChatMessage[] messages =
-        [
-            new(
-                ChatRole.System,
-                """
-                You are a strict C# code generator for Minecraft protocol packets.
-
-                Rules:
-                - Output ONLY valid C# code
-                - Do NOT include explanations or markdown
-                - Do NOT invent fields
-                - Follow the provided specification exactly
-                """
-            ),
-            new(
-                ChatRole.User,
-                prompt.ToString()
-            )
-        ];
-
-        var chat = thisServer.AsSamplingChatClient();
-
-        var response = await chat.GetResponseAsync(
-            messages,
-            new ChatOptions
-            {
-                Temperature = 0,
-                MaxOutputTokens = 2000,
-            },
-            cancellationToken);
-
-        return new GenerationResult()
-        {
-            Link = "test",
-            Name = "test"
-        };
-    }
-}
 
 [McpServerResourceType]
 public static class Resources
