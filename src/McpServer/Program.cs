@@ -1,10 +1,12 @@
 using System;
+using System.ClientModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using Humanizer;
 using McpServer;
 using McpServer.Repositories;
+using McpServer.Services;
 using McpServer.Tools;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -13,10 +15,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
+using OpenAI;
+using OpenAI.Chat;
 using ProtoCore;
 
 var start = 735;
 var end = 772;
+
+
 
 var protocols = await ProtocolLoader.LoadProtocolsAsync(start, end);
 
@@ -25,6 +31,21 @@ var dict = HistoryBuilder.Build(protocols);
 var repository = new ProtocolRepository(new ProtocolRange(start, end), protocols, dict);
 
 var builder = WebApplication.CreateBuilder(args);
+Console.WriteLine(builder.Environment.EnvironmentName);
+
+var openrouterKey = builder.Configuration["OPENROUTER_API_KEY"];
+
+
+var openAiClient = new OpenAIClient(new ApiKeyCredential(openrouterKey), new OpenAIClientOptions()
+{
+    Endpoint = new Uri("https://openrouter.ai/api/v1")
+});
+
+
+
+builder.Services.AddSingleton(openAiClient);
+
+builder.Services.AddSingleton<CodeGenerator>();
 
 builder.Logging.AddConsole(consoleLogOptions =>
 {
