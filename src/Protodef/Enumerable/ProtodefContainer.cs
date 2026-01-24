@@ -38,6 +38,16 @@ public sealed class ProtodefContainer : ProtodefType
             throw new KeyNotFoundException();
         }
     }
+
+    public T GetFiled<T>(string name) where T : ProtodefType
+    {
+        foreach (var item in Fields)
+        {
+            if (item.Name == name)
+                return (T)item.Type;
+        }
+        throw new KeyNotFoundException();
+    }
     
     public override bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
     {
