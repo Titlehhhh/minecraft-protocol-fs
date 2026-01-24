@@ -19,8 +19,6 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
         return JsonSerializer.Serialize(this, DefaultJsonOptions);
     }
 
-    
-
 
     [JsonIgnore] public ProtodefType? Parent { get; set; }
 
@@ -60,6 +58,11 @@ public abstract class ProtodefType : IJsonOnDeserialized, ICloneable
         }
 
         return current;
+    }
+
+    public T? GetByPath<T>(string path) where T : ProtodefType
+    {
+        return (T?)GetByPath(path);
     }
 
 
