@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,8 +68,14 @@ public class CodeGenerator
             Skeleton = sceleton
         });
 
-        await GenerateCodeAsync(system, prompt, cancellationToken);
+        var start = Stopwatch.GetTimestamp();
+        var code = await GenerateCodeAsync(system, prompt, cancellationToken);
 
+        var time = Stopwatch.GetElapsedTime(start);
+
+        Console.WriteLine($"Gen time {time.TotalSeconds} seconds");
+        Console.WriteLine("Code: ");
+        Console.WriteLine(code);
         return "HH";
     }
 
@@ -84,21 +92,23 @@ public class CodeGenerator
             new UserChatMessage(prompt),
         };
 
-        Console.WriteLine("System:");
-        Console.WriteLine(system);
 
-        Console.WriteLine();
-        Console.WriteLine("User:");
-        Console.WriteLine(prompt);
+        var gg = new StringBuilder();
 
+        gg.AppendLine("System: ");
+        gg.AppendLine(system);
+        gg.AppendLine("User: ");
+        gg.AppendLine(prompt);
+
+        string text = gg.ToString();
         var result = await client.CompleteChatAsync(messages, new ChatCompletionOptions()
         {
-            Temperature = 0f
+            Temperature = 0f,
+            TopP = 1.0f,
+            ToolChoice = ChatToolChoice.CreateNoneChoice(),
+            MaxOutputTokenCount = 4096
         }, cancellationToken);
 
-        Console.WriteLine("Code:");
-        Console.WriteLine(result.Value.Content[0].Text);
-
-        return "";
+        return result.Value.Content[0].Text;
     }
 }

@@ -1,5 +1,5 @@
 ﻿# OUTPUT FORMAT (STRICT)
-ONLY C# code without commentary.
+ONLY C# scriban({{val}} example) code format without all comments.
 
 # TYPES AND IO METHODS
 {{ methods }}

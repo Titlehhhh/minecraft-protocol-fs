@@ -162,7 +162,7 @@ public static class Extensions
         ///     Checks if the type is void.
         /// </summary>
         /// <returns></returns>
-        private bool IsVoid()
+        public bool IsVoid()
         {
             return type is ProtodefVoid;
         }
@@ -276,7 +276,6 @@ public static class Extensions
         {
             return type is ProtodefBitField;
         }
-
         /// <summary>
         ///     Checks if the type is an array type.
         /// </summary>

@@ -74,7 +74,7 @@ public static class HistoryBuilder
         TypeHistory b)
     {
         
-        var name = a.Name.Pascalize(); // или выбрать canonical
+        var name = a.Name.Pascalize(); 
 
         var va = ExpandHistory(a.History);
         var vb = ExpandHistory(b.History);
