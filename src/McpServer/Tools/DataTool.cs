@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text.Json;
@@ -46,40 +47,61 @@ public static class DataTool
      )]
     public static string GetPackets(
         IProtocolRepository repository,
-        string? filter = null
-    )
+        string? filter = null)
     {
-        var packets = repository.GetPackets();
+        var packets =
+            repository.GetPackets()
+                .Select(x =>
+                {
+                    var dict = x.Value.Keys.ToArray();
+                    return new KeyValuePair<string, string[]>(x.Key, dict);
+                }).ToDictionary();
 
         if (string.IsNullOrWhiteSpace(filter))
-            return string.Join(", ", packets);
-
-        static string Normalize(string value)
         {
-            // Insert spaces before PascalCase transitions: StepTick -> Step Tick
-            value = Regex.Replace(value, "([a-z0-9])([A-Z])", "$1 $2");
-
-            // Remove separators and lowercase
-            return new string(
-                value
-                    .Where(char.IsLetterOrDigit)
-                    .Select(char.ToLowerInvariant)
-                    .ToArray()
-            );
+            var json = JsonSerializer.SerializeToNode(packets, ProtodefType.DefaultJsonOptions);
+            return json.ToJsonString(new JsonSerializerOptions()
+            {
+                WriteIndented = true
+            });
         }
-
-        var tokens = filter
-            .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(Normalize)
-            .ToArray();
-
-        packets = packets.Where(packet =>
+        else
         {
-            var normalizedPacket = Normalize(packet);
-            return tokens.All(t => normalizedPacket.Contains(t));
-        });
+            static string Normalize(string value)
+            {
+                value = Regex.Replace(value, "([a-z0-9])([A-Z])", "$1 $2");
 
-        return string.Join(", ", packets);
+                return new string(
+                    value
+                        .Where(char.IsLetterOrDigit)
+                        .Select(char.ToLowerInvariant)
+                        .ToArray()
+                );
+            }
+
+            var tokens = filter
+                .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(Normalize)
+                .ToArray();
+
+            packets = packets.Select(packetList =>
+                {
+                    var filtered = packetList.Value.Where(p =>
+                    {
+                        return tokens.All(t => p.Contains(t, StringComparison.OrdinalIgnoreCase));
+                    }).ToArray();
+
+                    return new KeyValuePair<string, string[]>(packetList.Key, filtered);
+                })
+                .Where(x => x.Value.Any())
+                .ToDictionary();
+
+            var json = JsonSerializer.SerializeToNode(packets, ProtodefType.DefaultJsonOptions);
+            return json.ToJsonString(new JsonSerializerOptions()
+            {
+                WriteIndented = true
+            });
+        }
     }
 
     [McpServerTool(UseStructuredContent = false), Description(
@@ -119,8 +141,6 @@ public class GenerationResult
     public string Name { get; set; }
     public string Link { get; set; }
 }
-
-
 
 [McpServerResourceType]
 public static class Resources

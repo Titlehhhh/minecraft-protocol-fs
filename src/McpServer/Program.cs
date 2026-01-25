@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using OpenAI;
 using OpenAI.Chat;
@@ -40,6 +41,7 @@ var openAiClient = new OpenAIClient(new ApiKeyCredential(openrouterKey), new Ope
 {
     Endpoint = new Uri("https://openrouter.ai/api/v1")
 });
+
 
 
 

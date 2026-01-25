@@ -14,7 +14,7 @@ public class PacketDefinition
 {
     public string Namespace { get; set; }
     public string Name { get; set; }
-    public Dictionary<ProtocolRange, ProtodefType?> Types => _history.History;
+    public Dictionary<ProtocolRange, ProtodefType?> History => _history.History;
 
     private TypeHistory _history;
 
@@ -146,6 +146,24 @@ public class ProtocolRepository : IProtocolRepository
         throw new KeyNotFoundException($"No type found with name {name}");
     }
 
+    public Dictionary<string, Dictionary<string, PacketDefinition>> GetPackets()
+    {
+        return _packets;
+    }
+
+    public PacketDefinition GetPacket(string id)
+    {
+       return _packets
+            .SelectMany(x => x.Value)
+            .Single(x => x.Key == id)
+            .Value;
+    }
+
+    public PacketDefinition GetPacket(string nameSpace, string name)
+    {
+        return _packets[nameSpace][name];
+    }
+
     private static string GetNamespace(string id)
     {
         return id[..id.LastIndexOf('.')];
@@ -162,16 +180,6 @@ public class ProtocolRepository : IProtocolRepository
             from key in _types.Keys
             let name = HistoryBuilder.NameFromPath(key)
             where !name.StartsWith("packet", StringComparison.OrdinalIgnoreCase)
-            select key;
-    }
-
-    public IEnumerable<string> GetPackets()
-    {
-        var count = "packet".Length;
-        return
-            from key in _types.Keys
-            let name = HistoryBuilder.NameFromPath(key)
-            where name.StartsWith("packet", StringComparison.OrdinalIgnoreCase) && name.Length > count
             select key;
     }
 
