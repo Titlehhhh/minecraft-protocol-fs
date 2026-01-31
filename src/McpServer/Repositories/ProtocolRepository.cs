@@ -153,10 +153,15 @@ public class ProtocolRepository : IProtocolRepository
 
     public PacketDefinition GetPacket(string id)
     {
-       return _packets
-            .SelectMany(x => x.Value)
-            .Single(x => x.Key == id)
-            .Value;
+        var parts = id.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (parts.Length != 3)
+        {
+            throw new ArgumentException($"Invalid packet id {id}");
+        }
+
+        var ns = $"{parts[0]}.{parts[1]}";
+        return GetPacket(ns, parts[2]);
     }
 
     public PacketDefinition GetPacket(string nameSpace, string name)

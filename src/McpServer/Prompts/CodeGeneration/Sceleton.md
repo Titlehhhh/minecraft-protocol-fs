@@ -1,4 +1,6 @@
-﻿{{Attributes}}
+﻿{{Usages}}
+
+{{Attributes}}
 public sealed partial class {{PacketName}} : {{BaseClasses}}
 {
 
@@ -56,10 +58,7 @@ public sealed partial class {{PacketName}} : {{BaseClasses}}
             // }
 
             default:
-                ThrowHelper.ThrowProtocolNotSupported(
-                    nameof(<PacketClassName>),
-                    protocolVersion,
-                    SupportedVersionsStatic);
+                
                 return;
         }
     }
@@ -93,10 +92,7 @@ public sealed partial class {{PacketName}} : {{BaseClasses}}
             //     return;
 
             default:
-                ThrowHelper.ThrowProtocolNotSupported(
-                    nameof(<PacketClassName>),
-                    protocolVersion,
-                    SupportedVersionsStatic);
+                
                 return;
         }
     }

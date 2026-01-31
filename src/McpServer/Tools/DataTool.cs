@@ -136,12 +136,6 @@ public static class DataTool
     }
 }
 
-public class GenerationResult
-{
-    public string Name { get; set; }
-    public string Link { get; set; }
-}
-
 [McpServerResourceType]
 public static class Resources
 {

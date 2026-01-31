@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using McpServer.Models;
 using McpServer.Repositories;
 using McpServer.Services;
 using Microsoft.AspNetCore.Routing;
@@ -33,7 +34,8 @@ public static class CodeGenTool
         CodeGenerator codeGenerator,
         [Description(
             "Packet identifier to generate code for. " +
-            "Example: 'play.toServer.packet_look' or 'play.toClient.packet_action_bar'."
+            "Example: 'play.toServer.packet_look' or 'play.toClient.packet_action_bar'." +
+            "identifier consist of: <namespace>.<packet_name>"
         )]
         string id,
         CancellationToken cancellationToken)

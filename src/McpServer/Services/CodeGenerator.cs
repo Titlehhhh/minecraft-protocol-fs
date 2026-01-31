@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Humanizer;
 using McpServer.Repositories;
 using OpenAI;
 using OpenAI.Chat;
@@ -26,11 +27,37 @@ public class CodeGenerator
         _repository = repository;
     }
 
+    private static string Replace(
+        string str,
+        string first,
+        string last)
+    {
+        return str.Replace(first, "first").Replace(last, "last");
+    }
+
     public async Task<string> GenerateCodeAsync(string id, CancellationToken cancellationToken = default)
     {
-        var history = _repository.GetTypeHistory(id);
+        var supported = _repository.GetSupportedProtocols();
+        var first = supported.From.ToString();
+        var last = supported.To.ToString();
 
-        var json = JsonSerializer.SerializeToNode(history, ProtodefType.DefaultJsonOptions)!;
+        var packet = _repository.GetPacket(id);
+
+        var json = JsonSerializer.SerializeToNode(packet.History, ProtodefType.DefaultJsonOptions)!;
+
+        var obj = json.AsObject();
+
+        for (var i = 0; i < obj.Count; i++)
+        {
+            var node = obj.GetAt(i);
+
+            var newKey = Replace(node.Key, first, last);
+            if (newKey != node.Key)
+            {
+                obj.SetAt(i, newKey, node.Value?.DeepClone());
+            }
+        }
+
         var toon = ToonEncoder.EncodeNode(json, new ToonEncodeOptions());
 
         var promptsFolder = AbsolutePath.CurrentWorkingDirectory
@@ -55,11 +82,6 @@ public class CodeGenerator
 
         var csharp = Template.ParseLiquid(sceleton);
 
-        sceleton = csharp.Render(new
-        {
-            PacketName = history.Name
-        });
-
 
         var prompt = Template.ParseLiquid(basePrompt).Render(new
         {
@@ -69,6 +91,16 @@ public class CodeGenerator
         });
 
         var start = Stopwatch.GetTimestamp();
+
+        var gg = new StringBuilder();
+
+        gg.AppendLine("System: ");
+        gg.AppendLine(system);
+        gg.AppendLine("User: ");
+        gg.AppendLine(prompt);
+
+        string text = gg.ToString();
+
         var code = await GenerateCodeAsync(system, prompt, cancellationToken);
 
         var time = Stopwatch.GetElapsedTime(start);
@@ -93,14 +125,6 @@ public class CodeGenerator
         };
 
 
-        var gg = new StringBuilder();
-
-        gg.AppendLine("System: ");
-        gg.AppendLine(system);
-        gg.AppendLine("User: ");
-        gg.AppendLine(prompt);
-
-        string text = gg.ToString();
         var result = await client.CompleteChatAsync(messages, new ChatCompletionOptions()
         {
             Temperature = 0f,

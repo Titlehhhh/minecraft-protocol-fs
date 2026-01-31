@@ -88,7 +88,10 @@ builder.Services
             WebsiteUrl = "https://github.com/Titlehhhh/McProtoNet"
         };
     })
-    .WithHttpTransport()
+    .WithHttpTransport(gg =>
+    {
+        gg.Stateless = true;
+    })
     .WithToolsFromAssembly();
 
 var app = builder.Build();
