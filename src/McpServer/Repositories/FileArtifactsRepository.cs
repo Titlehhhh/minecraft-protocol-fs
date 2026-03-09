@@ -10,8 +10,8 @@ namespace McpServer.Repositories;
 
 public sealed class FileArtifactsRepository : IArtifactsRepository
 {
-    private readonly string _rootPath;
     private readonly ConcurrentDictionary<string, ArtifactInfo> _index = new();
+    private readonly string _rootPath;
 
     public FileArtifactsRepository(ArtifactsOptions options)
     {
@@ -48,13 +48,13 @@ public sealed class FileArtifactsRepository : IArtifactsRepository
         await File.WriteAllBytesAsync(artifactPath, content, cancellationToken);
 
         var info = new ArtifactInfo(
-            Id: id,
-            FileName: safeFileName,
-            ContentType: string.IsNullOrWhiteSpace(contentType)
+            id,
+            safeFileName,
+            string.IsNullOrWhiteSpace(contentType)
                 ? "application/octet-stream"
                 : contentType,
-            Size: content.LongLength,
-            CreatedAtUtc: DateTimeOffset.UtcNow
+            content.LongLength,
+            DateTimeOffset.UtcNow
         );
 
         _index[id] = info;
@@ -66,7 +66,7 @@ public sealed class FileArtifactsRepository : IArtifactsRepository
         CancellationToken cancellationToken = default)
     {
         _index.TryGetValue(artifactId, out var info);
-        return Task.FromResult<ArtifactInfo?>(info);
+        return Task.FromResult(info);
     }
 
     public Task<Stream?> OpenReadAsync(
@@ -91,7 +91,9 @@ public sealed class FileArtifactsRepository : IArtifactsRepository
     // -----------------------
 
     private string GetArtifactPath(string id)
-        => Path.Combine(_rootPath, id);
+    {
+        return Path.Combine(_rootPath, id);
+    }
 
     private static string GenerateId()
     {

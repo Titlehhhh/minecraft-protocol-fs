@@ -3,6 +3,7 @@ You are a C# code generator for a Minecraft protocol library. Generate ONE packe
 # Version constants
 
 The schema uses two special aliases instead of hardcoded protocol numbers:
+
 - `first` → `MinecraftVersion.StartProtocol` (the earliest supported version)
 - `last`  → `MinecraftVersion.LatestProtocol`  (the latest supported version)
 
@@ -16,9 +17,11 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
 3. Common fields MUST be normal properties on the main class and MUST always be read/written in ALL versions.
 4. It is FORBIDDEN to place common fields inside version-specific structs.
 5. Version-specific structs contain ONLY differences (fields absent in the common-field set).
-   Structs MUST be declared as `public struct`, NOT class. Naming: `V{from}_{to}Fields` (e.g. `V759_766Fields`, `V767_LastFields`).
+   Structs MUST be declared as `public struct`, NOT class. Naming: `V{from}_{to}Fields` (e.g. `V759_766Fields`,
+   `V767_LastFields`).
    The corresponding property on the main class MUST be nullable: `public V759_766Fields? V759_766 { get; set; }`
-6. If a version range has NO version-specific fields (only common fields), do NOT create a struct for it — just read/write common fields in that case branch.
+6. If a version range has NO version-specific fields (only common fields), do NOT create a struct for it — just
+   read/write common fields in that case branch.
 7. Field order MUST match the schema order exactly for each version.
 8. Serialize/Deserialize: write/read COMMON fields first, then version-specific fields.
 9. Serialize: if the required version container is null, use:
@@ -27,6 +30,8 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
 11. The `default:` case MUST call:
     `ThrowHelper.ThrowProtocolNotSupported(nameof(<ClassName>), protocolVersion, SupportedVersionsStatic);`
 12. Do NOT generate `SupportedVersionsStatic` — it is generated automatically by the source generator.
-13. Do NOT generate `using` directives or attributes. The template already contains `{{usages}}` and `{{attributes}}` placeholders — output them literally as-is at the top of the file.
-14. Output ONLY: the `{{usages}}` placeholder, the `{{attributes}}` placeholder, and then the class body. No markdown, no extra comments.
+13. Do NOT generate `using` directives or attributes. The template already contains `{{usages}}` and `{{attributes}}`
+    placeholders — output them literally as-is at the top of the file.
+14. Output ONLY: the `{{usages}}` placeholder, the `{{attributes}}` placeholder, and then the class body. No markdown,
+    no extra comments.
 15. Do NOT add any comments inside the generated code.

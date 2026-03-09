@@ -13,6 +13,6 @@ public interface IProtocolRepository
     PacketDefinition GetPacket(string nameSpace, string name);
 
     IEnumerable<string> GetPacketMappers();
-    
+
     TypeHistory GetTypeHistory(string id);
 }

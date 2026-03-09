@@ -24,12 +24,12 @@ public static class PacketPostProcessor
         var nsParts = packet.Namespace.Split('.');
         var state = nsParts[0] switch
         {
-            "play"          => "PacketState.Play",
-            "login"         => "PacketState.Login",
-            "status"        => "PacketState.Status",
+            "play" => "PacketState.Play",
+            "login" => "PacketState.Login",
+            "status" => "PacketState.Status",
             "configuration" => "PacketState.Configuration",
-            "handshaking"   => "PacketState.Handshaking",
-            var s           => throw new ArgumentException($"Unknown packet namespace: {s}")
+            "handshaking" => "PacketState.Handshaking",
+            var s => throw new ArgumentException($"Unknown packet namespace: {s}")
         };
         var direction = nsParts.Length > 1 && nsParts[1] == "toServer"
             ? "PacketDirection.Serverbound"

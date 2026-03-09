@@ -3,12 +3,12 @@
 {{attributes}}
 public sealed partial class CLASS_NAME : IPacket
 {
-    internal void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
-    {
-        switch (protocolVersion)
-        {
-            case >= MinecraftVersion.StartProtocol and <= TO1:
-                return;
+internal void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
+{
+switch (protocolVersion)
+{
+case >= MinecraftVersion.StartProtocol and <= TO1:
+return;
 
             case >= FROM2 and <= TO2:
             {
@@ -52,4 +52,5 @@ public sealed partial class CLASS_NAME : IPacket
 
     public struct V_FROM2_TO2Fields { public int ExtraField { get; set; } }
     public struct V_FROM3_LastFields { public int ExtraField { get; set; } public SomeType ComplexField { get; set; } }
+
 }

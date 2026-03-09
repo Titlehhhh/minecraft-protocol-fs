@@ -1,4 +1,5 @@
 using System;
+using System.ClientModel;
 using System.IO;
 using System.Threading;
 using McpServer;
@@ -13,13 +14,17 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
 using OpenAI;
 using ProtoCore;
-using System.ClientModel;
 
 var start = 735;
 var end = 772;
 
+Console.WriteLine($"[McpServer] Loading protocols {start}–{end}...");
 var protocols = await ProtocolLoader.LoadProtocolsAsync(start, end);
+Console.WriteLine($"[McpServer] Loaded {protocols.VersionToProtocol.Count} protocol versions.");
+
 var dict = HistoryBuilder.Build(protocols);
+Console.WriteLine($"[McpServer] History built: {dict.Count} packet/type entries.");
+
 var repository = new ProtocolRepository(new ProtocolRange(start, end), protocols, dict);
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,6 +40,9 @@ var openRouterKey = configKey
                         "Set OpenRouter:ApiKey in user secrets or OPENROUTER_API_KEY env var.");
 
 var cheapModel = builder.Configuration["OpenRouter:CheapModel"] ?? "openai/gpt-4o-mini";
+var keySource = configKey != null ? "user secrets" : "env OPENROUTER_API_KEY";
+Console.WriteLine($"[McpServer] OpenRouter key source: {keySource}");
+Console.WriteLine($"[McpServer] Cheap model: {cheapModel}");
 
 builder.Services.AddChatClient(
     new OpenAIClient(
@@ -100,5 +108,7 @@ app.MapGet("/artifacts/{id}", async (
     return Results.Stream(stream, info.ContentType);
 }).WithName("GetArtifacts");
 app.MapMcp("/mcp");
+
+Console.WriteLine("[McpServer] Ready. Listening on http://0.0.0.0:5000/mcp");
 
 await app.RunAsync();

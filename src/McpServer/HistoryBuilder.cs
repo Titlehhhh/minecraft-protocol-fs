@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
-using System.Diagnostics.Tracing;
 using System.Linq;
 using Humanizer;
-using Microsoft.Extensions.Hosting;
 using ProtoCore;
 using Protodef;
 
@@ -26,10 +24,10 @@ public static class HistoryBuilder
     private static IEnumerable<TypeHistory> RemoveDuplicates(IEnumerable<TypeHistory> histories)
     {
         return histories
-            .GroupBy(x => x.Id, comparer: StringComparer.OrdinalIgnoreCase)
+            .GroupBy(x => x.Id, StringComparer.OrdinalIgnoreCase)
             .Select(x => MergeTypeHistories(x.ToArray()));
     }
-    
+
     private static TypeHistory BuildHistory(ProtocolMap map, string path)
     {
         var name = NameFromPath(path).Pascalize();
@@ -42,19 +40,15 @@ public static class HistoryBuilder
             History = CollapseByVersion(resolved, EqualTwoStructure)
         };
     }
-    
+
     private static Dictionary<int, ProtodefType?> ExpandHistory(
         Dictionary<ProtocolRange, ProtodefType?> history)
     {
         var result = new Dictionary<int, ProtodefType?>();
 
         foreach (var (range, type) in history)
-        {
-            for (int v = range.From; v <= range.To; v++)
-            {
+            for (var v = range.From; v <= range.To; v++)
                 result[v] = type;
-            }
-        }
 
         return result;
     }
@@ -62,19 +56,15 @@ public static class HistoryBuilder
     public static TypeHistory MergeTypeHistories(TypeHistory[] histories)
     {
         var result = histories[0];
-        for (int i = 1; i < histories.Length; i++)
-        {
-            result = MergeTypeHistories(result, histories[i]);
-        }
+        for (var i = 1; i < histories.Length; i++) result = MergeTypeHistories(result, histories[i]);
         return result;
     }
-    
+
     public static TypeHistory MergeTypeHistories(
         TypeHistory a,
         TypeHistory b)
     {
-        
-        var name = a.Name.Pascalize(); 
+        var name = a.Name.Pascalize();
 
         var va = ExpandHistory(a.History);
         var vb = ExpandHistory(b.History);
@@ -87,22 +77,14 @@ public static class HistoryBuilder
             vb.TryGetValue(version, out var tb);
 
             if (ta is null)
-            {
                 merged[version] = tb;
-            }
             else if (tb is null)
-            {
                 merged[version] = ta;
-            }
             else if (EqualTwoStructure(ta, tb))
-            {
                 merged[version] = ta;
-            }
             else
-            {
                 throw new InvalidOperationException(
                     $"Type conflict at version {version}");
-            }
         }
 
         var collapsed =
@@ -118,7 +100,7 @@ public static class HistoryBuilder
             History = collapsed
         };
     }
-    
+
     private static Dictionary<ProtocolRange, T?>
         CollapseByVersion<T>(
             IEnumerable<KeyValuePair<int, T?>> source,
@@ -130,12 +112,11 @@ public static class HistoryBuilder
         if (!e.MoveNext())
             return result;
 
-        int from = e.Current.Key;
-        int to = from;
-        T? current = e.Current.Value;
+        var from = e.Current.Key;
+        var to = from;
+        var current = e.Current.Value;
 
         while (e.MoveNext())
-        {
             if (equals(current, e.Current.Value))
             {
                 to = e.Current.Key;
@@ -146,7 +127,6 @@ public static class HistoryBuilder
                 from = to = e.Current.Key;
                 current = e.Current.Value;
             }
-        }
 
         result.Add(new ProtocolRange(from, to), current);
         return result;
@@ -155,14 +135,8 @@ public static class HistoryBuilder
 
     private static bool EqualTwoStructure(ProtodefType? a, ProtodefType? b)
     {
-        if (a is null && b is null)
-        {
-            return true;
-        }
-        if (a is null || b is null)
-        {
-            return false;
-        }
+        if (a is null && b is null) return true;
+        if (a is null || b is null) return false;
         return a.Equals(b);
     }
 
@@ -191,10 +165,7 @@ public static class HistoryBuilder
     public static string NameFromPath(string path)
     {
         var strings = path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (strings.Length > 1)
-        {
-            return strings[^1];
-        }
+        if (strings.Length > 1) return strings[^1];
 
         return strings[0];
     }
@@ -202,7 +173,7 @@ public static class HistoryBuilder
     private static string PascalizePath(string path)
     {
         var strings = path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        
+
         var last = strings[^1].Pascalize();
         strings[^1] = last;
         return string.Join('.', strings);

@@ -8,7 +8,7 @@
         <GeneratedDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)Generated'))</GeneratedDir>
         <DataDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)minecraft-data'))</DataDir>
     </PropertyGroup>
-    
+
     <ItemGroup>
         <Compile Include="$(GeneratedDir)/**/*.cs">
             <Link>Generated/%(RecursiveDir)%(Filename)%(Extension)</Link>
@@ -21,8 +21,6 @@
             <Visible>true</Visible>
         </None>
     </ItemGroup>
-    
-    
 
-   
+
 </Project>

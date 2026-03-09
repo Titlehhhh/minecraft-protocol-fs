@@ -11,7 +11,7 @@ public static class Ext
         public IEnumerable<KeyValuePair<string, ProtodefType>> RemoveNative()
         {
             return enumerable
-                .Where(x => !Extensions.IsCustom(x.Value, "native"));
+                .Where(x => !x.Value.IsCustom("native"));
         }
     }
 

@@ -64,9 +64,7 @@ public sealed class ProtocolRangeJsonConverter : JsonConverter<ProtocolRange>
         if (parts.Length != 2
             || !int.TryParse(parts[0], out var from)
             || !int.TryParse(parts[1], out var to))
-        {
             throw new JsonException($"Invalid ProtocolRange: {text}");
-        }
 
         return new ProtocolRange(from, to);
     }

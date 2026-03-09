@@ -64,14 +64,12 @@ public static class CodeGenTool
         var tokenCount = TokenCounter.Count(system) + TokenCounter.Count(user);
 
         if (tokenCount > DirectGenerationThreshold)
-        {
             return new GenerationResult
             {
                 TokenCount = tokenCount,
                 SystemPrompt = system,
                 UserPrompt = user
             };
-        }
 
         ChatMessage[] messages =
         [

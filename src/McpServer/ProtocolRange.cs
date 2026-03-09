@@ -7,9 +7,6 @@ namespace McpServer;
 [JsonConverter(typeof(ProtocolRangeJsonConverter))]
 public readonly record struct ProtocolRange
 {
-    public int From { get; }
-    public int To { get; } // inclusive
-
     public ProtocolRange(int from, int to)
     {
         if (from > to)
@@ -19,11 +16,16 @@ public readonly record struct ProtocolRange
         To = to;
     }
 
+    public int From { get; }
+    public int To { get; } // inclusive
+
     public override string ToString()
     {
         return From == To ? From.ToString() : $"{From}-{To}";
     }
 
     public bool Contains(int version)
-        => version >= From && version <= To;
+    {
+        return version >= From && version <= To;
+    }
 }
