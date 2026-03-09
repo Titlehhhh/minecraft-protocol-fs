@@ -21,7 +21,7 @@ public class CodeGenerator
         _repository = repository;
     }
 
-    public async Task<(string System, string User)> BuildPromptAsync(
+    public async Task<(string System, string User, PacketDefinition Packet)> BuildPromptAsync(
         string id,
         CancellationToken cancellationToken = default)
     {
@@ -74,6 +74,6 @@ public class CodeGenerator
             Skeleton = skeleton
         });
 
-        return (system, user);
+        return (system, user, packet);
     }
 }

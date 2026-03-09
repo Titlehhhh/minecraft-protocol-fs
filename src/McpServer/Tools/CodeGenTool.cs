@@ -30,6 +30,7 @@ public static class CodeGenTool
         IChatClient chatClient,
         IArtifactsRepository artifacts,
         CodeGenerator codeGenerator,
+        IProtocolRepository repository,
         [Description(
             "Packet identifier. Format: '<namespace>.<direction>.<packet_name>'. " +
             "Examples: 'play.toClient.face_player', 'play.toServer.use_item'. " +
@@ -39,7 +40,7 @@ public static class CodeGenTool
     {
         try
         {
-            return await GeneratePacketCore(chatClient, artifacts, codeGenerator, id, cancellationToken);
+            return await GeneratePacketCore(chatClient, artifacts, codeGenerator, repository, id, cancellationToken);
         }
         catch (McpException)
         {
@@ -55,15 +56,15 @@ public static class CodeGenTool
         IChatClient chatClient,
         IArtifactsRepository artifacts,
         CodeGenerator codeGenerator,
+        IProtocolRepository repository,
         string id,
         CancellationToken cancellationToken)
     {
-        var (system, user) = await codeGenerator.BuildPromptAsync(id, cancellationToken);
+        var (system, user, packet) = await codeGenerator.BuildPromptAsync(id, cancellationToken);
         var tokenCount = TokenCounter.Count(system) + TokenCounter.Count(user);
 
         if (tokenCount > DirectGenerationThreshold)
         {
-            // Too complex for the cheap model — return prompt for Claude to handle
             return new GenerationResult
             {
                 TokenCount = tokenCount,
@@ -84,7 +85,9 @@ public static class CodeGenTool
             MaxOutputTokens = 4096
         }, cancellationToken);
 
-        var code = ExtractCsharpCode(response.Text);
+        var rawCode = ExtractCsharpCode(response.Text);
+        var supportedRange = repository.GetSupportedProtocols();
+        var code = PacketPostProcessor.Process(rawCode, packet, supportedRange);
         var className = BuildClassName(id);
 
         var artifact = await artifacts.SaveTextAsync(
