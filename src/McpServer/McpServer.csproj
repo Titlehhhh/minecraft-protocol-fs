@@ -10,11 +10,14 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2"/>
-        <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.2.0-preview.1.26063.2"/>
-        <PackageReference Include="ModelContextProtocol" Version="0.6.0-preview.1"/>
-        <PackageReference Include="ModelContextProtocol.AspNetCore" Version="0.6.0-preview.1"/>
-        <PackageReference Include="Scriban" Version="6.5.2"/>
+        <PackageReference Include="Microsoft.Extensions.AI" Version="10.3.0"/>
+        <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.3.0"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3"/>
+        <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0"/>
+        <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.0"/>
+        <PackageReference Include="ModelContextProtocol" Version="1.1.0"/>
+        <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.1.0"/>
+        <PackageReference Include="Scriban" Version="6.5.5"/>
     </ItemGroup>
     <ItemGroup>
         <Content Include="Prompts/**/*.md">

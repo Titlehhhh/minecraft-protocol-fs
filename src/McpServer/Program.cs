@@ -1,63 +1,50 @@
 using System;
-using System.ClientModel;
 using System.IO;
-using System.Linq;
 using System.Threading;
-using Humanizer;
 using McpServer;
 using McpServer.Repositories;
 using McpServer.Services;
-using McpServer.Tools;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using OpenAI;
-using OpenAI.Chat;
 using ProtoCore;
+using System.ClientModel;
 
 var start = 735;
 var end = 772;
 
-
-
 var protocols = await ProtocolLoader.LoadProtocolsAsync(start, end);
-
 var dict = HistoryBuilder.Build(protocols);
-
 var repository = new ProtocolRepository(new ProtocolRange(start, end), protocols, dict);
 
 var builder = WebApplication.CreateBuilder(args);
-Console.WriteLine(builder.Environment.EnvironmentName);
-
-var openrouterKey = builder.Configuration["OPENROUTER_API_KEY"];
-
-
-var openAiClient = new OpenAIClient(new ApiKeyCredential(openrouterKey), new OpenAIClientOptions()
-{
-    Endpoint = new Uri("https://openrouter.ai/api/v1")
-});
-
-
-
-
-builder.Services.AddSingleton(openAiClient);
 
 builder.Services.AddSingleton<CodeGenerator>();
 
-builder.Logging.AddConsole(consoleLogOptions =>
-{
-    consoleLogOptions.LogToStandardErrorThreshold = LogLevel.Trace;
-});
+var configKey = builder.Configuration["OpenRouter:ApiKey"];
+var envKey = Environment.GetEnvironmentVariable("OPENROUTER_API_KEY");
+var openRouterKey = configKey
+                    ?? envKey
+                    ?? throw new InvalidOperationException(
+                        "OpenRouter API key not configured. " +
+                        "Set OpenRouter:ApiKey in user secrets or OPENROUTER_API_KEY env var.");
 
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(5000); 
-});
+var cheapModel = builder.Configuration["OpenRouter:CheapModel"] ?? "openai/gpt-4o-mini";
+
+builder.Services.AddChatClient(
+    new OpenAIClient(
+        new ApiKeyCredential(openRouterKey),
+        new OpenAIClientOptions { Endpoint = new Uri("https://openrouter.ai/api/v1/") }
+    ).GetChatClient(cheapModel).AsIChatClient());
+
+builder.Logging.AddConsole(consoleLogOptions => { consoleLogOptions.LogToStandardErrorThreshold = LogLevel.Trace; });
+
+builder.WebHost.ConfigureKestrel(options => { options.ListenAnyIP(5000); });
 
 builder.Services.AddSingleton<IArtifactsRepository>(sp =>
 {
@@ -88,10 +75,7 @@ builder.Services
             WebsiteUrl = "https://github.com/Titlehhhh/McProtoNet"
         };
     })
-    .WithHttpTransport(gg =>
-    {
-        gg.Stateless = true;
-    })
+    .WithHttpTransport(gg => { gg.Stateless = true; })
     .WithToolsFromAssembly();
 
 var app = builder.Build();

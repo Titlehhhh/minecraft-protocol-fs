@@ -1,15 +1,14 @@
-﻿# OUTPUT FORMAT (STRICT)
-ONLY C# scriban({{val}} example) code format without all comments.
+Generate the C# packet class named `{{ class_name }}`.
+Output ONLY the class body — no namespace, no using directives, no markdown fences, no comments.
 
 # TYPES AND IO METHODS
+
 {{ methods }}
 
-# INPUT SCHEMA
+# INPUT SCHEMA (Toon format — version history of this packet)
+
 {{ toon }}
 
-# STRUCTURE TEMPLATE (SKELETON)
-{{ skeleton }}
+# STRUCTURE TEMPLATE
 
-# INTERNAL RULE (DO NOT OUTPUT)
-COMMON FIELDS = INTERSECTION OF ALL VERSIONS.
-VERSION STRUCTS CONTAIN DIFFERENCES ONLY.
+{{ skeleton }}

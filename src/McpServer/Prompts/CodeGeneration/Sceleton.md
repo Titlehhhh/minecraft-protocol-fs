@@ -1,125 +1,80 @@
-﻿{{Usages}}
-
-{{Attributes}}
-public sealed partial class {{PacketName}} : {{BaseClasses}}
+public sealed partial class CLASS_NAME : IPacket
 {
+    public static readonly ProtocolRange[] SupportedVersionsStatic =
+    {
+        new(MinecraftVersion.StartProtocol, TO1),
+        new(FROM2, TO2),
+        new(FROM3, MinecraftVersion.LatestProtocol)
+    };
 
-    // =====================================================================
-    // Common fields
-    // =====================================================================
-    // These fields exist in ALL protocol versions.
-    // They are always read/written before version-specific fields.
-    //
-    // Example:
-    // public float Yaw { get; set; }
-    // public float Pitch { get; set; }
+    // Common fields (present in ALL versions):
+    // public int Hand { get; set; }
 
+    // Version-specific containers (only for ranges that have extra fields):
+    // public V759_766Fields? V759_766 { get; set; }
+    // public V767_LastFields? V767_Last { get; set; }
 
-    // =====================================================================
-    // Version-specific field containers
-    // =====================================================================
-    // Exactly ONE of these properties must be non-null at runtime,
-    // depending on the protocol version.
-    //
-    // Naming convention:
-    // - V<From>_<To>Fields
-    // - Use 'Last' for the latest protocol range.
-    //
-    // Example:
-    // public VFirst_767Fields? VFirst_767 { get; set; }
-    // public V768_LastFields? V768_Last { get; set; }
-
-
-    // =====================================================================
-    // Serialization
-    // =====================================================================
-    // Rules:
-    // - Select version by protocolVersion
-    // - Read common fields first
-    // - Then read/write version-specific fields
-    // - Throw if version-specific fields are missing
     internal void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
     {
         switch (protocolVersion)
         {
-            // Example:
-            // case >= <from> and <= <to>:
-            // {
-            //     var fields = <VersionProperty>
-            //         ?? throw new InvalidOperationException("<PacketName> <VersionName> fields missing.");
-            //
-            //     // Write common fields
-            //     writer.WriteFloat(Yaw);
-            //     writer.WriteFloat(Pitch);
-            //
-            //     // Write version-specific fields
-            //     writer.WriteBoolean(fields.OnGround);
-            //     return;
-            // }
+            // Range with NO version-specific fields — just write common fields:
+            case >= MinecraftVersion.StartProtocol and <= TO1:
+                // writer.WriteVarInt(CommonField);
+                return;
 
+            // Range WITH version-specific fields:
+            case >= FROM2 and <= TO2:
+            {
+                var fields = VERSION_PROP ?? throw new InvalidOperationException("CLASS_NAME FROM2-TO2 fields missing.");
+                // writer.WriteVarInt(CommonField);
+                // writer.WriteVarInt(fields.ExtraField);
+                return;
+            }
+            case >= FROM3 and <= MinecraftVersion.LatestProtocol:
+            {
+                var fields = VERSION_PROP2 ?? throw new InvalidOperationException("CLASS_NAME FROM3-last fields missing.");
+                // writer.WriteVarInt(CommonField);
+                // writer.WriteVarInt(fields.ExtraField);
+                return;
+            }
             default:
-                
+                ThrowHelper.ThrowProtocolNotSupported(nameof(CLASS_NAME), protocolVersion, SupportedVersionsStatic);
                 return;
         }
     }
 
-    // =====================================================================
-    // Deserialization
-    // =====================================================================
-    // Rules:
-    // - Select version by protocolVersion
-    // - Read common fields first
-    // - Instantiate ONLY the matching version-specific structure
-    // - Set all other version-specific properties to null
     internal void Deserialize(ref MinecraftPrimitiveReader reader, int protocolVersion)
     {
         switch (protocolVersion)
         {
-            // Example:
-            // case >= <from> and <= <to>:
-            //     // Read common fields
-            //     Yaw = reader.ReadFloat();
-            //     Pitch = reader.ReadFloat();
-            //
-            //     // Read version-specific fields
-            //     <VersionProperty> = new <VersionStruct>
-            //     {
-            //         OnGround = reader.ReadBoolean()
-            //     };
-            //
-            //     // Reset other version structures
-            //     <OtherVersionProperty> = null;
-            //     return;
-
+            case >= MinecraftVersion.StartProtocol and <= TO1:
+                // CommonField = reader.ReadVarInt();
+                // V759_766 = null; V767_Last = null;
+                return;
+            case >= FROM2 and <= TO2:
+                // CommonField = reader.ReadVarInt();
+                VERSION_PROP = new VERSION_STRUCT { ExtraField = reader.ReadVarInt() };
+                // VERSION_PROP2 = null;
+                return;
+            case >= FROM3 and <= MinecraftVersion.LatestProtocol:
+                // CommonField = reader.ReadVarInt();
+                VERSION_PROP2 = new VERSION_STRUCT2 { ExtraField = reader.ReadVarInt() };
+                // VERSION_PROP = null;
+                return;
             default:
-                
+                ThrowHelper.ThrowProtocolNotSupported(nameof(CLASS_NAME), protocolVersion, SupportedVersionsStatic);
                 return;
         }
     }
 
-    // =====================================================================
-    // Interface forwarding
-    // =====================================================================
     void IPacket.Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
         => Serialize(ref writer, protocolVersion);
 
     void IPacket.Deserialize(ref MinecraftPrimitiveReader reader, int protocolVersion)
         => Deserialize(ref reader, protocolVersion);
 
-    // =====================================================================
-    // Version-specific field structures
-    // =====================================================================
-    // These structs contain ONLY fields that differ between protocol versions.
-    // They must NOT include common fields.
-    //
-    // Example:
-    // public struct VFirst_767Fields
-    // {
-    //     public bool OnGround { get; set; }
-    // }
-    //
-    // public struct V768_LastFields
-    // {
-    //     public byte Flags { get; set; }
-    // }
+    // Version-specific structs (ONLY fields that differ — NOT common fields):
+    // public struct V759_766Fields { public int Sequence { get; set; } }
+    // public struct V767_LastFields { public int Sequence { get; set; } public Vector2 Rotation { get; set; } }
 }
