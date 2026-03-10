@@ -17,9 +17,12 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
 3. Common fields MUST be normal properties on the main class and MUST always be read/written in ALL versions.
 4. It is FORBIDDEN to place common fields inside version-specific structs.
 5. Version-specific structs contain ONLY differences (fields absent in the common-field set).
-   Structs MUST be declared as `public struct`, NOT class. Naming: `V{from}_{to}Fields` (e.g. `V759_766Fields`,
-   `V767_LastFields`).
-   The corresponding property on the main class MUST be nullable: `public V759_766Fields? V759_766 { get; set; }`
+   Structs MUST be declared as `public struct`, NOT class. Naming: `V{from}_{to}Fields` where:
+   - if from == `first` → use `First` (e.g. `VFirst_758Fields`)
+   - if to == `last`   → use `Last`  (e.g. `V759_LastFields`)
+   - middle ranges use numbers as-is (e.g. `V759_766Fields`)
+   The corresponding property on the main class MUST be nullable and match the struct name:
+   `public VFirst_758Fields? VFirst_758 { get; set; }`
 6. If a version range has NO version-specific fields (only common fields), do NOT create a struct for it — just
    read/write common fields in that case branch.
 7. Field order MUST match the schema order exactly for each version.

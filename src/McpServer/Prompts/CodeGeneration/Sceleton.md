@@ -50,6 +50,7 @@ return;
     void IPacket.Deserialize(ref MinecraftPrimitiveReader reader, int protocolVersion)
         => Deserialize(ref reader, protocolVersion);
 
+    public struct VFirst_TO1Fields { public int ExtraField { get; set; } }
     public struct V_FROM2_TO2Fields { public int ExtraField { get; set; } }
     public struct V_FROM3_LastFields { public int ExtraField { get; set; } public SomeType ComplexField { get; set; } }
 
