@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using McpServer.Repositories;
+using Scriban;
 
 namespace McpServer.Services;
 
@@ -18,24 +19,26 @@ public static class PacketPostProcessor
             : "IServerPacket";
 
         var attributes = BuildAttributes(packet, supportedRange);
-        return code
-            .Replace("{{usages}}", Usings)
-            .Replace("{{attributes}}", attributes)
-            .Replace(": IPacket", $": {iface}");
+
+        return Template.ParseLiquid(code).Render(new
+        {
+            usages     = Usings,
+            attributes = attributes,
+            @interface = iface
+        });
     }
 
     private static string BuildAttributes(PacketDefinition packet, ProtocolRange supportedRange)
     {
-        // "play.toServer" → state=Play, dir=Serverbound
         var nsParts = packet.Namespace.Split('.');
         var state = nsParts[0] switch
         {
-            "play" => "PacketState.Play",
-            "login" => "PacketState.Login",
-            "status" => "PacketState.Status",
+            "play"          => "PacketState.Play",
+            "login"         => "PacketState.Login",
+            "status"        => "PacketState.Status",
             "configuration" => "PacketState.Configuration",
-            "handshaking" => "PacketState.Handshaking",
-            var s => throw new ArgumentException($"Unknown packet namespace: {s}")
+            "handshaking"   => "PacketState.Handshaking",
+            var s           => throw new ArgumentException($"Unknown packet namespace: {s}")
         };
         var direction = nsParts.Length > 1 && nsParts[1] == "toServer"
             ? "PacketDirection.Serverbound"
@@ -73,12 +76,10 @@ public static class PacketPostProcessor
         return sb.ToString().TrimEnd();
     }
 
-    // Merge adjacent PacketIdEntry items with the same hex ID
     private static List<PacketIdEntry> CompressPacketIds(List<PacketIdEntry> entries)
     {
         if (entries.Count == 0) return entries;
 
-        // Sort by From
         var sorted = new List<PacketIdEntry>(entries);
         sorted.Sort((a, b) => a.Range.From.CompareTo(b.Range.From));
 
@@ -89,10 +90,7 @@ public static class PacketPostProcessor
         {
             var next = sorted[i];
             if (next.Id == current.Id && next.Range.From == current.Range.To + 1)
-            {
-                // Extend current range
                 current = new PacketIdEntry(new ProtocolRange(current.Range.From, next.Range.To), current.Id);
-            }
             else
             {
                 result.Add(current);

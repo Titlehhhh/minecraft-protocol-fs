@@ -1,7 +1,7 @@
 {{usages}}
 
 {{attributes}}
-public sealed partial class CLASS_NAME : IPacket
+public sealed partial class CLASS_NAME : {{interface}}
 {
 internal void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
 {
