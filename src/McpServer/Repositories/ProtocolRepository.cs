@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Humanizer;
@@ -8,6 +8,8 @@ using Protodef.Enumerable;
 using Protodef.Primitive;
 
 namespace McpServer.Repositories;
+
+public record PacketIdEntry(ProtocolRange Range, int Id);
 
 public class PacketDefinition
 {
@@ -23,6 +25,9 @@ public class PacketDefinition
     public string Namespace { get; set; }
     public string Name { get; set; }
     public Dictionary<ProtocolRange, ProtodefType?> History => _history.History;
+
+    /// <summary>Hex packet ID per mapper version range. Multiple entries if ID changed between versions.</summary>
+    public List<PacketIdEntry> PacketIds { get; } = new();
 
     internal void Merge(TypeHistory history)
     {
@@ -47,13 +52,11 @@ public class ProtocolRepository : IProtocolRepository
         _map = map;
         _types = types;
 
-        var gg = "PascalCase".Underscore();
-
         foreach (var kv in types)
             if (kv.Key.EndsWith("packet", StringComparison.OrdinalIgnoreCase))
             {
                 var ns = GetNamespace(kv.Value.Id);
-                Test(ns, kv.Value.History, types);
+                BuildPackets(ns, kv.Value.History, types);
             }
     }
 
@@ -105,59 +108,60 @@ public class ProtocolRepository : IProtocolRepository
         return _types[id];
     }
 
-    private void Test(
+    private void BuildPackets(
         string ns,
         Dictionary<ProtocolRange, ProtodefType?> ranges,
         IReadOnlyDictionary<string, TypeHistory> types)
     {
         Dictionary<string, PacketDefinition> packets = new();
+
         foreach (var kv in ranges)
-            if (kv.Value is not null)
+        {
+            if (kv.Value is null) continue;
+
+            var cont = (ProtodefContainer)kv.Value;
+            var idMapper = cont.GetFiled<ProtodefMapper>("name");
+            var nameSwitch = cont.GetFiled<ProtodefSwitch>("params");
+
+            // Reverse lookup: canonicalName → hexId for this range
+            var nameToHexId = idMapper.Mappings
+                .ToDictionary(
+                    m => m.Value,                          // "face_player"
+                    m => Convert.ToInt32(m.Key, 16));      // 0x3F
+
+            if (nameSwitch.Fields is null)
+                throw new InvalidOperationException("nameSwitch.Fields is null");
+
+            foreach (var p in nameSwitch.Fields)
             {
-                var cont = (ProtodefContainer)kv.Value;
-                var idMapper = cont.GetFiled<ProtodefMapper>("name");
-                var nameSwitch = cont.GetFiled<ProtodefSwitch>("params");
+                TypeHistory found;
 
-                var names = idMapper.Mappings.Values.ToArray();
-
-
-                if (nameSwitch.Fields is null)
-                    throw new InvalidOperationException("Null");
-
-                foreach (var p in nameSwitch.Fields)
+                var name = p.Key.Pascalize();
+                if (p.Value.IsVoid())
                 {
-                    TypeHistory finded;
-
-                    var name = p.Key.Pascalize();
-                    if (p.Value.IsVoid())
+                    found = new TypeHistory
                     {
-                        finded = new TypeHistory
-                        {
-                            Name = name,
-                            Id = p.Key,
-                            History =
-                            {
-                                { kv.Key, new ProtodefVoid() }
-                            }
-                        };
-                    }
-                    else
-                    {
-                        var custom = (p.Value as ProtodefCustomType)!.Name;
-                        finded = FindType(ns, custom, types);
-                    }
-
-
-                    if (packets.ContainsKey(p.Key))
-                    {
-                        if (packets[p.Key].Name != finded.Name) packets[p.Key].Merge(finded);
-                    }
-                    else
-                    {
-                        packets[p.Key] = new PacketDefinition(ns, name, finded);
-                    }
+                        Name = name,
+                        Id = p.Key,
+                        History = { { kv.Key, new ProtodefVoid() } }
+                    };
                 }
+                else
+                {
+                    var custom = (p.Value as ProtodefCustomType)!.Name;
+                    found = FindType(ns, custom, types);
+                }
+
+                if (!packets.ContainsKey(p.Key))
+                    packets[p.Key] = new PacketDefinition(ns, name, found);
+                else if (packets[p.Key].Name != found.Name)
+                    packets[p.Key].Merge(found);
+
+                // Store hex ID for this version range
+                if (nameToHexId.TryGetValue(p.Key, out var hexId))
+                    packets[p.Key].PacketIds.Add(new PacketIdEntry(kv.Key, hexId));
             }
+        }
 
         _packets[ns] = packets;
     }

@@ -52,6 +52,18 @@ public static class PacketPostProcessor
             sb.AppendLine($"[ProtocolSupport({from}, {to})]");
         }
 
+        foreach (var entry in packet.PacketIds)
+        {
+            var from = entry.Range.From == supportedRange.From
+                ? "MinecraftVersion.StartProtocol"
+                : entry.Range.From.ToString();
+            var to = entry.Range.To == supportedRange.To
+                ? "MinecraftVersion.LatestProtocol"
+                : entry.Range.To.ToString();
+
+            sb.AppendLine($"[PacketId({from}, {to}, 0x{entry.Id:X2})]");
+        }
+
         return sb.ToString().TrimEnd();
     }
 }

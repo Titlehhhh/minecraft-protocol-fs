@@ -3,6 +3,7 @@ using System.ClientModel;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using System.Linq;
 using System.Threading.Tasks;
 using McpServer;
 using McpServer.Models;
@@ -99,6 +100,39 @@ app.MapGet("/artifacts/{id}", async (
     http.Response.Headers.ContentDisposition = $"attachment; filename=\"{info.FileName}\"";
     return Results.Stream(stream, info.ContentType);
 }).WithName("GetArtifacts");
+
+// ── REST: packet discovery with hex IDs ───────────────────────────────────
+// GET /api/packets              → all namespaces
+// GET /api/packets/{ns}/{dir}   → packets in namespace with PacketIds
+// e.g. GET /api/packets/play/toClient
+app.MapGet("/api/packets", (IProtocolRepository repo) =>
+{
+    var result = repo.GetPackets()
+        .ToDictionary(kv => kv.Key, kv => kv.Value.Keys.ToArray());
+    return Results.Ok(result);
+});
+
+app.MapGet("/api/packets/{ns}/{dir}", (string ns, string dir, IProtocolRepository repo) =>
+{
+    var key = $"{ns}.{dir}";
+    var all = repo.GetPackets();
+    if (!all.TryGetValue(key, out var packets))
+        return Results.NotFound($"Namespace '{key}' not found.");
+
+    var result = packets.Select(kv => new
+    {
+        Id = $"{key}.{kv.Key}",
+        kv.Value.Name,
+        PacketIds = kv.Value.PacketIds.Select(e => new
+        {
+            From = e.Range.From,
+            To = e.Range.To,
+            HexId = $"0x{e.Id:X2}"
+        }).ToArray()
+    }).ToArray();
+
+    return Results.Ok(result);
+});
 
 // ── REST: single generation ────────────────────────────────────────────────
 // POST /api/generate  body: { "id": "play.toServer.use_item" }
