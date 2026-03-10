@@ -1,8 +1,11 @@
 using System;
 using System.ClientModel;
 using System.IO;
+using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using McpServer;
+using McpServer.Models;
 using McpServer.Repositories;
 using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
@@ -29,8 +32,6 @@ var repository = new ProtocolRepository(new ProtocolRange(start, end), protocols
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddSingleton<CodeGenerator>();
-
 var configKey = builder.Configuration["OpenRouter:ApiKey"];
 var envKey = Environment.GetEnvironmentVariable("OPENROUTER_API_KEY");
 var openRouterKey = configKey
@@ -54,17 +55,14 @@ builder.Logging.AddConsole(consoleLogOptions => { consoleLogOptions.LogToStandar
 
 builder.WebHost.ConfigureKestrel(options => { options.ListenAnyIP(5000); });
 
-builder.Services.AddSingleton<IArtifactsRepository>(sp =>
-{
-    var options = new ArtifactsOptions
+builder.Services.AddSingleton<IArtifactsRepository>(_ =>
+    new FileArtifactsRepository(new ArtifactsOptions
     {
         RootPath = Path.Combine(AppContext.BaseDirectory, "artifacts")
-    };
-
-    return new FileArtifactsRepository(options);
-});
+    }));
 
 builder.Services.AddSingleton<IProtocolRepository>(repository);
+builder.Services.AddSingleton<CodeGenerator>();
 
 builder.Services
     .AddMcpServer(options =>
@@ -76,10 +74,7 @@ builder.Services
             Title = "Minecraft Protocol Code Generation Server",
             Description =
                 "An MCP server providing discovery, inspection, and maintenance tools for " +
-                "Minecraft protocol types and packets. " +
-                "The server is designed to support code generation, validation, and " +
-                "versioned protocol updates, with MCP used as an orchestration layer " +
-                "rather than a primary data transport.",
+                "Minecraft protocol types and packets.",
             WebsiteUrl = "https://github.com/Titlehhhh/McProtoNet"
         };
     })
@@ -88,6 +83,7 @@ builder.Services
 
 var app = builder.Build();
 
+// ── artifacts download ─────────────────────────────────────────────────────
 app.MapGet("/artifacts/{id}", async (
     string id,
     IArtifactsRepository artifacts,
@@ -95,19 +91,80 @@ app.MapGet("/artifacts/{id}", async (
     CancellationToken ct) =>
 {
     var info = await artifacts.GetInfoAsync(id, ct);
-    if (info is null)
-        return Results.NotFound();
+    if (info is null) return Results.NotFound();
 
     var stream = await artifacts.OpenReadAsync(id, ct);
-    if (stream is null)
-        return Results.NotFound();
+    if (stream is null) return Results.NotFound();
 
-    http.Response.Headers.ContentDisposition =
-        $"attachment; filename=\"{info.FileName}\"";
-
+    http.Response.Headers.ContentDisposition = $"attachment; filename=\"{info.FileName}\"";
     return Results.Stream(stream, info.ContentType);
 }).WithName("GetArtifacts");
+
+// ── REST: single generation ────────────────────────────────────────────────
+// POST /api/generate  body: { "id": "play.toServer.use_item" }
+// Returns GenerationResult as JSON (or raw .cs if Accept: text/plain)
+app.MapPost("/api/generate", async (
+    HttpContext http,
+    CodeGenerator codeGenerator,
+    CancellationToken ct) =>
+{
+    using var body = await JsonDocument.ParseAsync(http.Request.Body, cancellationToken: ct);
+    if (!body.RootElement.TryGetProperty("id", out var idEl))
+        return Results.BadRequest("Missing 'id' field.");
+
+    var id = idEl.GetString();
+    if (string.IsNullOrWhiteSpace(id))
+        return Results.BadRequest("'id' must not be empty.");
+
+    var result = await codeGenerator.GenerateAsync(id, ct);
+
+    // If caller wants raw code (curl ... > MyPacket.cs), fetch artifact content directly
+    if (http.Request.Headers.Accept.ToString().Contains("text/plain") && result.Link is not null)
+    {
+        var artifactId = result.Link.TrimStart('/').Replace("artifacts/", "");
+        var artifacts = http.RequestServices.GetRequiredService<IArtifactsRepository>();
+        var stream = await artifacts.OpenReadAsync(artifactId, ct);
+        if (stream is not null)
+            return Results.Stream(stream, "text/plain; charset=utf-8",
+                fileDownloadName: result.Name + ".cs");
+    }
+
+    return Results.Ok(result);
+});
+
+// ── REST: batch generation ─────────────────────────────────────────────────
+// POST /api/generate/batch  body: ["play.toServer.use_item", "play.toClient.face_player"]
+app.MapPost("/api/generate/batch", async (
+    HttpContext http,
+    CodeGenerator codeGenerator,
+    CancellationToken ct) =>
+{
+    string[]? ids;
+    try
+    {
+        ids = await JsonSerializer.DeserializeAsync<string[]>(http.Request.Body,
+            cancellationToken: ct);
+    }
+    catch
+    {
+        return Results.BadRequest("Body must be a JSON array of packet id strings.");
+    }
+
+    if (ids is null || ids.Length == 0)
+        return Results.BadRequest("Provide at least one packet id.");
+
+    var tasks = Array.ConvertAll(ids, id => SafeGenerate(codeGenerator, id, ct));
+    var results = await Task.WhenAll(tasks);
+    return Results.Ok(results);
+});
+
 app.MapMcp("/mcp");
+
+static async Task<GenerationResult> SafeGenerate(CodeGenerator gen, string id, CancellationToken ct)
+{
+    try { return await gen.GenerateAsync(id, ct); }
+    catch (Exception ex) { return new GenerationResult { Name = id, Error = $"{ex.GetType().Name}: {ex.Message}" }; }
+}
 
 Console.WriteLine("[McpServer] Ready. Listening on http://0.0.0.0:5000/mcp");
 

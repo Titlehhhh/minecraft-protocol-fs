@@ -13,4 +13,5 @@ public class GenerationResult
     public string? SystemPrompt { get; set; }
 
     public string? UserPrompt { get; set; }
+    public string? Error { get; set; }
 }

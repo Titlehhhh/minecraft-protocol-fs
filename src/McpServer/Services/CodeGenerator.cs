@@ -1,9 +1,13 @@
 using System;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Humanizer;
+using McpServer.Models;
 using McpServer.Repositories;
+using Microsoft.Extensions.AI;
 using Protodef;
 using Scriban;
 using Toon.Format;
@@ -14,11 +18,64 @@ namespace McpServer.Services;
 
 public class CodeGenerator
 {
-    private readonly IProtocolRepository _repository;
+    private const int DirectGenerationThreshold = 4000;
 
-    public CodeGenerator(IProtocolRepository repository)
+    private readonly IProtocolRepository _repository;
+    private readonly IChatClient _chatClient;
+    private readonly IArtifactsRepository _artifacts;
+
+    public CodeGenerator(
+        IProtocolRepository repository,
+        IChatClient chatClient,
+        IArtifactsRepository artifacts)
     {
         _repository = repository;
+        _chatClient = chatClient;
+        _artifacts = artifacts;
+    }
+
+    public async Task<GenerationResult> GenerateAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var (system, user, packet) = await BuildPromptAsync(id, cancellationToken);
+        var tokenCount = TokenCounter.Count(system) + TokenCounter.Count(user);
+
+        if (tokenCount > DirectGenerationThreshold)
+            return new GenerationResult
+            {
+                TokenCount = tokenCount,
+                SystemPrompt = system,
+                UserPrompt = user
+            };
+
+        ChatMessage[] messages =
+        [
+            new(ChatRole.System, system),
+            new(ChatRole.User, user)
+        ];
+
+        var response = await _chatClient.GetResponseAsync(messages, new ChatOptions
+        {
+            Temperature = 0f,
+            MaxOutputTokens = 4096
+        }, cancellationToken);
+
+        var rawCode = ExtractCode(response.Text);
+        var supportedRange = _repository.GetSupportedProtocols();
+        var code = PacketPostProcessor.Process(rawCode, packet, supportedRange);
+        var className = BuildClassName(id);
+
+        var artifact = await _artifacts.SaveTextAsync(
+            className + ".cs",
+            code,
+            "text/plain; charset=utf-8",
+            cancellationToken);
+
+        return new GenerationResult
+        {
+            Name = className,
+            Link = $"/artifacts/{artifact.Id}",
+            TokenCount = tokenCount
+        };
     }
 
     public async Task<(string System, string User, PacketDefinition Packet)> BuildPromptAsync(
@@ -46,25 +103,12 @@ public class CodeGenerator
 
         var promptsFolder = AbsolutePath.CurrentWorkingDirectory / "Prompts" / "CodeGeneration";
 
-        var system =
-            await (promptsFolder / "SystemPrompt.md").ReadAllTextAsync(cancellationToken);
+        var system = await (promptsFolder / "SystemPrompt.md").ReadAllTextAsync(cancellationToken);
+        var skeleton = await (promptsFolder / "Sceleton.md").ReadAllTextAsync(cancellationToken);
+        var availableMethods = await (promptsFolder / "AvailableMethods.md").ReadAllTextAsync(cancellationToken);
+        var basePrompt = await (promptsFolder / "BasePrompt.md").ReadAllTextAsync(cancellationToken);
 
-        var skeleton =
-            await (promptsFolder / "Sceleton.md").ReadAllTextAsync(cancellationToken);
-
-        var availableMethods =
-            await (promptsFolder / "AvailableMethods.md").ReadAllTextAsync(cancellationToken);
-
-        var basePrompt =
-            await (promptsFolder / "BasePrompt.md").ReadAllTextAsync(cancellationToken);
-
-        var lastPart = id.Split('.').Last();
-        var withoutPrefix = lastPart.StartsWith("packet_", StringComparison.OrdinalIgnoreCase)
-            ? lastPart["packet_".Length..]
-            : lastPart;
-        var className = string.Concat(
-            withoutPrefix.Split('_').Select(w =>
-                w.Length == 0 ? w : char.ToUpperInvariant(w[0]) + w[1..])) + "Packet";
+        var className = BuildClassName(id);
 
         var user = Template.ParseLiquid(basePrompt).Render(new
         {
@@ -75,5 +119,20 @@ public class CodeGenerator
         });
 
         return (system, user, packet);
+    }
+
+    public static string BuildClassName(string id)
+    {
+        var lastPart = id.Split('.').Last();
+        var withoutPrefix = lastPart.StartsWith("packet_", StringComparison.OrdinalIgnoreCase)
+            ? lastPart["packet_".Length..]
+            : lastPart;
+        return withoutPrefix.Pascalize() + "Packet";
+    }
+
+    private static string ExtractCode(string text)
+    {
+        var match = Regex.Match(text, @"```(?:csharp|cs)\s*([\s\S]*?)```", RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value.Trim() : text.Trim();
     }
 }
