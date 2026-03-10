@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using McpServer.Repositories;
+using Protodef;
 using Scriban;
 
 namespace McpServer.Services;
@@ -47,10 +48,8 @@ public static class PacketPostProcessor
         var sb = new StringBuilder();
         sb.AppendLine($"[PacketInfo(\"{packet.Name}\", {state}, {direction})]");
 
-        foreach (var (range, type) in packet.History)
+        foreach (var range in CompressProtocolSupport(packet.History, supportedRange))
         {
-            if (type is null) continue;
-
             var from = range.From == supportedRange.From
                 ? "MinecraftVersion.StartProtocol"
                 : range.From.ToString();
@@ -74,6 +73,37 @@ public static class PacketPostProcessor
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    private static List<ProtocolRange> CompressProtocolSupport(
+        Dictionary<ProtocolRange, ProtodefType?> history,
+        ProtocolRange supportedRange)
+    {
+        var ranges = new List<ProtocolRange>();
+        foreach (var (range, type) in history)
+            if (type is not null) ranges.Add(range);
+
+        if (ranges.Count == 0) return ranges;
+
+        ranges.Sort((a, b) => a.From.CompareTo(b.From));
+
+        var result = new List<ProtocolRange>(ranges.Count);
+        var current = ranges[0];
+
+        for (var i = 1; i < ranges.Count; i++)
+        {
+            var next = ranges[i];
+            if (next.From == current.To + 1)
+                current = new ProtocolRange(current.From, next.To);
+            else
+            {
+                result.Add(current);
+                current = next;
+            }
+        }
+
+        result.Add(current);
+        return result;
     }
 
     private static List<PacketIdEntry> CompressPacketIds(List<PacketIdEntry> entries)
