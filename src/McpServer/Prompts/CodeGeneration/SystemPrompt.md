@@ -28,8 +28,8 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
    `var fields = VERSION_PROP ?? throw new InvalidOperationException("<ClassName> <Version> fields missing.");`
 10. Deserialize: instantiate ONLY the matching version container; set all other version containers to null.
 11. The `default:` case MUST call:
-    `ThrowHelper.ThrowProtocolNotSupported(nameof(<ClassName>), protocolVersion, SupportedVersionsStatic);`
-12. Do NOT generate `SupportedVersionsStatic` — it is generated automatically by the source generator.
+    `ThrowHelper.ThrowProtocolNotSupported(nameof(<ClassName>), protocolVersion, SupportedVersions);`
+12. Do NOT generate `SupportedVersions` — it is generated automatically by the source generator.
 13. Do NOT generate `using` directives or attributes. The template already contains `{{usages}}` and `{{attributes}}`
     placeholders — output them literally as-is at the top of the file.
 14. Output ONLY: the `{{usages}}` placeholder, the `{{attributes}}` placeholder, and then the class body. No markdown,

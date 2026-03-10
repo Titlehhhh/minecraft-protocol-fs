@@ -21,7 +21,7 @@ return;
                 return;
             }
             default:
-                ThrowHelper.ThrowProtocolNotSupported(nameof(CLASS_NAME), protocolVersion, SupportedVersionsStatic);
+                ThrowHelper.ThrowProtocolNotSupported(nameof(CLASS_NAME), protocolVersion, SupportedVersions);
                 return;
         }
     }
@@ -39,7 +39,7 @@ return;
                 VERSION_PROP2 = new VERSION_STRUCT2 { ComplexField = reader.ReadType<SomeType>(protocolVersion) };
                 return;
             default:
-                ThrowHelper.ThrowProtocolNotSupported(nameof(CLASS_NAME), protocolVersion, SupportedVersionsStatic);
+                ThrowHelper.ThrowProtocolNotSupported(nameof(CLASS_NAME), protocolVersion, SupportedVersions);
                 return;
         }
     }

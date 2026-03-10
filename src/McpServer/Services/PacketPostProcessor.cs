@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using McpServer.Repositories;
 
@@ -7,15 +8,20 @@ namespace McpServer.Services;
 public static class PacketPostProcessor
 {
     private const string Usings =
-        "using McProtoNet.Protocol;\nusing McProtoNet.Serialization;";
+        "using McProtoNet.Protocol;\nusing McProtoNet.Protocol.Attributes;\nusing McProtoNet.Serialization;";
 
     public static string Process(string code, PacketDefinition packet, ProtocolRange supportedRange)
     {
-        var usings = Usings;
+        var nsParts = packet.Namespace.Split('.');
+        var iface = nsParts.Length > 1 && nsParts[1] == "toServer"
+            ? "IClientPacket"
+            : "IServerPacket";
+
         var attributes = BuildAttributes(packet, supportedRange);
         return code
-            .Replace("{{usages}}", usings)
-            .Replace("{{attributes}}", attributes);
+            .Replace("{{usages}}", Usings)
+            .Replace("{{attributes}}", attributes)
+            .Replace(": IPacket", $": {iface}");
     }
 
     private static string BuildAttributes(PacketDefinition packet, ProtocolRange supportedRange)
@@ -52,7 +58,7 @@ public static class PacketPostProcessor
             sb.AppendLine($"[ProtocolSupport({from}, {to})]");
         }
 
-        foreach (var entry in packet.PacketIds)
+        foreach (var entry in CompressPacketIds(packet.PacketIds))
         {
             var from = entry.Range.From == supportedRange.From
                 ? "MinecraftVersion.StartProtocol"
@@ -65,5 +71,36 @@ public static class PacketPostProcessor
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    // Merge adjacent PacketIdEntry items with the same hex ID
+    private static List<PacketIdEntry> CompressPacketIds(List<PacketIdEntry> entries)
+    {
+        if (entries.Count == 0) return entries;
+
+        // Sort by From
+        var sorted = new List<PacketIdEntry>(entries);
+        sorted.Sort((a, b) => a.Range.From.CompareTo(b.Range.From));
+
+        var result = new List<PacketIdEntry>(sorted.Count);
+        var current = sorted[0];
+
+        for (var i = 1; i < sorted.Count; i++)
+        {
+            var next = sorted[i];
+            if (next.Id == current.Id && next.Range.From == current.Range.To + 1)
+            {
+                // Extend current range
+                current = new PacketIdEntry(new ProtocolRange(current.Range.From, next.Range.To), current.Id);
+            }
+            else
+            {
+                result.Add(current);
+                current = next;
+            }
+        }
+
+        result.Add(current);
+        return result;
     }
 }
