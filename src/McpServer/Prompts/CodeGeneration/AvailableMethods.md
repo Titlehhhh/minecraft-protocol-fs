@@ -86,9 +86,19 @@ Supported value types are registered in `ProtocolSerializationExtensions.cs`:
 
 ## NBT Helpers
 
-From `ProtocolSerializationExtensions.Nbt.cs`:
+From `ProtocolSerializationExtensions.Nbt.cs`. All methods require `protocolVersion` argument.
+Return/field type: `NbtTag` (requires `using McProtoNet.NBT;` in the packet file).
 
-- ReadNbtTag / WriteNbtTag
-- ReadOptionalNbtTag / WriteOptionalNbtTag
-- ReadAnonymousNbtTag / WriteAnonymousNbtTag
-- ReadAnonOptionalNbtTag / WriteAnonOptionalNbtTag
+- `ReadNbtTag(protocolVersion)` / `WriteNbtTag(NbtTag value, protocolVersion)`
+- `ReadOptionalNbtTag(protocolVersion)` / `WriteOptionalNbtTag(NbtTag? value, protocolVersion)`
+- `ReadAnonymousNbtTag(protocolVersion)` / `WriteAnonymousNbtTag(NbtTag value, protocolVersion)`
+- `ReadAnonOptionalNbtTag(protocolVersion)` / `WriteAnonOptionalNbtTag(NbtTag? value, protocolVersion)`
+
+When using NBT, add `using McProtoNet.NBT;` as the first line before `{{usages}}`.
+
+## container_id field (protocol 766+)
+
+Do NOT invent a type called `ContainerID`. Use the actual primitive based on schema:
+- `u8` → `ReadUnsignedByte / WriteUnsignedByte`, C# type `byte`
+- `i16` → `ReadSignedShort / WriteSignedShort`, C# type `short`
+- `varint` → `ReadVarInt / WriteVarInt`, C# type `int`
