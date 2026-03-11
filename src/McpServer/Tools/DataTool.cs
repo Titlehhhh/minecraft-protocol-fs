@@ -108,6 +108,33 @@ public static class DataTool
 
     [McpServerTool(UseStructuredContent = false)]
     [Description(
+        "Returns the full versioned definition of a specific packet. " +
+        "The id format is 'namespace.packetName', e.g. 'play.toClient.keep_alive'. " +
+        "Use get_packets to discover valid identifiers."
+    )]
+    public static string GetPacket(
+        IProtocolRepository repository,
+        string id,
+        string format = "toon")
+    {
+        var def = repository.GetPacket(id);
+        var hist = new TypeHistory
+        {
+            Name = def.Name,
+            Id = id,
+        };
+        foreach (var kv in def.History)
+            hist.History[kv.Key] = kv.Value;
+
+        var json = JsonSerializer.SerializeToNode(hist, ProtodefType.DefaultJsonOptions);
+
+        if (format == "toon") return ToonEncoder.EncodeNode(json, new ToonEncodeOptions());
+
+        return json.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    [McpServerTool(UseStructuredContent = false)]
+    [Description(
         "Returns the full versioned definition of a protocol type (or packet) identified by its id. " +
         "The definition includes structural changes across protocol versions. " +
         "The result is returned as formatted text for inspection or analysis, " +

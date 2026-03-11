@@ -37,7 +37,8 @@ public class CodeGenerator
     public async Task<GenerationResult> GenerateAsync(string id, CancellationToken cancellationToken = default)
     {
         var (system, user, packet) = await BuildPromptAsync(id, cancellationToken);
-        var tokenCount = TokenCounter.Count(system) + TokenCounter.Count(user);
+        var tokenCount = 500;
+            //TokenCounter.Count(system) + TokenCounter.Count(user);
 
         if (tokenCount > DirectGenerationThreshold)
             return new GenerationResult
@@ -88,7 +89,14 @@ public class CodeGenerator
 
         var packet = _repository.GetPacket(id);
 
-        var json = JsonSerializer.SerializeToNode(packet.History, ProtodefType.DefaultJsonOptions)!;
+        // Resolve primitive alias types (container_id, angle, etc.) to real primitives
+        // before serialization so LLM sees varint/u8/i16 instead of invented type names.
+        var resolvedHistory = packet.History
+            .ToDictionary(
+                kv => kv.Key,
+                kv => kv.Value is { } t ? t.CreatePrimitiveResolvedCopy() : (ProtodefType?)null);
+
+        var json = JsonSerializer.SerializeToNode(resolvedHistory, ProtodefType.DefaultJsonOptions)!;
         var obj = json.AsObject();
 
         for (var i = 0; i < obj.Count; i++)

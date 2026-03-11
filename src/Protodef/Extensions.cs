@@ -72,6 +72,66 @@ public static class Extensions
         return null;
     }
 
+    /// <summary>
+    /// Resolves a custom type alias by following chains until a non-custom type is found.
+    /// Returns null if the chain cannot be resolved or leads to a cycle.
+    /// </summary>
+    private static ProtodefType? ResolveAlias(ProtodefType start, string name)
+    {
+        var resolved = ResolveUpwards(start, name);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { name };
+
+        while (resolved is ProtodefCustomType alias && !seen.Contains(alias.Name))
+        {
+            seen.Add(alias.Name);
+            var next = ResolveUpwards(resolved, alias.Name);
+            if (next is null) break;
+            resolved = next;
+        }
+
+        return resolved;
+    }
+
+    private static bool IsDirectPrimitive(ProtodefType t) =>
+        t is ProtodefVarInt or ProtodefVarLong or ProtodefBool
+            or ProtodefString or ProtodefVoid or ProtodefNumericType
+            or ProtodefPrefixedString;
+
+    /// <summary>
+    /// Walks the type tree and replaces ProtodefCustomType aliases that resolve to
+    /// simple primitives (VarInt, u8, string, etc.) with the actual primitive type.
+    /// Complex named types (Slot, GameProfile, etc.) are left as ProtodefCustomType.
+    /// </summary>
+    private static void ResolvePrimitiveAliasesInPlace(ProtodefType root)
+    {
+        var stack = new Stack<ProtodefType>();
+        stack.Push(root);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+
+            foreach (var (key, child) in current.Children.ToList())
+            {
+                if (child is ProtodefCustomType custom)
+                {
+                    var resolved = ResolveAlias(current, custom.Name);
+                    if (resolved is not null && IsDirectPrimitive(resolved))
+                    {
+                        var primitiveClone = (ProtodefType)resolved.Clone();
+                        current.TryReplaceChild(key, child, primitiveClone);
+                        // primitives have no meaningful children
+                    }
+                    // else: complex named type — leave as ProtodefCustomType
+                }
+                else
+                {
+                    stack.Push(child);
+                }
+            }
+        }
+    }
+
     /// <param name="type"></param>
     extension(ProtodefType type)
     {
@@ -85,13 +145,30 @@ public static class Extensions
             if (type.Clone() is not ProtodefType clone)
                 throw new InvalidOperationException("Clone returned incorrect type");
 
-            
+
 
             clone.Parent = type.Parent;
             clone.DeduplicateTypes();
             clone.Parent = null;
             clone.FixParentsRecursive();
-            
+
+            return clone;
+        }
+
+        /// <summary>
+        /// Creates a deep clone with primitive alias types resolved to their real primitives.
+        /// Complex named types (Slot, GameProfile, etc.) remain as ProtodefCustomType.
+        /// </summary>
+        public ProtodefType CreatePrimitiveResolvedCopy()
+        {
+            if (type.Clone() is not ProtodefType clone)
+                throw new InvalidOperationException("Clone returned incorrect type");
+
+            clone.Parent = type.Parent;
+            ResolvePrimitiveAliasesInPlace(clone);
+            clone.Parent = null;
+            clone.FixParentsRecursive();
+
             return clone;
         }
 

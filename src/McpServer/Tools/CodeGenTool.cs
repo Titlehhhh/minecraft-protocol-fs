@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using McpServer.Models;
+using McpServer.Repositories;
 using McpServer.Services;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
@@ -46,10 +47,18 @@ public static class CodeGenTool
         "Returns a list of GenerationResult — same semantics as generate_packet per entry.")]
     public static async Task<List<GenerationResult>> GeneratePacketsBatch(
         CodeGenerator codeGenerator,
+        IProtocolRepository protocol,
         [Description("List of packet identifiers in '<namespace>.<direction>.<name>' format.")]
         string[] ids,
         CancellationToken cancellationToken)
     {
+        foreach (var id in ids)
+        {
+            if (!protocol.ContainsPacket(id))
+            {
+                throw new McpException($"protocol id '{id}' is not contains.");
+            }
+        }
         var tasks = new List<Task<GenerationResult>>(ids.Length);
         foreach (var id in ids)
             tasks.Add(GenerateSafe(codeGenerator, id, cancellationToken));
@@ -60,6 +69,7 @@ public static class CodeGenTool
     private static async Task<GenerationResult> GenerateSafe(
         CodeGenerator codeGenerator, string id, CancellationToken ct)
     {
+        
         try
         {
             return await codeGenerator.GenerateAsync(id, ct);

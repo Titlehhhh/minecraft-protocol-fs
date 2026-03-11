@@ -15,17 +15,29 @@ public static class PacketPostProcessor
     public static string Process(string code, PacketDefinition packet, ProtocolRange supportedRange)
     {
         var nsParts = packet.Namespace.Split('.');
-        var iface = nsParts.Length > 1 && nsParts[1] == "toServer"
-            ? "IClientPacket"
-            : "IServerPacket";
+        var isServerbound = nsParts.Length > 1 && nsParts[1] == "toServer";
+        var iface = isServerbound ? "IClientPacket" : "IServerPacket";
+
+        var statePart = nsParts[0] switch
+        {
+            "play"          => "Play",
+            "login"         => "Login",
+            "status"        => "Status",
+            "configuration" => "Configuration",
+            "handshaking"   => "Handshaking",
+            var s           => throw new ArgumentException($"Unknown state: {s}")
+        };
+        var dirPart   = isServerbound ? "Serverbound" : "Clientbound";
+        var nsDecl    = $"namespace McProtoNet.Protocol.Packets.{statePart}.{dirPart};";
 
         var attributes = BuildAttributes(packet, supportedRange);
 
         return Template.ParseLiquid(code).Render(new
         {
-            usages     = Usings,
-            attributes = attributes,
-            @interface = iface
+            usages         = Usings,
+            namespace_decl = nsDecl,
+            attributes     = attributes,
+            @interface     = iface
         });
     }
 

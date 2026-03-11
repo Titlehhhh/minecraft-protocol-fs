@@ -108,6 +108,19 @@ public class ProtocolRepository : IProtocolRepository
         return _types[id];
     }
 
+    public bool ContainsPacket(string id)
+    {
+        try
+        {
+            GetPacket(id);
+            return true;
+        }
+        catch (KeyNotFoundException)
+        {
+            return false;
+        }
+    }
+
     private void BuildPackets(
         string ns,
         Dictionary<ProtocolRange, ProtodefType?> ranges,
@@ -126,8 +139,8 @@ public class ProtocolRepository : IProtocolRepository
             // Reverse lookup: canonicalName → hexId for this range
             var nameToHexId = idMapper.Mappings
                 .ToDictionary(
-                    m => m.Value,                          // "face_player"
-                    m => Convert.ToInt32(m.Key, 16));      // 0x3F
+                    m => m.Value, // "face_player"
+                    m => Convert.ToInt32(m.Key, 16)); // 0x3F
 
             if (nameSwitch.Fields is null)
                 throw new InvalidOperationException("nameSwitch.Fields is null");

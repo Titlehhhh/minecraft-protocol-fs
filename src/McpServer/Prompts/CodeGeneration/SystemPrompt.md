@@ -33,8 +33,8 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
 11. The `default:` case MUST call:
     `ThrowHelper.ThrowProtocolNotSupported(nameof(<ClassName>), protocolVersion, SupportedVersions);`
 12. Do NOT generate `SupportedVersions` — it is generated automatically by the source generator.
-13. Do NOT generate `using` directives or attributes. The template already contains `{{usages}}`, `{{attributes}}`,
-    and `{{interface}}` placeholders — output them literally as-is.
-14. Output ONLY: the `{{usages}}` placeholder, the `{{attributes}}` placeholder, and then the class body. No markdown,
-    no extra comments.
+13. Do NOT generate `using` directives, namespace declaration, or attributes. The template already contains `{{usages}}`,
+    `{{namespace_decl}}`, `{{attributes}}`, and `{{interface}}` placeholders — output them literally as-is.
+14. Output ONLY: the `{{usages}}` placeholder, the `{{namespace_decl}}` placeholder, the `{{attributes}}` placeholder,
+    and then the class body. No markdown, no extra comments.
 15. Do NOT add any comments inside the generated code.

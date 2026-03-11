@@ -1,5 +1,7 @@
 {{usages}}
 
+{{namespace_decl}}
+
 {{attributes}}
 public sealed partial class CLASS_NAME : {{interface}}
 {

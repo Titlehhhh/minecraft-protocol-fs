@@ -15,4 +15,5 @@ public interface IProtocolRepository
     IEnumerable<string> GetPacketMappers();
 
     TypeHistory GetTypeHistory(string id);
+    bool ContainsPacket(string id);
 }
