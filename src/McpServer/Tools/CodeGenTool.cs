@@ -17,9 +17,10 @@ public static class CodeGenTool
     [McpServerTool(Name = "generate_packet")]
     [Description(
         "Generates a C# packet class from a Minecraft protocol packet identifier. " +
-        "Simple packets (<=4000 tokens) are generated via the cheap model and saved as an artifact (Name + Link returned). " +
-        "Complex packets (>4000 tokens) return TokenCount + SystemPrompt + UserPrompt for the caller to generate.")]
-    public static async Task<GenerationResult> GeneratePacket(
+        "Simple packets are generated via LLM and saved as an artifact — returns Name + Link (download URL). " +
+        "Use the link to curl the file to disk. Read 1-2 files to verify quality. " +
+        "Complex packets (>threshold tokens) return TokenCount + SystemPrompt + UserPrompt for the caller to generate.")]
+    public static async Task<McpGenerationResult> GeneratePacket(
         CodeGenerator codeGenerator,
         [Description(
             "Packet identifier. Format: '<namespace>.<direction>.<packet_name>'. " +
@@ -29,7 +30,7 @@ public static class CodeGenTool
     {
         try
         {
-            return await codeGenerator.GenerateAsync(id, cancellationToken);
+            return McpGenerationResult.From(await codeGenerator.GenerateAsync(id, cancellationToken));
         }
         catch (McpException)
         {
@@ -44,8 +45,9 @@ public static class CodeGenTool
     [McpServerTool(Name = "generate_packets_batch")]
     [Description(
         "Generates multiple C# packet classes in parallel. " +
-        "Returns a list of GenerationResult — same semantics as generate_packet per entry.")]
-    public static async Task<List<GenerationResult>> GeneratePacketsBatch(
+        "Returns a list of McpGenerationResult — same semantics as generate_packet per entry. " +
+        "Per-packet errors are stored in Error field; the batch does not fail as a whole.")]
+    public static async Task<List<McpGenerationResult>> GeneratePacketsBatch(
         CodeGenerator codeGenerator,
         IProtocolRepository protocol,
         [Description("List of packet identifiers in '<namespace>.<direction>.<name>' format.")]
@@ -55,28 +57,23 @@ public static class CodeGenTool
         foreach (var id in ids)
         {
             if (!protocol.ContainsPacket(id))
-            {
-                throw new McpException($"protocol id '{id}' is not contains.");
-            }
+                throw new McpException($"Unknown packet id '{id}'.");
         }
-        var tasks = new List<Task<GenerationResult>>(ids.Length);
-        foreach (var id in ids)
-            tasks.Add(GenerateSafe(codeGenerator, id, cancellationToken));
 
+        var tasks = Array.ConvertAll(ids, id => GenerateSafe(codeGenerator, id, cancellationToken));
         return [..await Task.WhenAll(tasks)];
     }
 
-    private static async Task<GenerationResult> GenerateSafe(
+    private static async Task<McpGenerationResult> GenerateSafe(
         CodeGenerator codeGenerator, string id, CancellationToken ct)
     {
-        
         try
         {
-            return await codeGenerator.GenerateAsync(id, ct);
+            return McpGenerationResult.From(await codeGenerator.GenerateAsync(id, ct));
         }
         catch (Exception ex)
         {
-            return new GenerationResult { Name = id, Error = $"{ex.GetType().Name}: {ex.Message}" };
+            return new McpGenerationResult { Name = id, Error = $"{ex.GetType().Name}: {ex.Message}" };
         }
     }
 }

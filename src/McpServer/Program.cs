@@ -1,5 +1,4 @@
 using System;
-using System.ClientModel;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
@@ -12,15 +11,13 @@ using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
-using OpenAI;
 using ProtoCore;
 
 var start = 735;
-var end = 772;
+var end   = 772;
 
 Console.WriteLine($"[McpServer] Loading protocols {start}–{end}...");
 var protocols = await ProtocolLoader.LoadProtocolsAsync(start, end);
@@ -33,36 +30,34 @@ var repository = new ProtocolRepository(new ProtocolRange(start, end), protocols
 
 var builder = WebApplication.CreateBuilder(args);
 
-var configKey = builder.Configuration["OpenRouter:ApiKey"];
-var envKey = Environment.GetEnvironmentVariable("OPENROUTER_API_KEY");
+var configKey    = builder.Configuration["OpenRouter:ApiKey"];
+var envKey       = Environment.GetEnvironmentVariable("OPENROUTER_API_KEY");
 var openRouterKey = configKey
                     ?? envKey
                     ?? throw new InvalidOperationException(
                         "OpenRouter API key not configured. " +
                         "Set OpenRouter:ApiKey in user secrets or OPENROUTER_API_KEY env var.");
 
-var cheapModel = builder.Configuration["OpenRouter:CheapModel"] ?? "openai/gpt-4o-mini";
-var keySource = configKey != null ? "user secrets" : "env OPENROUTER_API_KEY";
-Console.WriteLine($"[McpServer] OpenRouter key source: {keySource}");
-Console.WriteLine($"[McpServer] Cheap model: {cheapModel}");
+Console.WriteLine($"[McpServer] OpenRouter key source: {(configKey != null ? "user secrets" : "env OPENROUTER_API_KEY")}");
 
-builder.Services.AddChatClient(
-    new OpenAIClient(
-        new ApiKeyCredential(openRouterKey),
-        new OpenAIClientOptions { Endpoint = new Uri("https://openrouter.ai/api/v1/") }
-    ).GetChatClient(cheapModel).AsIChatClient());
+var modelConfigFilePath = Path.Combine(AppContext.BaseDirectory, "model-config.json");
+var savedConfig         = ModelConfigService.TryLoadFromFile(modelConfigFilePath);
+Console.WriteLine(savedConfig is not null
+    ? $"[McpServer] Loaded model config from {modelConfigFilePath}"
+    : "[McpServer] No saved model config, using defaults");
 
-builder.Logging.AddConsole(consoleLogOptions => { consoleLogOptions.LogToStandardErrorThreshold = LogLevel.Trace; });
+var modelConfigService = new ModelConfigService(openRouterKey, modelConfigFilePath, savedConfig ?? new ModelConfig());
 
-builder.WebHost.ConfigureKestrel(options => { options.ListenAnyIP(5000); });
+builder.Logging.AddConsole(o => { o.LogToStandardErrorThreshold = LogLevel.Trace; });
+builder.WebHost.ConfigureKestrel(o => { o.ListenAnyIP(5000); });
 
 builder.Services.AddSingleton<IArtifactsRepository>(_ =>
     new FileArtifactsRepository(new ArtifactsOptions
     {
         RootPath = Path.Combine(AppContext.BaseDirectory, "artifacts")
     }));
-
 builder.Services.AddSingleton<IProtocolRepository>(repository);
+builder.Services.AddSingleton(modelConfigService);
 builder.Services.AddSingleton<CodeGenerator>();
 
 builder.Services
@@ -70,28 +65,52 @@ builder.Services
     {
         options.ServerInfo = new Implementation
         {
-            Name = "McProtoNet",
-            Version = "0.1.0",
-            Title = "Minecraft Protocol Code Generation Server",
-            Description =
-                "An MCP server providing discovery, inspection, and maintenance tools for " +
-                "Minecraft protocol types and packets.",
-            WebsiteUrl = "https://github.com/Titlehhhh/McProtoNet"
+            Name        = "McProtoNet",
+            Version     = "0.1.0",
+            Title       = "Minecraft Protocol Code Generation Server",
+            Description = "An MCP server providing discovery, inspection, and code-generation tools for Minecraft protocol packets.",
+            WebsiteUrl  = "https://github.com/Titlehhhh/McProtoNet"
         };
     })
-    .WithHttpTransport(gg => { gg.Stateless = true; })
+    .WithHttpTransport(o => { o.Stateless = true; })
     .WithToolsFromAssembly();
 
 var app = builder.Build();
 
-// ── artifacts download ─────────────────────────────────────────────────────
+app.UseStaticFiles();
+
+app.MapGet("/", (HttpContext http) =>
+{
+    http.Response.Redirect("/index.html");
+    return Task.CompletedTask;
+});
+
+// ── Model config ────────────────────────────────────────────────────────────
+app.MapGet("/api/config", (ModelConfigService cfg) => Results.Ok(cfg.Config));
+
+app.MapPost("/api/config", async (HttpContext http, ModelConfigService cfg, CancellationToken ct) =>
+{
+    var updated = await JsonSerializer.DeserializeAsync<ModelConfig>(
+        http.Request.Body,
+        new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+        ct);
+
+    if (updated is null)
+        return Results.BadRequest("Invalid config JSON.");
+
+    cfg.Update(updated);
+    Console.WriteLine($"[McpServer] Config updated: small={updated.SmallModel} medium={updated.MediumModel} heavy={updated.HeavyModel} thresh={updated.SmallThreshold}/{updated.HeavyThreshold}");
+    return Results.Ok(cfg.Config);
+});
+
+// ── Artifact download (used by MCP clients) ─────────────────────────────────
 app.MapGet("/artifacts/{id}", async (
     string id,
     IArtifactsRepository artifacts,
     HttpContext http,
     CancellationToken ct) =>
 {
-    var info = await artifacts.GetInfoAsync(id, ct);
+    var info   = await artifacts.GetInfoAsync(id, ct);
     if (info is null) return Results.NotFound();
 
     var stream = await artifacts.OpenReadAsync(id, ct);
@@ -101,10 +120,7 @@ app.MapGet("/artifacts/{id}", async (
     return Results.Stream(stream, info.ContentType);
 }).WithName("GetArtifacts");
 
-// ── REST: packet discovery with hex IDs ───────────────────────────────────
-// GET /api/packets              → all namespaces
-// GET /api/packets/{ns}/{dir}   → packets in namespace with PacketIds
-// e.g. GET /api/packets/play/toClient
+// ── Packet discovery ─────────────────────────────────────────────────────────
 app.MapGet("/api/packets", (IProtocolRepository repo) =>
 {
     var result = repo.GetPackets()
@@ -121,12 +137,12 @@ app.MapGet("/api/packets/{ns}/{dir}", (string ns, string dir, IProtocolRepositor
 
     var result = packets.Select(kv => new
     {
-        Id = $"{key}.{kv.Key}",
+        Id        = $"{key}.{kv.Key}",
         kv.Value.Name,
         PacketIds = kv.Value.PacketIds.Select(e => new
         {
-            From = e.Range.From,
-            To = e.Range.To,
+            From  = e.Range.From,
+            To    = e.Range.To,
             HexId = $"0x{e.Id:X2}"
         }).ToArray()
     }).ToArray();
@@ -134,13 +150,8 @@ app.MapGet("/api/packets/{ns}/{dir}", (string ns, string dir, IProtocolRepositor
     return Results.Ok(result);
 });
 
-// ── REST: single generation ────────────────────────────────────────────────
-// POST /api/generate  body: { "id": "play.toServer.use_item" }
-// Returns GenerationResult as JSON (or raw .cs if Accept: text/plain)
-app.MapPost("/api/generate", async (
-    HttpContext http,
-    CodeGenerator codeGenerator,
-    CancellationToken ct) =>
+// ── Prompt preview (dry-run, no LLM call) ────────────────────────────────────
+app.MapPost("/api/prompt", async (HttpContext http, CodeGenerator gen, CancellationToken ct) =>
 {
     using var body = await JsonDocument.ParseAsync(http.Request.Body, cancellationToken: ct);
     if (!body.RootElement.TryGetProperty("id", out var idEl))
@@ -150,34 +161,52 @@ app.MapPost("/api/generate", async (
     if (string.IsNullOrWhiteSpace(id))
         return Results.BadRequest("'id' must not be empty.");
 
-    var result = await codeGenerator.GenerateAsync(id, ct);
-
-    // If caller wants raw code (curl ... > MyPacket.cs), fetch artifact content directly
-    if (http.Request.Headers.Accept.ToString().Contains("text/plain") && result.Link is not null)
+    try
     {
-        var artifactId = result.Link.TrimStart('/').Replace("artifacts/", "");
-        var artifacts = http.RequestServices.GetRequiredService<IArtifactsRepository>();
-        var stream = await artifacts.OpenReadAsync(artifactId, ct);
-        if (stream is not null)
-            return Results.Stream(stream, "text/plain; charset=utf-8",
-                fileDownloadName: result.Name + ".cs");
+        var (system, user, _) = await gen.BuildPromptAsync(id, ct);
+        return Results.Ok(new { system, user, tokenCount = TokenCounter.Count(system, user) });
     }
-
-    return Results.Ok(result);
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = $"{ex.GetType().Name}: {ex.Message}" });
+    }
 });
 
-// ── REST: batch generation ─────────────────────────────────────────────────
-// POST /api/generate/batch  body: ["play.toServer.use_item", "play.toClient.face_player"]
-app.MapPost("/api/generate/batch", async (
-    HttpContext http,
-    CodeGenerator codeGenerator,
-    CancellationToken ct) =>
+// ── Single generation ─────────────────────────────────────────────────────────
+app.MapPost("/api/generate", async (HttpContext http, CodeGenerator gen, CancellationToken ct) =>
+{
+    using var body = await JsonDocument.ParseAsync(http.Request.Body, cancellationToken: ct);
+    if (!body.RootElement.TryGetProperty("id", out var idEl))
+        return Results.BadRequest("Missing 'id' field.");
+
+    var id = idEl.GetString();
+    if (string.IsNullOrWhiteSpace(id))
+        return Results.BadRequest("'id' must not be empty.");
+
+    GenerationData data;
+    try
+    {
+        data = await gen.GenerateAsync(id, ct);
+    }
+    catch (Exception ex)
+    {
+        var detail = ex is System.ClientModel.ClientResultException cre
+            ? $"{ex.GetType().Name}: {ex.Message}\nResponse body: {cre.GetRawResponse()?.Content?.ToString()}"
+            : $"{ex.GetType().Name}: {ex.Message}";
+        Console.Error.WriteLine($"[Generate] ERROR for '{id}': {detail}");
+        return Results.Problem(detail, statusCode: 500);
+    }
+
+    return Results.Ok(RestGenerationResult.From(data));
+});
+
+// ── Batch generation ──────────────────────────────────────────────────────────
+app.MapPost("/api/generate/batch", async (HttpContext http, CodeGenerator gen, CancellationToken ct) =>
 {
     string[]? ids;
     try
     {
-        ids = await JsonSerializer.DeserializeAsync<string[]>(http.Request.Body,
-            cancellationToken: ct);
+        ids = await JsonSerializer.DeserializeAsync<string[]>(http.Request.Body, cancellationToken: ct);
     }
     catch
     {
@@ -187,19 +216,27 @@ app.MapPost("/api/generate/batch", async (
     if (ids is null || ids.Length == 0)
         return Results.BadRequest("Provide at least one packet id.");
 
-    var tasks = Array.ConvertAll(ids, id => SafeGenerate(codeGenerator, id, ct));
+    var tasks   = Array.ConvertAll(ids, id => SafeGenerateRest(gen, id, ct));
     var results = await Task.WhenAll(tasks);
     return Results.Ok(results);
 });
 
 app.MapMcp("/mcp");
 
-static async Task<GenerationResult> SafeGenerate(CodeGenerator gen, string id, CancellationToken ct)
-{
-    try { return await gen.GenerateAsync(id, ct); }
-    catch (Exception ex) { return new GenerationResult { Name = id, Error = $"{ex.GetType().Name}: {ex.Message}" }; }
-}
-
-Console.WriteLine("[McpServer] Ready. Listening on http://0.0.0.0:5000/mcp");
+Console.WriteLine("[McpServer] Ready.");
+Console.WriteLine("[McpServer]   MCP:  http://0.0.0.0:5000/mcp");
+Console.WriteLine("[McpServer]   UI:   http://localhost:5000/");
 
 await app.RunAsync();
+
+static async Task<RestGenerationResult> SafeGenerateRest(CodeGenerator gen, string id, CancellationToken ct)
+{
+    try
+    {
+        return RestGenerationResult.From(await gen.GenerateAsync(id, ct));
+    }
+    catch (Exception ex)
+    {
+        return new RestGenerationResult { Name = id, Error = $"{ex.GetType().Name}: {ex.Message}" };
+    }
+}

@@ -1,20 +1,17 @@
+using System;
 using Microsoft.ML.Tokenizers;
 
 namespace McpServer.Services;
 
 public static class TokenCounter
 {
-    // cl100k_base — same encoding as GPT-4/Claude, good enough approximation
-    private static Tokenizer? _tokenizer;
+    // cl100k_base (GPT-4 / Claude encoding) — loaded once, ~12MB, lives for app lifetime
+    private static readonly Lazy<TiktokenTokenizer> _tokenizer =
+        new(() => TiktokenTokenizer.CreateForModel("gpt-4"), isThreadSafe: true);
 
-    private static Tokenizer GetTokenizer()
-    {
-        return _tokenizer ??= TiktokenTokenizer.CreateForModel("gpt-4");
-        // cl100k_base, good Claude approximation
-    }
+    public static int Count(string text) =>
+        _tokenizer.Value.CountTokens(text);
 
-    public static int Count(string text)
-    {
-        return GetTokenizer().CountTokens(text);
-    }
+    public static int Count(string system, string user) =>
+        Count(system) + Count(user);
 }

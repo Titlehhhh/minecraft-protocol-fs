@@ -1,6 +1,6 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +10,7 @@ using McpServer.Repositories;
 using Microsoft.Extensions.AI;
 using Protodef;
 using Scriban;
+using System.Text.Json;
 using Toon.Format;
 using TruePath;
 using TruePath.SystemIo;
@@ -18,35 +19,41 @@ namespace McpServer.Services;
 
 public class CodeGenerator
 {
-    private const int DirectGenerationThreshold = 4000;
-
     private readonly IProtocolRepository _repository;
-    private readonly IChatClient _chatClient;
+    private readonly ModelConfigService  _modelConfig;
     private readonly IArtifactsRepository _artifacts;
 
     public CodeGenerator(
         IProtocolRepository repository,
-        IChatClient chatClient,
+        ModelConfigService modelConfig,
         IArtifactsRepository artifacts)
     {
-        _repository = repository;
-        _chatClient = chatClient;
-        _artifacts = artifacts;
+        _repository  = repository;
+        _modelConfig = modelConfig;
+        _artifacts   = artifacts;
     }
 
-    public async Task<GenerationResult> GenerateAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<GenerationData> GenerateAsync(string id, CancellationToken cancellationToken = default)
     {
         var (system, user, packet) = await BuildPromptAsync(id, cancellationToken);
-        var tokenCount = 500;
-            //TokenCounter.Count(system) + TokenCounter.Count(user);
 
-        if (tokenCount > DirectGenerationThreshold)
-            return new GenerationResult
+        var tokenCount = TokenCounter.Count(system, user);
+        var (model, returnToClaude) = _modelConfig.PickModel(tokenCount);
+
+        var className = BuildClassName(id);
+
+        if (returnToClaude)
+            return new GenerationData
             {
-                TokenCount = tokenCount,
+                Name         = className,
+                TokenCount   = tokenCount,
                 SystemPrompt = system,
-                UserPrompt = user
+                UserPrompt   = user,
             };
+
+        var sw = Stopwatch.StartNew();
+
+        using var client = _modelConfig.CreateClient(model);
 
         ChatMessage[] messages =
         [
@@ -54,16 +61,13 @@ public class CodeGenerator
             new(ChatRole.User, user)
         ];
 
-        var response = await _chatClient.GetResponseAsync(messages, new ChatOptions
-        {
-            Temperature = 0f,
-            MaxOutputTokens = 4096
-        }, cancellationToken);
+        var chatOptions = BuildChatOptions(_modelConfig.Config);
+        var response = await client.GetResponseAsync(messages, chatOptions, cancellationToken);
+
+        sw.Stop();
 
         var rawCode = ExtractCode(response.Text);
-        var supportedRange = _repository.GetSupportedProtocols();
-        var code = PacketPostProcessor.Process(rawCode, packet, supportedRange);
-        var className = BuildClassName(id);
+        var code    = PacketPostProcessor.Process(rawCode, packet, _repository.GetSupportedProtocols());
 
         var artifact = await _artifacts.SaveTextAsync(
             className + ".cs",
@@ -71,11 +75,14 @@ public class CodeGenerator
             "text/plain; charset=utf-8",
             cancellationToken);
 
-        return new GenerationResult
+        return new GenerationData
         {
-            Name = className,
-            Link = $"/artifacts/{artifact.Id}",
-            TokenCount = tokenCount
+            Name       = className,
+            Code       = code,
+            Link       = $"/artifacts/{artifact.Id}",
+            TokenCount = tokenCount,
+            ElapsedMs  = sw.ElapsedMilliseconds,
+            Model      = model,
         };
     }
 
@@ -85,23 +92,21 @@ public class CodeGenerator
     {
         var supported = _repository.GetSupportedProtocols();
         var first = supported.From.ToString();
-        var last = supported.To.ToString();
+        var last  = supported.To.ToString();
 
         var packet = _repository.GetPacket(id);
 
-        // Resolve primitive alias types (container_id, angle, etc.) to real primitives
-        // before serialization so LLM sees varint/u8/i16 instead of invented type names.
         var resolvedHistory = packet.History
             .ToDictionary(
                 kv => kv.Key,
                 kv => kv.Value is { } t ? t.CreatePrimitiveResolvedCopy() : (ProtodefType?)null);
 
         var json = JsonSerializer.SerializeToNode(resolvedHistory, ProtodefType.DefaultJsonOptions)!;
-        var obj = json.AsObject();
+        var obj  = json.AsObject();
 
         for (var i = 0; i < obj.Count; i++)
         {
-            var node = obj.GetAt(i);
+            var node   = obj.GetAt(i);
             var newKey = node.Key.Replace(first, "first").Replace(last, "last");
             if (newKey != node.Key)
                 obj.SetAt(i, newKey, node.Value?.DeepClone());
@@ -111,19 +116,19 @@ public class CodeGenerator
 
         var promptsFolder = AbsolutePath.CurrentWorkingDirectory / "Prompts" / "CodeGeneration";
 
-        var system = await (promptsFolder / "SystemPrompt.md").ReadAllTextAsync(cancellationToken);
-        var skeleton = await (promptsFolder / "Sceleton.md").ReadAllTextAsync(cancellationToken);
+        var system           = await (promptsFolder / "SystemPrompt.md").ReadAllTextAsync(cancellationToken);
+        var skeleton         = await (promptsFolder / "Sceleton.md").ReadAllTextAsync(cancellationToken);
         var availableMethods = await (promptsFolder / "AvailableMethods.md").ReadAllTextAsync(cancellationToken);
-        var basePrompt = await (promptsFolder / "BasePrompt.md").ReadAllTextAsync(cancellationToken);
+        var basePrompt       = await (promptsFolder / "BasePrompt.md").ReadAllTextAsync(cancellationToken);
 
         var className = BuildClassName(id);
 
         var user = Template.ParseLiquid(basePrompt).Render(new
         {
             ClassName = className,
-            Methods = availableMethods,
-            Toon = toon,
-            Skeleton = skeleton
+            Methods   = availableMethods,
+            Toon      = toon,
+            Skeleton  = skeleton,
         });
 
         return (system, user, packet);
@@ -136,6 +141,40 @@ public class CodeGenerator
             ? lastPart["packet_".Length..]
             : lastPart;
         return withoutPrefix.Pascalize() + "Packet";
+    }
+
+    private static ChatOptions BuildChatOptions(ModelConfig cfg)
+    {
+        // Reasoning mode: pass ReasoningEffortLevel via RawRepresentationFactory.
+        // Temperature is intentionally not set — thinking models ignore or reject it.
+        if (!string.IsNullOrEmpty(cfg.ReasoningEffort))
+        {
+#pragma warning disable OPENAI001
+            var effort = cfg.ReasoningEffort switch
+            {
+                "low"             => OpenAI.Chat.ChatReasoningEffortLevel.Low,
+                "medium"          => OpenAI.Chat.ChatReasoningEffortLevel.Medium,
+                "high" or "xhigh" => OpenAI.Chat.ChatReasoningEffortLevel.High,
+                _                 => OpenAI.Chat.ChatReasoningEffortLevel.Medium,
+            };
+            var maxTokens = cfg.MaxOutputTokens;
+            return new ChatOptions
+            {
+                MaxOutputTokens        = maxTokens,
+                RawRepresentationFactory = _ => new OpenAI.Chat.ChatCompletionOptions
+                {
+                    ReasoningEffortLevel = effort,
+                    MaxOutputTokenCount  = maxTokens,
+                }
+            };
+#pragma warning restore OPENAI001
+        }
+
+        return new ChatOptions
+        {
+            Temperature     = cfg.Temperature,
+            MaxOutputTokens = cfg.MaxOutputTokens,
+        };
     }
 
     private static string ExtractCode(string text)
