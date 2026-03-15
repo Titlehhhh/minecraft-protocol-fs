@@ -112,8 +112,6 @@ public class CodeGenerator
                 obj.SetAt(i, newKey, node.Value?.DeepClone());
         }
 
-        var toon = ToonEncoder.EncodeNode(json, new ToonEncodeOptions());
-
         var promptsFolder = AbsolutePath.CurrentWorkingDirectory / "Prompts" / "CodeGeneration";
 
         var system           = await (promptsFolder / "SystemPrompt.md").ReadAllTextAsync(cancellationToken);
@@ -123,12 +121,34 @@ public class CodeGenerator
 
         var className = BuildClassName(id);
 
+        string schema, formatHeader;
+        var inputFormat = _modelConfig.Config.InputFormat;
+
+        if (inputFormat == "json")
+        {
+            schema = JsonSerializer.Serialize(json, new JsonSerializerOptions { WriteIndented = true });
+            formatHeader =
+                "JSON format — version history of this packet\n\n" +
+                "> **IMPORTANT:** The schema uses protodef notation: `[\"<TYPE>\", [...fields...]]`.\n" +
+                "> The first string element (e.g. `\"container\"`) is a **TYPE SPECIFIER**, NOT a field name.\n" +
+                "> Only objects with `name` and `type` properties are actual packet fields.";
+        }
+        else
+        {
+            schema = ToonEncoder.EncodeNode(json, new ToonEncodeOptions());
+            formatHeader =
+                "Toon format — version history of this packet\n\n" +
+                "> **IMPORTANT:** Lines starting with `- container` are **TYPE SPECIFIERS**, NOT field names.\n" +
+                "> Only `fieldName,type` pairs after the fields marker are actual packet fields.";
+        }
+
         var user = Template.ParseLiquid(basePrompt).Render(new
         {
-            ClassName = className,
-            Methods   = availableMethods,
-            Toon      = toon,
-            Skeleton  = skeleton,
+            ClassName    = className,
+            Methods      = availableMethods,
+            Schema       = schema,
+            FormatHeader = formatHeader,
+            Skeleton     = skeleton,
         });
 
         return (system, user, packet);

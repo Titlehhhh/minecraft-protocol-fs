@@ -14,7 +14,9 @@ header span { color: #484f58; font-size: 12px; }
 
 .layout { display: flex; flex: 1; overflow: hidden; }
 
-.sidebar { width: 310px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+.sidebar { width: 310px; min-width: 200px; max-width: 600px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+.resize-handle { width: 4px; background: transparent; cursor: col-resize; flex-shrink: 0; transition: background 0.15s; }
+.resize-handle:hover, .resize-handle.dragging { background: #58a6ff55; }
 .sidebar-section { padding: 14px 16px; border-bottom: 1px solid #21262d; }
 .sidebar-section.grow { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
@@ -145,7 +147,7 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
 
       <div class="row2" style="margin-top:10px">
         <div>
-          <label>Temperature <span style="color:#484f58">(ignored if reasoning on)</span></label>
+          <label>Temperature</label>
           <input type="number" id="temperature" value="0" min="0" max="2" step="0.05" oninput="markDirty()">
         </div>
         <div>
@@ -155,13 +157,21 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
       </div>
 
       <div style="margin-top:6px">
-        <label>Reasoning effort <span style="color:#484f58">(for thinking models — off = standard gen)</span></label>
+        <label>Reasoning effort <span style="color:#484f58">(off = standard)</span></label>
         <div class="effort-row" id="effort-row">
           <button class="effort-btn active" data-v="" onclick="setEffort(this)">Off</button>
           <button class="effort-btn" data-v="low" onclick="setEffort(this)">low</button>
           <button class="effort-btn" data-v="medium" onclick="setEffort(this)">medium</button>
           <button class="effort-btn" data-v="high" onclick="setEffort(this)">high</button>
           <button class="effort-btn" data-v="xhigh" onclick="setEffort(this)">xhigh</button>
+        </div>
+      </div>
+
+      <div style="margin-top:6px">
+        <label>Schema format <span style="color:#484f58">(sent in prompt)</span></label>
+        <div class="effort-row" id="format-row">
+          <button class="effort-btn active" data-v="toon" onclick="setFormat(this)">Toon</button>
+          <button class="effort-btn" data-v="json" onclick="setFormat(this)">JSON</button>
         </div>
       </div>
     </div>
@@ -191,6 +201,8 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
     </div>
 
   </div>
+
+  <div class="resize-handle" id="resize-handle"></div>
 
   <!-- MAIN -->
   <div class="main">
@@ -251,6 +263,11 @@ async function loadConfig() {
     document.querySelectorAll('.effort-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.v === effort);
     });
+    // Input format
+    const fmt = c.inputFormat ?? 'toon';
+    document.querySelectorAll('#format-row .effort-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.v === fmt);
+    });
     isDirty = false;
     setSaveState('idle', 'Synced');
   } catch (e) {
@@ -259,14 +276,25 @@ async function loadConfig() {
 }
 
 function setEffort(btn) {
-  document.querySelectorAll('.effort-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#effort-row .effort-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   markDirty();
 }
 
 function getEffort() {
-  const active = document.querySelector('.effort-btn.active');
+  const active = document.querySelector('#effort-row .effort-btn.active');
   return active ? active.dataset.v : '';
+}
+
+function setFormat(btn) {
+  document.querySelectorAll('#format-row .effort-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  markDirty();
+}
+
+function getFormat() {
+  const active = document.querySelector('#format-row .effort-btn.active');
+  return active ? active.dataset.v : 'toon';
 }
 
 async function saveConfig() {
@@ -281,6 +309,7 @@ async function saveConfig() {
     temperature:     parseFloat(document.getElementById('temperature').value) || 0,
     maxOutputTokens: parseInt(document.getElementById('max-tokens').value)    || 4096,
     reasoningEffort: getEffort(),
+    inputFormat:     getFormat(),
   };
   try {
     const r = await fetch('/api/config', {
@@ -471,6 +500,35 @@ document.getElementById('packet-id').addEventListener('keydown', e => {
 window.addEventListener('beforeunload', e => {
   if (isDirty) { e.preventDefault(); e.returnValue = ''; }
 });
+
+// ── Sidebar resize ──────────────────────────────────────────────────────
+(function() {
+  const handle  = document.getElementById('resize-handle');
+  const sidebar = document.querySelector('.sidebar');
+  let dragging  = false;
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const w = e.clientX;
+    if (w >= 200 && w <= 600) sidebar.style.width = w + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
 
 loadConfig();
 loadPackets();

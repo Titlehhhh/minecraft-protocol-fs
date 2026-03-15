@@ -15,4 +15,6 @@ public class ModelConfig
     /// When set, Temperature is ignored (not sent to model).
     /// </summary>
     public string ReasoningEffort { get; set; } = "";
+    /// <summary>Format for the packet schema sent in the prompt. "toon" or "json".</summary>
+    public string InputFormat { get; set; } = "toon";
 }
