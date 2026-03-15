@@ -165,12 +165,10 @@ public class CodeGenerator
 
     private static ChatOptions BuildChatOptions(ModelConfig cfg)
     {
-        // Reasoning mode: pass ReasoningEffortLevel via RawRepresentationFactory.
-        // Temperature is intentionally not set — thinking models ignore or reject it.
         if (!string.IsNullOrEmpty(cfg.ReasoningEffort))
         {
 #pragma warning disable OPENAI001
-            var effort = cfg.ReasoningEffort switch
+            var effort    = cfg.ReasoningEffort switch
             {
                 "low"             => OpenAI.Chat.ChatReasoningEffortLevel.Low,
                 "medium"          => OpenAI.Chat.ChatReasoningEffortLevel.Medium,
@@ -178,13 +176,16 @@ public class CodeGenerator
                 _                 => OpenAI.Chat.ChatReasoningEffortLevel.Medium,
             };
             var maxTokens = cfg.MaxOutputTokens;
+            var temp      = cfg.Temperature;
             return new ChatOptions
             {
-                MaxOutputTokens        = maxTokens,
+                MaxOutputTokens          = maxTokens,
+                Temperature              = temp,
                 RawRepresentationFactory = _ => new OpenAI.Chat.ChatCompletionOptions
                 {
                     ReasoningEffortLevel = effort,
                     MaxOutputTokenCount  = maxTokens,
+                    Temperature          = temp,
                 }
             };
 #pragma warning restore OPENAI001
