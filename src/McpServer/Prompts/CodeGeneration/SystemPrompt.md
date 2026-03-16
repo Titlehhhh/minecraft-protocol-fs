@@ -13,9 +13,22 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
 # Rules
 
 1. Class name is given explicitly — use it exactly as provided, do not change it.
-2. COMMON FIELDS = the intersection of fields present in ALL protocol version ranges.
-3. Common fields MUST be normal properties on the main class and MUST always be read/written in ALL versions.
-4. It is FORBIDDEN to place common fields inside version-specific structs.
+2. Before writing any code, perform this field analysis:
+   STEP A — Find fields present in ALL ranges with the same type → these are GLOBAL common fields → go on class.
+   STEP B — For each range, find fields NOT in the global set. Check if any of those fields appear in
+            MULTIPLE ranges with the same name and type. If yes → those are SUBSET common fields.
+            Promote SUBSET common fields to the class too. Only truly unique fields stay in structs.
+   STEP C — A struct that ends up with zero unique fields after steps A+B MUST NOT be created (see rule 6).
+
+   Example: 3 ranges where ranges 2 and 3 share fields F4..F9 (same name+type), but range 1 has F4..F9 with
+   different types. Result: F4..F9 go on class (dominant format), range 1 struct keeps its old-type versions,
+   range 2 struct keeps only its unique field, range 3 needs no struct.
+
+3. GLOBAL common fields (present in ALL ranges): declared as non-nullable, read/write BEFORE the switch.
+   SUBSET common fields (present in SOME ranges only): declared as NULLABLE on the class (e.g. `long[]?`),
+   read/write INSIDE each relevant case directly from the class property — do NOT put them in structs.
+   Only truly unique fields of a range go in its version-specific struct.
+4. It is FORBIDDEN to place class-level fields inside version-specific structs.
 5. Version-specific structs contain ONLY differences (fields absent in the common-field set).
    Structs MUST be declared as `public struct`, NOT class. Naming: `V{from}_{to}Fields` where:
    - if from == `first` → use `First` (e.g. `VFirst_758Fields`)
@@ -38,6 +51,19 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
 14. Output ONLY: the `{{usages}}` placeholder, the `{{namespace_decl}}` placeholder, the `{{attributes}}` placeholder,
     and then the class body. No markdown, no extra comments.
 15. Do NOT add any comments inside the generated code.
+15b. `mapper` type in schema: use the UNDERLYING PRIMITIVE type as the C# property type.
+    Do NOT invent enums, classes, or custom types for mapper.
+    Examples:
+    - `["mapper", {"type": "varint", "mappings": {...}}]` → C# type `int`, use ReadVarInt/WriteVarInt
+    - `["mapper", {"type": "u8",     "mappings": {...}}]` → C# type `byte`, use ReadUnsignedByte/WriteUnsignedByte
+    - `["mapper", {"type": "i16",    "mappings": {...}}]` → C# type `short`, use ReadSignedShort/WriteSignedShort
+15a. If ALL version ranges contain an empty container (`["container", []]` with no fields), the packet has NO
+    properties. Serialize and Deserialize MUST be empty methods. Do NOT invent any fields.
+    Example:
+    ```
+    internal void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion) { }
+    internal void Deserialize(ref MinecraftPrimitiveReader reader, int protocolVersion) { }
+    ```
 16. The schema you receive has null version ranges pre-filtered out — they will never appear in the input.
     If somehow a null range appears: skip it entirely, do NOT generate any code for it.
 17. If the schema has ONLY ONE non-null version range (all other ranges are null or absent), do NOT use a switch
