@@ -150,6 +150,40 @@ app.MapGet("/api/packets/{ns}/{dir}", (string ns, string dir, IProtocolRepositor
     return Results.Ok(result);
 });
 
+// ── Raw schema viewer ─────────────────────────────────────────────────────────
+app.MapGet("/api/schema/{**id}", (string id, IProtocolRepository repo) =>
+{
+    try
+    {
+        var packet = repo.GetPacket(id);
+        var supported = repo.GetSupportedProtocols();
+        var first = supported.From.ToString();
+        var last  = supported.To.ToString();
+
+        var json = System.Text.Json.JsonSerializer.SerializeToNode(
+            packet.History, Protodef.ProtodefType.DefaultJsonOptions)!;
+        var obj = json.AsObject();
+        // Replace version numbers with first/last aliases
+        for (var i = 0; i < obj.Count; i++)
+        {
+            var node   = obj.GetAt(i);
+            var newKey = node.Key.Replace(first, "first").Replace(last, "last");
+            if (newKey != node.Key)
+                obj.SetAt(i, newKey, node.Value?.DeepClone());
+        }
+
+        var jsonStr = System.Text.Json.JsonSerializer.Serialize(json,
+            new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        var toonStr = Toon.Format.ToonEncoder.EncodeNode(json, new Toon.Format.ToonEncodeOptions());
+
+        return Results.Ok(new { json = jsonStr, toon = toonStr });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = $"{ex.GetType().Name}: {ex.Message}" });
+    }
+});
+
 // ── Prompt preview (dry-run, no LLM call) ────────────────────────────────────
 app.MapPost("/api/prompt", async (HttpContext http, CodeGenerator gen, CancellationToken ct) =>
 {

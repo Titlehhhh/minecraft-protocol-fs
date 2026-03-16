@@ -5,12 +5,12 @@
 {{attributes}}
 public sealed partial class CLASS_NAME : {{interface}}
 {
-internal void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
-{
-switch (protocolVersion)
-{
-case >= MinecraftVersion.StartProtocol and <= TO1:
-return;
+    internal void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
+    {
+        switch (protocolVersion)
+        {
+            case >= MinecraftVersion.StartProtocol and <= TO1:
+                return;
 
             case >= FROM2 and <= TO2:
             {

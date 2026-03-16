@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -12,8 +13,6 @@ using Protodef;
 using Scriban;
 using System.Text.Json;
 using Toon.Format;
-using TruePath;
-using TruePath.SystemIo;
 
 namespace McpServer.Services;
 
@@ -112,12 +111,18 @@ public class CodeGenerator
                 obj.SetAt(i, newKey, node.Value?.DeepClone());
         }
 
-        var promptsFolder = AbsolutePath.CurrentWorkingDirectory / "Prompts" / "CodeGeneration";
+        // Remove null version ranges — they mean "packet didn't exist in those versions".
+        // LLM should only see actionable schema entries.
+        var nullKeys = obj.Where(kv => kv.Value is null).Select(kv => kv.Key).ToList();
+        foreach (var k in nullKeys)
+            obj.Remove(k);
 
-        var system           = await (promptsFolder / "SystemPrompt.md").ReadAllTextAsync(cancellationToken);
-        var skeleton         = await (promptsFolder / "Sceleton.md").ReadAllTextAsync(cancellationToken);
-        var availableMethods = await (promptsFolder / "AvailableMethods.md").ReadAllTextAsync(cancellationToken);
-        var basePrompt       = await (promptsFolder / "BasePrompt.md").ReadAllTextAsync(cancellationToken);
+        var promptsFolder = ResolvePromptsFolder();
+
+        var system           = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "SystemPrompt.md"), cancellationToken);
+        var skeleton         = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "Sceleton.md"), cancellationToken);
+        var availableMethods = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "AvailableMethods.md"), cancellationToken);
+        var basePrompt       = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "BasePrompt.md"), cancellationToken);
 
         var className = BuildClassName(id);
 
@@ -152,6 +157,25 @@ public class CodeGenerator
         });
 
         return (system, user, packet);
+    }
+
+    /// <summary>
+    /// Walks up from the assembly directory until it finds a folder containing "Prompts/CodeGeneration".
+    /// Falls back to current working directory so hot-edit works during development.
+    /// </summary>
+    private static string ResolvePromptsFolder()
+    {
+        const string relative = "Prompts/CodeGeneration";
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null)
+        {
+            var candidate = Path.Combine(dir, relative);
+            if (Directory.Exists(candidate))
+                return candidate;
+            dir = Path.GetDirectoryName(dir);
+        }
+        // Fallback to CWD (works when launched via dotnet run from project directory)
+        return Path.Combine(Directory.GetCurrentDirectory(), relative);
     }
 
     public static string BuildClassName(string id)

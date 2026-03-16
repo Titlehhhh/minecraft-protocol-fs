@@ -210,11 +210,25 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
       <input class="toolbar-id" type="text" id="packet-id" placeholder="Packet ID, e.g. play.toClient.entity_metadata">
       <button class="btn-primary" id="gen-btn" onclick="generate()">▶ Generate</button>
       <button class="btn-blue" id="prompt-btn" onclick="buildPrompt()">📋 Prompt</button>
+      <button class="btn-ghost" id="schema-btn" onclick="viewSchema()">🔍 Schema</button>
       <button class="btn-ghost" onclick="clearOutput()">Clear</button>
     </div>
 
     <div class="status-bar" id="status-bar">
       <span>Ready</span>
+    </div>
+
+    <div class="code-view" id="schema-panel" style="display:none; flex-shrink:0; max-height:40%; overflow:auto; border-bottom:1px solid #21262d;">
+      <div style="display:flex; gap:0; height:100%;">
+        <div style="flex:1; border-right:1px solid #21262d; overflow:auto;">
+          <div style="padding:4px 12px; font-size:11px; color:#8b949e; background:#161b22; border-bottom:1px solid #21262d;">JSON</div>
+          <pre id="schema-json" style="margin:0; padding:12px; font-size:12px;"></pre>
+        </div>
+        <div style="flex:1; overflow:auto;">
+          <div style="padding:4px 12px; font-size:11px; color:#8b949e; background:#161b22; border-bottom:1px solid #21262d;">Toon</div>
+          <pre id="schema-toon" style="margin:0; padding:12px; font-size:12px;"></pre>
+        </div>
+      </div>
     </div>
 
     <div class="code-view">
@@ -472,6 +486,34 @@ async function buildPrompt() {
     setStatus(`<span class="badge err">Error</span>&nbsp; ${escHtml(e.message)}`);
   } finally {
     setGenerating(false);
+  }
+}
+
+async function viewSchema() {
+  const id = document.getElementById('packet-id').value.trim();
+  if (!id) { alert('Enter a packet ID first'); return; }
+  const panel = document.getElementById('schema-panel');
+  const jsonEl = document.getElementById('schema-json');
+  const toonEl = document.getElementById('schema-toon');
+
+  // Toggle off if same packet already shown
+  if (panel.style.display !== 'none' && panel.dataset.id === id) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  jsonEl.textContent = toonEl.textContent = 'Loading...';
+  panel.style.display = 'block';
+  panel.dataset.id = id;
+
+  try {
+    const r = await fetch(`/api/schema/${encodeURIComponent(id)}`);
+    if (!r.ok) { const e = await r.json(); jsonEl.textContent = toonEl.textContent = e.error; return; }
+    const data = await r.json();
+    jsonEl.textContent = data.json;
+    toonEl.textContent = data.toon;
+  } catch (e) {
+    jsonEl.textContent = toonEl.textContent = `Error: ${e.message}`;
   }
 }
 

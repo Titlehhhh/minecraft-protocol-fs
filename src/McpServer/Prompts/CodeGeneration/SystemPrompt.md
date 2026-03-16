@@ -38,3 +38,16 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
 14. Output ONLY: the `{{usages}}` placeholder, the `{{namespace_decl}}` placeholder, the `{{attributes}}` placeholder,
     and then the class body. No markdown, no extra comments.
 15. Do NOT add any comments inside the generated code.
+16. The schema you receive has null version ranges pre-filtered out — they will never appear in the input.
+    If somehow a null range appears: skip it entirely, do NOT generate any code for it.
+17. If the schema has ONLY ONE non-null version range (all other ranges are null or absent), do NOT use a switch
+    statement at all. Write Serialize/Deserialize as direct read/write of fields. Do NOT create wrapper structs —
+    declare fields as direct properties on the class.
+    Example of correct single-range packet:
+    ```
+    public long KeepAliveId { get; set; }
+    internal void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
+        => writer.WriteSignedLong(KeepAliveId);
+    internal void Deserialize(ref MinecraftPrimitiveReader reader, int protocolVersion)
+        => KeepAliveId = reader.ReadSignedLong();
+    ```
