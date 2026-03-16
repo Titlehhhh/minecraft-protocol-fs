@@ -198,7 +198,16 @@ app.MapPost("/api/prompt", async (HttpContext http, CodeGenerator gen, Cancellat
     try
     {
         var (system, user, _) = await gen.BuildPromptAsync(id, ct);
-        return Results.Ok(new { system, user, tokenCount = TokenCounter.Count(system, user) });
+        var systemTokens = TokenCounter.Count(system);
+        var userTokens   = TokenCounter.Count(user);
+        return Results.Ok(new
+        {
+            system,
+            user,
+            systemTokens,
+            userTokens,
+            tokenCount = systemTokens + userTokens,
+        });
     }
     catch (Exception ex)
     {

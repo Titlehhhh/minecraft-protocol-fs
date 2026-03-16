@@ -446,11 +446,12 @@ async function generate() {
     document.getElementById('code-output').textContent = data.code ?? '// (empty response)';
 
     const effort = getEffort();
+    const usageParts = buildUsageParts(data);
     setStatus(
       `<span class="badge ok">✓ OK</span>` +
       ` &nbsp;${si('Model', data.model ?? '?')}` +
       (effort ? ` &nbsp;${si('Reasoning', effort)}` : '') +
-      ` &nbsp;${si('Tokens', data.tokenCount)}` +
+      usageParts +
       ` &nbsp;${si('Server', (data.elapsedMs ?? '?') + 'ms')}` +
       ` &nbsp;${si('Client', clientMs + 'ms')}`
     );
@@ -478,10 +479,15 @@ async function buildPrompt() {
     if (!r.ok) { setStatus('<span class="badge err">Failed</span>'); return; }
     const data = await r.json();
     document.getElementById('code-output').textContent =
-      `// Token estimate: ${data.tokenCount}\n\n` +
+      `// Tokens — system: ${data.systemTokens}  user: ${data.userTokens}  total: ${data.tokenCount}\n\n` +
       `// ══ SYSTEM PROMPT ══\n${data.system}\n\n` +
       `// ══ USER PROMPT ══\n${data.user}`;
-    setStatus(`<span class="badge ok">Prompt ready</span>&nbsp; ${si('Tokens', data.tokenCount)}`);
+    setStatus(
+      `<span class="badge ok">Prompt ready</span>` +
+      ` &nbsp;${si('System', data.systemTokens + ' tok')}` +
+      ` &nbsp;${si('User', data.userTokens + ' tok')}` +
+      ` &nbsp;${si('Total', data.tokenCount + ' tok')}`
+    );
   } catch (e) {
     setStatus(`<span class="badge err">Error</span>&nbsp; ${escHtml(e.message)}`);
   } finally {
@@ -571,6 +577,36 @@ window.addEventListener('beforeunload', e => {
     document.body.style.userSelect = '';
   });
 })();
+
+// ── Token usage breakdown ────────────────────────────────────────────────
+function buildUsageParts(data) {
+  const sep = `<span style="color:#30363d;margin:0 4px">│</span>`;
+
+  // ── Prompt metrics (estimated) ──
+  const systemTok = data.systemTokenCount ?? 0;
+  const userTok   = data.userTokenCount   ?? 0;
+  const promptParts = systemTok > 0
+    ? `${sep}${si('Sys', systemTok)} ${si('Packet', userTok)}`
+    : `${sep}${si('~Prompt', data.tokenCount)}`;
+
+  // ── Output metrics (real from API) ──
+  if (data.outputTokens == null) return promptParts;
+
+  const output    = data.outputTokens    ?? 0;
+  const reasoning = data.reasoningTokens ?? 0;
+  const code      = output - reasoning;
+  const total     = data.totalTokens     ?? (data.inputTokens ?? 0) + output;
+
+  const cached     = data.cachedTokens ?? 0;
+  const cacheRatio = data.inputTokens > 0 ? Math.round(cached / data.inputTokens * 100) : 0;
+
+  let outputParts = sep + `<span><span style="color:#484f58">Total:</span> <b>${total}</b></span>`;
+  outputParts += ` ${si('Out', output)}`;
+  if (reasoning > 0) outputParts += ` ${si('Think', reasoning)} ${si('Code', code)}`;
+  if (cached > 0)    outputParts += ` <span><span style="color:#484f58">Cached:</span> <b style="color:#3fb950">${cached}</b><span style="color:#484f58;font-size:10px">(${cacheRatio}%)</span></span>`;
+
+  return promptParts + outputParts;
+}
 
 loadConfig();
 loadPackets();

@@ -36,7 +36,9 @@ public class CodeGenerator
     {
         var (system, user, packet) = await BuildPromptAsync(id, cancellationToken);
 
-        var tokenCount = TokenCounter.Count(system, user);
+        var systemTokenCount = TokenCounter.Count(system);
+        var userTokenCount   = TokenCounter.Count(user);
+        var tokenCount       = systemTokenCount + userTokenCount;
         var (model, returnToClaude) = _modelConfig.PickModel(tokenCount);
 
         var className = BuildClassName(id);
@@ -44,10 +46,12 @@ public class CodeGenerator
         if (returnToClaude)
             return new GenerationData
             {
-                Name         = className,
-                TokenCount   = tokenCount,
-                SystemPrompt = system,
-                UserPrompt   = user,
+                Name             = className,
+                SystemTokenCount = systemTokenCount,
+                UserTokenCount   = userTokenCount,
+                TokenCount       = tokenCount,
+                SystemPrompt     = system,
+                UserPrompt       = user,
             };
 
         var sw = Stopwatch.StartNew();
@@ -65,6 +69,20 @@ public class CodeGenerator
 
         sw.Stop();
 
+        long? inputTokens = null, 
+            cachedTokens = null, 
+            outputTokens = null, 
+            reasoningTokens = null, 
+            totalTokens = null;
+        if (response.Usage is { } usage)
+        {
+            inputTokens     = usage.InputTokenCount;
+            outputTokens    = usage.OutputTokenCount;
+            totalTokens     = usage.TotalTokenCount;
+            cachedTokens    = usage.CachedInputTokenCount is > 0 ? usage.CachedInputTokenCount : null;
+            reasoningTokens = usage.ReasoningTokenCount   is > 0 ? usage.ReasoningTokenCount   : null;
+        }
+
         var rawCode = ExtractCode(response.Text);
         var code    = PacketPostProcessor.Process(rawCode, packet, _repository.GetSupportedProtocols());
 
@@ -76,12 +94,19 @@ public class CodeGenerator
 
         return new GenerationData
         {
-            Name       = className,
-            Code       = code,
-            Link       = $"/artifacts/{artifact.Id}",
-            TokenCount = tokenCount,
-            ElapsedMs  = sw.ElapsedMilliseconds,
-            Model      = model,
+            Name             = className,
+            Code             = code,
+            Link             = $"/artifacts/{artifact.Id}",
+            SystemTokenCount = systemTokenCount,
+            UserTokenCount   = userTokenCount,
+            TokenCount       = tokenCount,
+            ElapsedMs        = sw.ElapsedMilliseconds,
+            Model            = model,
+            InputTokens      = inputTokens,
+            CachedTokens     = cachedTokens,
+            OutputTokens     = outputTokens,
+            ReasoningTokens  = reasoningTokens,
+            TotalTokens      = totalTokens,
         };
     }
 
@@ -119,10 +144,14 @@ public class CodeGenerator
 
         var promptsFolder = ResolvePromptsFolder();
 
-        var system           = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "SystemPrompt.md"), cancellationToken);
+        var systemBase       = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "SystemPrompt.md"), cancellationToken);
         var skeleton         = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "Sceleton.md"), cancellationToken);
         var availableMethods = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "AvailableMethods.md"), cancellationToken);
         var basePrompt       = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "BasePrompt.md"), cancellationToken);
+
+        var system = systemBase
+            + "\n\n# TYPES AND IO METHODS\n\n" + availableMethods
+            + "\n\n# STRUCTURE TEMPLATE\n\n" + skeleton;
 
         var className = BuildClassName(id);
 
@@ -150,10 +179,8 @@ public class CodeGenerator
         var user = Template.ParseLiquid(basePrompt).Render(new
         {
             ClassName    = className,
-            Methods      = availableMethods,
             Schema       = schema,
             FormatHeader = formatHeader,
-            Skeleton     = skeleton,
         });
 
         return (system, user, packet);
