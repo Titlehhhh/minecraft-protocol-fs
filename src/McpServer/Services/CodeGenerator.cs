@@ -39,7 +39,8 @@ public class CodeGenerator
         var systemTokenCount = TokenCounter.Count(system);
         var userTokenCount   = TokenCounter.Count(user);
         var tokenCount       = systemTokenCount + userTokenCount;
-        var (model, returnToClaude) = _modelConfig.PickModel(tokenCount);
+        var complexityScore  = PacketComplexityScorer.Compute(packet.History);
+        var (model, returnToClaude) = _modelConfig.PickModel(complexityScore);
 
         var className = BuildClassName(id);
 
@@ -50,6 +51,7 @@ public class CodeGenerator
                 SystemTokenCount = systemTokenCount,
                 UserTokenCount   = userTokenCount,
                 TokenCount       = tokenCount,
+                ComplexityScore  = complexityScore,
                 SystemPrompt     = system,
                 UserPrompt       = user,
             };
@@ -100,6 +102,7 @@ public class CodeGenerator
             SystemTokenCount = systemTokenCount,
             UserTokenCount   = userTokenCount,
             TokenCount       = tokenCount,
+            ComplexityScore  = complexityScore,
             ElapsedMs        = sw.ElapsedMilliseconds,
             Model            = model,
             InputTokens      = inputTokens,

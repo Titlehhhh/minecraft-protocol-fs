@@ -9,6 +9,7 @@ public sealed class GenerationData
     public int      TokenCount       { get; init; }   // estimated prompt tokens (system+user)
     public int      SystemTokenCount { get; init; }   // estimated system prompt tokens
     public int      UserTokenCount   { get; init; }   // estimated user prompt tokens (= packet schema)
+    public int      ComplexityScore  { get; init; }   // structural complexity score (used for model routing)
     public long     ElapsedMs    { get; init; }
     public string?  Model        { get; init; }
     public string?  SystemPrompt { get; init; }   // set when returnToClaude

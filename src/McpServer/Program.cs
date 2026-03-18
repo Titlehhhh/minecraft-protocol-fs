@@ -176,7 +176,12 @@ app.MapGet("/api/schema/{**id}", (string id, IProtocolRepository repo) =>
             new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
         var toonStr = Toon.Format.ToonEncoder.EncodeNode(json, new Toon.Format.ToonEncodeOptions());
 
-        return Results.Ok(new { json = jsonStr, toon = toonStr });
+        var score = PacketComplexityScorer.Compute(packet.History);
+        var tier  = score <= modelConfigService.Config.SmallComplexityThreshold ? "small"
+                  : score <= modelConfigService.Config.HeavyComplexityThreshold ? "medium"
+                  : "heavy";
+
+        return Results.Ok(new { json = jsonStr, toon = toonStr, complexityScore = score, tier });
     }
     catch (Exception ex)
     {

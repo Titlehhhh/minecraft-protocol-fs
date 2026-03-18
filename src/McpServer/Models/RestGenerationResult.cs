@@ -18,6 +18,7 @@ public sealed class RestGenerationResult
     public int     SystemTokenCount { get; init; }
     public int     UserTokenCount   { get; init; }
     public int     TokenCount       { get; init; }   // = System + User
+    public int     ComplexityScore  { get; init; }
 
     // Real usage from API response (null when returnToClaude or provider doesn't report)
     public long?   InputTokens     { get; init; }
@@ -37,6 +38,7 @@ public sealed class RestGenerationResult
         SystemTokenCount = d.SystemTokenCount,
         UserTokenCount   = d.UserTokenCount,
         TokenCount       = d.TokenCount,
+        ComplexityScore  = d.ComplexityScore,
         InputTokens      = d.InputTokens,
         CachedTokens     = d.CachedTokens,
         OutputTokens     = d.OutputTokens,

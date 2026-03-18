@@ -20,10 +20,27 @@ header span { color: #484f58; font-size: 12px; }
 .sidebar-section { padding: 14px 16px; border-bottom: 1px solid #21262d; }
 .sidebar-section.grow { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
-.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 .toolbar { padding: 10px 16px; border-bottom: 1px solid #21262d; display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 .status-bar { padding: 6px 16px; background: #161b22; border-bottom: 1px solid #21262d; font-size: 12px; color: #8b949e; display: flex; gap: 16px; align-items: center; flex-shrink: 0; min-height: 30px; }
-.code-view { flex: 1; overflow: auto; padding: 16px; }
+
+/* Schema panel */
+.schema-panel { display: none; flex-shrink: 0; border-bottom: 1px solid #21262d; }
+.schema-header { padding: 4px 12px; font-size: 11px; color: #8b949e; background: #161b22; border-bottom: 1px solid #21262d; display: flex; align-items: center; gap: 10px; }
+.schema-cols { display: flex; height: 220px; }
+.schema-col { flex: 1; overflow: auto; }
+.schema-col + .schema-col { border-left: 1px solid #21262d; }
+.schema-col-hdr { padding: 3px 10px; font-size: 10px; color: #484f58; background: #161b22; border-bottom: 1px solid #21262d; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Tab bar */
+.tab-bar { display: flex; border-bottom: 1px solid #21262d; background: #161b22; flex-shrink: 0; }
+.tab { padding: 7px 18px; font-size: 12px; cursor: pointer; color: #8b949e; border: none; border-bottom: 2px solid transparent; background: transparent; font-family: inherit; transition: color 0.15s; }
+.tab:hover { color: #c9d1d9; }
+.tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+
+/* Content panes */
+.pane { flex: 1; overflow: auto; padding: 16px; display: none; }
+.pane.active { display: block; }
 
 h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #8b949e; margin-bottom: 10px; font-weight: 600; }
 
@@ -72,14 +89,25 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .packet-search { margin-bottom: 6px; }
 .packet-list { flex: 1; overflow-y: auto; border: 1px solid #21262d; border-radius: 6px; }
-.packet-item { padding: 5px 10px; cursor: pointer; font-size: 11px; font-family: 'Cascadia Code', Consolas, monospace; color: #8b949e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.packet-item { padding: 5px 10px; cursor: pointer; font-size: 11px; font-family: 'Cascadia Code', Consolas, monospace; color: #8b949e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
 .packet-item:hover { background: #21262d; color: #c9d1d9; }
 .packet-item.selected { background: #1f6feb22; color: #58a6ff; }
+.packet-tier-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.packet-tier-dot.small  { background: #58a6ff; }
+.packet-tier-dot.medium { background: #d29922; }
+.packet-tier-dot.heavy  { background: #f85149; }
+.packet-tier-dot.unknown { background: #484f58; }
 
 .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
 .badge.ok   { background: #1c6f3a22; color: #3fb950; border: 1px solid #3fb95055; }
 .badge.warn { background: #d2992222; color: #d29922;  border: 1px solid #d2992255; }
 .badge.err  { background: #da363622; color: #f85149;  border: 1px solid #da363655; }
+
+/* Complexity tier badges (inline) */
+.ctier { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+.ctier.small  { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb55; }
+.ctier.medium { background: #d2992222; color: #d29922; border: 1px solid #d2992255; }
+.ctier.heavy  { background: #da363622; color: #f85149; border: 1px solid #da363655; }
 
 /* save indicator */
 .save-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
@@ -131,13 +159,13 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
       <div class="tier" id="tier-small">
         <span class="tier-tag small">SMALL</span>
         <input type="text" id="model-small" placeholder="model id" oninput="markDirty()">
-        <span style="font-size:10px;color:#484f58;white-space:nowrap">≤&nbsp;<input type="number" id="thresh-small" value="1500" class="sm" min="100" oninput="markDirty()">&nbsp;tok</span>
+        <span style="font-size:10px;color:#484f58;white-space:nowrap">complexity&nbsp;≤&nbsp;<input type="number" id="thresh-small" value="20" class="sm" min="1" oninput="markDirty()"></span>
       </div>
 
       <div class="tier" id="tier-medium">
         <span class="tier-tag medium">MEDIUM</span>
         <input type="text" id="model-medium" placeholder="model id" oninput="markDirty()">
-        <span style="font-size:10px;color:#484f58;white-space:nowrap">≤&nbsp;<input type="number" id="thresh-heavy" value="4000" class="sm" min="100" oninput="markDirty()">&nbsp;tok</span>
+        <span style="font-size:10px;color:#484f58;white-space:nowrap">≤&nbsp;<input type="number" id="thresh-heavy" value="50" class="sm" min="1" oninput="markDirty()"></span>
       </div>
 
       <div class="tier" id="tier-heavy">
@@ -182,12 +210,13 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
       <div class="presets">
         <span class="preset" onclick="applyPreset('openai/gpt-4o-mini')">gpt-4o-mini</span>
         <span class="preset" onclick="applyPreset('openai/gpt-oss-120b')">gpt-oss-120b</span>
-        <span class="preset" onclick="applyPreset('nvidia/nemotron-3-nano-30b-a3b:free')">nemotron-30b:free</span>
+        <span class="preset" onclick="applyPreset('qwen/qwen3-235b-a22b-2507')">qwen3-235b-2507</span>
+        <span class="preset" onclick="applyPreset('qwen/qwen3-30b-a3b')">qwen3-30b</span>
+        <span class="preset" onclick="applyPreset('deepseek/deepseek-r1-0528')">deepseek-r1-0528</span>
         <span class="preset" onclick="applyPreset('anthropic/claude-3-haiku')">claude-3-haiku</span>
         <span class="preset" onclick="applyPreset('anthropic/claude-3-5-sonnet')">claude-3.5-sonnet</span>
         <span class="preset" onclick="applyPreset('openai/gpt-4o')">gpt-4o</span>
         <span class="preset" onclick="applyPreset('google/gemini-flash-2.0')">gemini-flash-2.0</span>
-        <span class="preset" onclick="applyPreset('meta-llama/llama-3.3-70b-instruct')">llama-3.3-70b</span>
       </div>
     </div>
 
@@ -210,7 +239,7 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
       <input class="toolbar-id" type="text" id="packet-id" placeholder="Packet ID, e.g. play.toClient.entity_metadata">
       <button class="btn-primary" id="gen-btn" onclick="generate()">▶ Generate</button>
       <button class="btn-blue" id="prompt-btn" onclick="buildPrompt()">📋 Prompt</button>
-      <button class="btn-ghost" id="schema-btn" onclick="viewSchema()">🔍 Schema</button>
+      <button class="btn-ghost" id="schema-btn" onclick="toggleSchema()">🔍 Schema</button>
       <button class="btn-ghost" onclick="clearOutput()">Clear</button>
     </div>
 
@@ -218,22 +247,39 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
       <span>Ready</span>
     </div>
 
-    <div class="code-view" id="schema-panel" style="display:none; flex-shrink:0; max-height:40%; overflow:auto; border-bottom:1px solid #21262d;">
-      <div style="display:flex; gap:0; height:100%;">
-        <div style="flex:1; border-right:1px solid #21262d; overflow:auto;">
-          <div style="padding:4px 12px; font-size:11px; color:#8b949e; background:#161b22; border-bottom:1px solid #21262d;">JSON</div>
-          <pre id="schema-json" style="margin:0; padding:12px; font-size:12px;"></pre>
+    <!-- Schema panel (auto-shown on packet select) -->
+    <div class="schema-panel" id="schema-panel">
+      <div class="schema-header" id="schema-header">
+        <span style="color:#484f58">Loading schema...</span>
+      </div>
+      <div class="schema-cols">
+        <div class="schema-col">
+          <div class="schema-col-hdr">JSON</div>
+          <pre id="schema-json" style="margin:0;padding:10px;font-size:11px;background:transparent;border-radius:0;min-height:0"></pre>
         </div>
-        <div style="flex:1; overflow:auto;">
-          <div style="padding:4px 12px; font-size:11px; color:#8b949e; background:#161b22; border-bottom:1px solid #21262d;">Toon</div>
-          <pre id="schema-toon" style="margin:0; padding:12px; font-size:12px;"></pre>
+        <div class="schema-col">
+          <div class="schema-col-hdr">Toon</div>
+          <pre id="schema-toon" style="margin:0;padding:10px;font-size:11px;background:transparent;border-radius:0;min-height:0"></pre>
         </div>
       </div>
     </div>
 
-    <div class="code-view">
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab active" id="tab-code"   onclick="switchTab('code')">⚙ Code</button>
+      <button class="tab"        id="tab-prompt" onclick="switchTab('prompt')">📋 Prompt</button>
+    </div>
+
+    <!-- Code pane -->
+    <div class="pane active" id="pane-code">
       <pre id="code-output">// Select a packet from the list or type an ID, then click Generate</pre>
     </div>
+
+    <!-- Prompt pane -->
+    <div class="pane" id="pane-prompt">
+      <pre id="prompt-output">// Click "📋 Prompt" to build and inspect the prompt</pre>
+    </div>
+
   </div>
 
 </div>
@@ -242,6 +288,8 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
 let allPackets = [];
 let saveTimer = null;
 let isDirty = false;
+// Complexity cache: packetId → { score, tier }
+const complexityCache = {};
 
 // ── Save state indicator ────────────────────────────────────────────────
 function setSaveState(state, text) {
@@ -259,6 +307,14 @@ function markDirty() {
   saveTimer = setTimeout(saveConfig, 800);
 }
 
+// ── Tabs ────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('pane-' + name).classList.add('active');
+}
+
 // ── Config ──────────────────────────────────────────────────────────────
 async function loadConfig() {
   try {
@@ -268,16 +324,14 @@ async function loadConfig() {
     document.getElementById('model-small').value  = c.smallModel      ?? '';
     document.getElementById('model-medium').value = c.mediumModel     ?? '';
     document.getElementById('model-heavy').value  = c.heavyModel      ?? '';
-    document.getElementById('thresh-small').value = c.smallThreshold  ?? 1500;
-    document.getElementById('thresh-heavy').value = c.heavyThreshold  ?? 4000;
+    document.getElementById('thresh-small').value = c.smallComplexityThreshold ?? 20;
+    document.getElementById('thresh-heavy').value = c.heavyComplexityThreshold ?? 50;
     document.getElementById('temperature').value  = c.temperature     ?? 0;
     document.getElementById('max-tokens').value   = c.maxOutputTokens ?? 4096;
-    // Reasoning effort
     const effort = c.reasoningEffort ?? '';
     document.querySelectorAll('.effort-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.v === effort);
     });
-    // Input format
     const fmt = c.inputFormat ?? 'toon';
     document.querySelectorAll('#format-row .effort-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.v === fmt);
@@ -294,18 +348,15 @@ function setEffort(btn) {
   btn.classList.add('active');
   markDirty();
 }
-
 function getEffort() {
   const active = document.querySelector('#effort-row .effort-btn.active');
   return active ? active.dataset.v : '';
 }
-
 function setFormat(btn) {
   document.querySelectorAll('#format-row .effort-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   markDirty();
 }
-
 function getFormat() {
   const active = document.querySelector('#format-row .effort-btn.active');
   return active ? active.dataset.v : 'toon';
@@ -315,15 +366,15 @@ async function saveConfig() {
   clearTimeout(saveTimer);
   setSaveState('saving', 'Saving...');
   const cfg = {
-    smallModel:      document.getElementById('model-small').value.trim(),
-    mediumModel:     document.getElementById('model-medium').value.trim(),
-    heavyModel:      document.getElementById('model-heavy').value.trim(),
-    smallThreshold:  parseInt(document.getElementById('thresh-small').value)  || 1500,
-    heavyThreshold:  parseInt(document.getElementById('thresh-heavy').value)  || 4000,
-    temperature:     parseFloat(document.getElementById('temperature').value) || 0,
-    maxOutputTokens: parseInt(document.getElementById('max-tokens').value)    || 4096,
-    reasoningEffort: getEffort(),
-    inputFormat:     getFormat(),
+    smallModel:               document.getElementById('model-small').value.trim(),
+    mediumModel:              document.getElementById('model-medium').value.trim(),
+    heavyModel:               document.getElementById('model-heavy').value.trim(),
+    smallComplexityThreshold: parseInt(document.getElementById('thresh-small').value) || 20,
+    heavyComplexityThreshold: parseInt(document.getElementById('thresh-heavy').value) || 50,
+    temperature:              parseFloat(document.getElementById('temperature').value) || 0,
+    maxOutputTokens:          parseInt(document.getElementById('max-tokens').value)    || 4096,
+    reasoningEffort:          getEffort(),
+    inputFormat:              getFormat(),
   };
   try {
     const r = await fetch('/api/config', {
@@ -373,8 +424,12 @@ function renderPackets(list) {
     return;
   }
   el.innerHTML = list.slice(0, 300).map(p => {
-    const sel = p === currentId ? ' selected' : '';
-    return `<div class="packet-item${sel}" title="${p}" onclick="selectPacket('${p}')">${p}</div>`;
+    const sel  = p === currentId ? ' selected' : '';
+    const info = complexityCache[p];
+    const dot  = info
+      ? `<span class="packet-tier-dot ${info.tier}" title="complexity ${info.score}"></span>`
+      : `<span class="packet-tier-dot unknown"></span>`;
+    return `<div class="packet-item${sel}" title="${p}" onclick="selectPacket('${p}')">${dot}${p}</div>`;
   }).join('');
 }
 
@@ -387,6 +442,63 @@ function selectPacket(id) {
   document.getElementById('packet-id').value = id;
   document.querySelectorAll('.packet-item').forEach(el =>
     el.classList.toggle('selected', el.getAttribute('title') === id));
+  loadSchema(id);
+}
+
+// ── Schema panel ─────────────────────────────────────────────────────────
+let schemaLoadedFor = null;
+
+async function loadSchema(id) {
+  const panel  = document.getElementById('schema-panel');
+  const hdr    = document.getElementById('schema-header');
+  const jsonEl = document.getElementById('schema-json');
+  const toonEl = document.getElementById('schema-toon');
+
+  if (schemaLoadedFor === id && panel.style.display !== 'none') return;
+
+  panel.style.display = 'block';
+  schemaLoadedFor = id;
+  hdr.innerHTML = `<span style="color:#484f58">Loading <b style="color:#8b949e">${escHtml(id)}</b>...</span>`;
+  jsonEl.textContent = toonEl.textContent = '';
+
+  try {
+    const r = await fetch(`/api/schema/${encodeURIComponent(id)}`);
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+      hdr.innerHTML = `<span style="color:#f85149">${escHtml(e.error ?? 'Error')}</span>`;
+      return;
+    }
+    const data = await r.json();
+    const score = data.complexityScore ?? '?';
+    const tier  = data.tier ?? 'unknown';
+
+    // Cache for dots in packet list
+    complexityCache[id] = { score, tier };
+    renderPackets(document.getElementById('packet-search').value.toLowerCase().trim()
+      ? allPackets.filter(p => p.includes(document.getElementById('packet-search').value.toLowerCase().trim()))
+      : allPackets);
+
+    hdr.innerHTML =
+      `<b style="color:#c9d1d9">${escHtml(id)}</b>` +
+      ` <span class="ctier ${tier}">${tier.toUpperCase()}</span>` +
+      ` <span style="color:#484f58;font-size:10px">score: <b style="color:#8b949e">${score}</b></span>`;
+
+    jsonEl.textContent = data.json;
+    toonEl.textContent = data.toon;
+  } catch (e) {
+    hdr.innerHTML = `<span style="color:#f85149">Error: ${escHtml(e.message)}</span>`;
+  }
+}
+
+function toggleSchema() {
+  const id = document.getElementById('packet-id').value.trim();
+  const panel = document.getElementById('schema-panel');
+  if (panel.style.display !== 'none' && schemaLoadedFor === id) {
+    panel.style.display = 'none';
+  } else {
+    if (id) loadSchema(id);
+    else panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  }
 }
 
 // ── Status bar ──────────────────────────────────────────────────────────
@@ -402,12 +514,10 @@ async function generate() {
   const id = document.getElementById('packet-id').value.trim();
   if (!id) return;
 
-  // If there are unsaved changes, save first and wait
-  if (isDirty) {
-    await saveConfig();
-  }
+  if (isDirty) await saveConfig();
 
   setGenerating(true);
+  switchTab('code');
   document.getElementById('code-output').textContent = '// Generating...';
   setStatus(`<span class="spinner"></span>&nbsp; Generating <b>${escHtml(id)}</b>...`);
 
@@ -430,11 +540,14 @@ async function generate() {
     const data = await r.json();
 
     if (data.systemPrompt) {
-      document.getElementById('code-output').textContent =
+      // Heavy packet — write to prompt pane and switch there
+      document.getElementById('prompt-output').textContent =
         `// ⚠️  Heavy packet — returned for Claude to handle\n` +
-        `//    Tokens: ${data.tokenCount}\n\n` +
+        `// Complexity: ${data.complexityScore ?? '?'}  Tokens: ${data.tokenCount}\n\n` +
         `// ══ SYSTEM PROMPT ══\n${data.systemPrompt}\n\n` +
         `// ══ USER PROMPT ══\n${data.userPrompt}`;
+      document.getElementById('code-output').textContent = `// Heavy packet — see Prompt tab`;
+      switchTab('prompt');
       setStatus(
         `<span class="badge warn">Heavy → Claude</span>` +
         ` &nbsp;${si('Tokens', data.tokenCount)}` +
@@ -468,6 +581,8 @@ async function buildPrompt() {
   if (!id) return;
 
   setGenerating(true);
+  switchTab('prompt');
+  document.getElementById('prompt-output').textContent = '// Building prompt...';
   setStatus(`<span class="spinner"></span>&nbsp; Building prompt for <b>${escHtml(id)}</b>...`);
 
   try {
@@ -478,14 +593,14 @@ async function buildPrompt() {
     });
     if (!r.ok) { setStatus('<span class="badge err">Failed</span>'); return; }
     const data = await r.json();
-    document.getElementById('code-output').textContent =
+    document.getElementById('prompt-output').textContent =
       `// Tokens — system: ${data.systemTokens}  user: ${data.userTokens}  total: ${data.tokenCount}\n\n` +
       `// ══ SYSTEM PROMPT ══\n${data.system}\n\n` +
       `// ══ USER PROMPT ══\n${data.user}`;
     setStatus(
       `<span class="badge ok">Prompt ready</span>` +
-      ` &nbsp;${si('System', data.systemTokens + ' tok')}` +
-      ` &nbsp;${si('User', data.userTokens + ' tok')}` +
+      ` &nbsp;${si('Sys', data.systemTokens + ' tok')}` +
+      ` &nbsp;${si('Packet', data.userTokens + ' tok')}` +
       ` &nbsp;${si('Total', data.tokenCount + ' tok')}`
     );
   } catch (e) {
@@ -495,36 +610,9 @@ async function buildPrompt() {
   }
 }
 
-async function viewSchema() {
-  const id = document.getElementById('packet-id').value.trim();
-  if (!id) { alert('Enter a packet ID first'); return; }
-  const panel = document.getElementById('schema-panel');
-  const jsonEl = document.getElementById('schema-json');
-  const toonEl = document.getElementById('schema-toon');
-
-  // Toggle off if same packet already shown
-  if (panel.style.display !== 'none' && panel.dataset.id === id) {
-    panel.style.display = 'none';
-    return;
-  }
-
-  jsonEl.textContent = toonEl.textContent = 'Loading...';
-  panel.style.display = 'block';
-  panel.dataset.id = id;
-
-  try {
-    const r = await fetch(`/api/schema/${encodeURIComponent(id)}`);
-    if (!r.ok) { const e = await r.json(); jsonEl.textContent = toonEl.textContent = e.error; return; }
-    const data = await r.json();
-    jsonEl.textContent = data.json;
-    toonEl.textContent = data.toon;
-  } catch (e) {
-    jsonEl.textContent = toonEl.textContent = `Error: ${e.message}`;
-  }
-}
-
 function clearOutput() {
   document.getElementById('code-output').textContent = '// Cleared';
+  document.getElementById('prompt-output').textContent = '// Cleared';
   setStatus('<span>Ready</span>');
 }
 
@@ -544,7 +632,6 @@ document.getElementById('packet-id').addEventListener('keydown', e => {
   if (e.key === 'Enter') generate();
 });
 
-// Warn on page unload if unsaved
 window.addEventListener('beforeunload', e => {
   if (isDirty) { e.preventDefault(); e.returnValue = ''; }
 });
@@ -582,7 +669,6 @@ window.addEventListener('beforeunload', e => {
 function buildUsageParts(data) {
   const sep = `<span style="color:#30363d;margin:0 4px">│</span>`;
 
-  // ── Prompt metrics (estimated) ──
   const systemTok  = data.systemTokenCount ?? 0;
   const userTok    = data.userTokenCount   ?? 0;
   const cached     = data.cachedTokens ?? 0;
@@ -595,14 +681,13 @@ function buildUsageParts(data) {
     ? `${sep}${si('Sys', systemTok)} ${si('Packet', userTok)}${cachedStr}`
     : `${sep}${si('~Prompt', data.tokenCount)}${cachedStr}`;
 
-  // ── Output metrics (real from API) ──
   if (data.outputTokens == null) return promptParts;
 
   const output    = data.outputTokens    ?? 0;
   const reasoning = data.reasoningTokens ?? 0;
   const total     = data.totalTokens     ?? (data.inputTokens ?? 0) + output;
 
-  let outputParts = sep + `<span><span style="color:#484f58">Total:</span> <b>${total}</b></span>`;
+  let outputParts = sep + si('Total', total);
   outputParts += ` ${si('Out', output)}`;
   if (reasoning > 0) outputParts += ` ${si('Think', reasoning)}`;
 

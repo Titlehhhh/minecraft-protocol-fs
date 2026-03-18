@@ -67,15 +67,15 @@ public class ModelConfigService
         ).GetChatClient(model).AsIChatClient();
 
     /// <summary>
-    /// Returns (modelId, returnToClaude).
+    /// Returns (modelId, returnToClaude) based on structural complexity score.
     /// returnToClaude=true means prompt should be returned to caller instead of sending to LLM.
     /// </summary>
-    public (string Model, bool ReturnToClaude) PickModel(int tokenCount)
+    public (string Model, bool ReturnToClaude) PickModel(int complexityScore)
     {
         var cfg = _config;
-        if (tokenCount <= cfg.SmallThreshold)
+        if (complexityScore <= cfg.SmallComplexityThreshold)
             return (cfg.SmallModel, false);
-        if (tokenCount <= cfg.HeavyThreshold)
+        if (complexityScore <= cfg.HeavyComplexityThreshold)
             return (string.IsNullOrEmpty(cfg.MediumModel) ? cfg.SmallModel : cfg.MediumModel, false);
 
         if (string.IsNullOrEmpty(cfg.HeavyModel))
