@@ -138,8 +138,9 @@ public class ProtocolRepository : IProtocolRepository
 
             // Reverse lookup: canonicalName → hexId for this range
             var nameToHexId = idMapper.Mappings
+                .Where(m => m.Value is not null)
                 .ToDictionary(
-                    m => m.Value, // "face_player"
+                    m => m.Value!, // "face_player"
                     m => Convert.ToInt32(m.Key, 16)); // 0x3F
 
             if (nameSwitch.Fields is null)
