@@ -14,12 +14,35 @@ header span { color: #484f58; font-size: 12px; }
 
 .layout { display: flex; flex: 1; overflow: hidden; }
 
-.sidebar { width: 310px; min-width: 200px; max-width: 600px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+/* ── Sidebar ── */
+.sidebar { width: 310px; min-width: 200px; max-width: 600px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+
+.sidebar-tabs { display: flex; border-bottom: 1px solid #21262d; flex-shrink: 0; }
+.sidebar-tab { flex: 1; padding: 9px 4px; font-size: 12px; cursor: pointer; color: #8b949e; border: none; border-bottom: 2px solid transparent; background: transparent; font-family: inherit; text-align: center; transition: color 0.15s; }
+.sidebar-tab:hover { color: #c9d1d9; }
+.sidebar-tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+
+.sidebar-pane { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+.sidebar-pane.active { display: flex; }
+
+/* Packets pane */
+.packets-header { padding: 12px 12px 8px; flex-shrink: 0; }
+.packets-header h2 { margin-bottom: 8px; }
+.packet-list { flex: 1; overflow-y: auto; border: 1px solid #21262d; border-radius: 6px; margin: 0 8px 8px; }
+.packet-item { padding: 4px 10px; cursor: pointer; font-size: 11px; font-family: 'Cascadia Code', Consolas, monospace; color: #8b949e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+.packet-item:hover { background: #21262d; color: #c9d1d9; }
+.packet-item.selected { background: #1f6feb22; color: #58a6ff; }
+.packet-item-score { margin-left: auto; font-size: 10px; color: #484f58; flex-shrink: 0; padding-left: 4px; }
+
+/* Config pane */
+.config-pane-inner { flex: 1; overflow-y: auto; }
+.sidebar-section { padding: 14px 16px; border-bottom: 1px solid #21262d; }
+
+/* Resize handle */
 .resize-handle { width: 4px; background: transparent; cursor: col-resize; flex-shrink: 0; transition: background 0.15s; }
 .resize-handle:hover, .resize-handle.dragging { background: #58a6ff55; }
-.sidebar-section { padding: 14px 16px; border-bottom: 1px solid #21262d; }
-.sidebar-section.grow { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
+/* ── Main ── */
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 .toolbar { padding: 10px 16px; border-bottom: 1px solid #21262d; display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 .status-bar { padding: 6px 16px; background: #161b22; border-bottom: 1px solid #21262d; font-size: 12px; color: #8b949e; display: flex; gap: 16px; align-items: center; flex-shrink: 0; min-height: 30px; }
@@ -31,6 +54,8 @@ header span { color: #484f58; font-size: 12px; }
 .schema-col { flex: 1; overflow: auto; }
 .schema-col + .schema-col { border-left: 1px solid #21262d; }
 .schema-col-hdr { padding: 3px 10px; font-size: 10px; color: #484f58; background: #161b22; border-bottom: 1px solid #21262d; text-transform: uppercase; letter-spacing: 0.5px; }
+.h-resize-handle { height: 4px; background: transparent; cursor: row-resize; flex-shrink: 0; transition: background 0.15s; }
+.h-resize-handle:hover, .h-resize-handle.dragging { background: #58a6ff55; }
 
 /* Tab bar */
 .tab-bar { display: flex; border-bottom: 1px solid #21262d; background: #161b22; flex-shrink: 0; }
@@ -42,23 +67,23 @@ header span { color: #484f58; font-size: 12px; }
 .pane { flex: 1; overflow: auto; padding: 16px; display: none; }
 .pane.active { display: block; }
 
+/* ── Common components ── */
 h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #8b949e; margin-bottom: 10px; font-weight: 600; }
-
 label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 4px; }
-input[type=text], input[type=number] {
-  width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
-  padding: 6px 10px; border-radius: 6px; font-size: 12px; font-family: inherit;
-}
+input[type=text], input[type=number] { width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-family: inherit; }
 input[type=text]:focus, input[type=number]:focus { outline: none; border-color: #58a6ff; }
-input.dirty { border-color: #d29922 !important; }
 .sm { width: 72px !important; display: inline-block !important; }
 
-.tier { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; padding: 8px; background: #0d1117; border-radius: 6px; border: 1px solid #21262d; transition: border-color 0.2s; }
-.tier.dirty { border-color: #d2992266; }
+.tier { display: flex; gap: 6px; align-items: center; margin-bottom: 0; padding: 8px; background: #0d1117; border-radius: 6px 6px 0 0; border: 1px solid #21262d; }
+.tier-adv { display: none; padding: 6px 8px; background: #0d1117; border: 1px solid #21262d; border-top: none; border-radius: 0 0 6px 6px; margin-bottom: 8px; }
+.tier-adv.open { display: block; }
+.tier-adv-toggle { margin-left: auto; cursor: pointer; color: #484f58; font-size: 11px; user-select: none; transition: transform 0.15s; flex-shrink: 0; }
+.tier-adv-toggle.open { transform: rotate(90deg); color: #8b949e; }
 .tier-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
-.tier-tag.small  { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb55; }
-.tier-tag.medium { background: #d2992222; color: #d29922; border: 1px solid #d2992255; }
-.tier-tag.heavy  { background: #da363622; color: #f85149; border: 1px solid #da363655; }
+.tier-tag.easy   { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb55; cursor:pointer; }
+.tier-tag.medium { background: #d2992222; color: #d29922; border: 1px solid #d2992255; cursor:pointer; }
+.tier-tag.heavy  { background: #da363622; color: #f85149; border: 1px solid #da363655; cursor:pointer; }
+.tier-tag.active-tier { filter: brightness(2); outline: 1px solid currentColor; }
 .tier input[type=text] { flex: 1; margin: 0; }
 
 .row2 { display: flex; gap: 8px; margin-bottom: 10px; }
@@ -87,34 +112,44 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .effort-btn[data-v=high].active   { background: #da363622; border-color: #f85149; color: #f85149; }
 .effort-btn[data-v=xhigh].active  { background: #8957e522; border-color: #a371f7; color: #a371f7; }
 
-.packet-search { margin-bottom: 6px; }
-.packet-list { flex: 1; overflow-y: auto; border: 1px solid #21262d; border-radius: 6px; }
-.packet-item { padding: 5px 10px; cursor: pointer; font-size: 11px; font-family: 'Cascadia Code', Consolas, monospace; color: #8b949e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
-.packet-item:hover { background: #21262d; color: #c9d1d9; }
-.packet-item.selected { background: #1f6feb22; color: #58a6ff; }
+.packet-search { margin-bottom: 6px; width: 100%; }
 .packet-tier-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.packet-tier-dot.small  { background: #58a6ff; }
+.packet-tier-dot.easy   { background: #58a6ff; }
 .packet-tier-dot.medium { background: #d29922; }
 .packet-tier-dot.heavy  { background: #f85149; }
 .packet-tier-dot.unknown { background: #484f58; }
 
+/* Tier filter cards */
+.stats-tier-cards { display: flex; gap: 6px; margin-bottom: 8px; }
+.stats-card { display: flex; flex-direction: column; align-items: center; padding: 8px 0; border-radius: 8px; background: #0d1117; border: 1px solid #30363d; cursor: pointer; transition: border-color 0.15s, background 0.15s; flex: 1; user-select: none; }
+.stats-card:hover { border-color: #8b949e; }
+.stats-card-count { font-size: 20px; font-weight: 700; line-height: 1; }
+.stats-card-label { font-size: 9px; font-weight: 700; color: #484f58; margin-top: 2px; letter-spacing: 0.5px; }
+.stats-card.all    .stats-card-count { color: #c9d1d9; }
+.stats-card.easy   .stats-card-count { color: #58a6ff; }
+.stats-card.medium .stats-card-count { color: #d29922; }
+.stats-card.heavy  .stats-card-count { color: #f85149; }
+.stats-card.all.active    { border-color: #8b949e; background: #21262d; }
+.stats-card.easy.active   { border-color: #58a6ff; background: #1f6feb22; }
+.stats-card.medium.active { border-color: #d29922; background: #d2992215; }
+.stats-card.heavy.active  { border-color: #f85149; background: #da363615; }
+
+/* Badges */
 .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
 .badge.ok   { background: #1c6f3a22; color: #3fb950; border: 1px solid #3fb95055; }
 .badge.warn { background: #d2992222; color: #d29922;  border: 1px solid #d2992255; }
 .badge.err  { background: #da363622; color: #f85149;  border: 1px solid #da363655; }
 
-/* Complexity tier badges (inline) */
 .ctier { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
-.ctier.small  { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb55; }
+.ctier.easy  { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb55; }
 .ctier.medium { background: #d2992222; color: #d29922; border: 1px solid #d2992255; }
 .ctier.heavy  { background: #da363622; color: #f85149; border: 1px solid #da363655; }
 
-/* save indicator */
 .save-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-.save-dot.idle    { background: #3fb950; }
-.save-dot.dirty   { background: #d29922; }
-.save-dot.saving  { background: #58a6ff; animation: pulse 0.8s ease-in-out infinite; }
-.save-dot.error   { background: #f85149; }
+.save-dot.idle   { background: #3fb950; }
+.save-dot.dirty  { background: #d29922; }
+.save-dot.saving { background: #58a6ff; animation: pulse 0.8s ease-in-out infinite; }
+.save-dot.error  { background: #f85149; }
 .save-label { font-size: 11px; }
 .save-label.idle   { color: #3fb950; }
 .save-label.dirty  { color: #d29922; }
@@ -152,80 +187,130 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
   <!-- SIDEBAR -->
   <div class="sidebar">
 
-    <!-- Model tiers -->
-    <div class="sidebar-section">
-      <h2>Model Tiers</h2>
-
-      <div class="tier" id="tier-small">
-        <span class="tier-tag small">SMALL</span>
-        <input type="text" id="model-small" placeholder="model id" oninput="markDirty()">
-        <span style="font-size:10px;color:#484f58;white-space:nowrap">complexity&nbsp;≤&nbsp;<input type="number" id="thresh-small" value="20" class="sm" min="1" oninput="markDirty()"></span>
-      </div>
-
-      <div class="tier" id="tier-medium">
-        <span class="tier-tag medium">MEDIUM</span>
-        <input type="text" id="model-medium" placeholder="model id" oninput="markDirty()">
-        <span style="font-size:10px;color:#484f58;white-space:nowrap">≤&nbsp;<input type="number" id="thresh-heavy" value="50" class="sm" min="1" oninput="markDirty()"></span>
-      </div>
-
-      <div class="tier" id="tier-heavy">
-        <span class="tier-tag heavy">HEAVY</span>
-        <input type="text" id="model-heavy" placeholder="empty → return to Claude" oninput="markDirty()">
-      </div>
-
-      <div class="row2" style="margin-top:10px">
-        <div>
-          <label>Temperature</label>
-          <input type="number" id="temperature" value="0" min="0" max="2" step="0.05" oninput="markDirty()">
-        </div>
-        <div>
-          <label>Max output tokens</label>
-          <input type="number" id="max-tokens" value="4096" min="256" max="32768" step="256" oninput="markDirty()">
-        </div>
-      </div>
-
-      <div style="margin-top:6px">
-        <label>Reasoning effort <span style="color:#484f58">(off = standard)</span></label>
-        <div class="effort-row" id="effort-row">
-          <button class="effort-btn active" data-v="" onclick="setEffort(this)">Off</button>
-          <button class="effort-btn" data-v="low" onclick="setEffort(this)">low</button>
-          <button class="effort-btn" data-v="medium" onclick="setEffort(this)">medium</button>
-          <button class="effort-btn" data-v="high" onclick="setEffort(this)">high</button>
-          <button class="effort-btn" data-v="xhigh" onclick="setEffort(this)">xhigh</button>
-        </div>
-      </div>
-
-      <div style="margin-top:6px">
-        <label>Schema format <span style="color:#484f58">(sent in prompt)</span></label>
-        <div class="effort-row" id="format-row">
-          <button class="effort-btn active" data-v="toon" onclick="setFormat(this)">Toon</button>
-          <button class="effort-btn" data-v="json" onclick="setFormat(this)">JSON</button>
-        </div>
-      </div>
+    <div class="sidebar-tabs">
+      <button class="sidebar-tab active" id="stab-packets" onclick="switchSidebarTab('packets')">📦 Packets</button>
+      <button class="sidebar-tab" id="stab-config" onclick="switchSidebarTab('config')">⚙️ Config</button>
     </div>
 
-    <!-- Presets -->
-    <div class="sidebar-section">
-      <h2>Presets <span class="preset-sub">(click → sets Small model)</span></h2>
-      <div class="presets">
-        <span class="preset" onclick="applyPreset('openai/gpt-4o-mini')">gpt-4o-mini</span>
-        <span class="preset" onclick="applyPreset('openai/gpt-oss-120b')">gpt-oss-120b</span>
-        <span class="preset" onclick="applyPreset('qwen/qwen3-235b-a22b-2507')">qwen3-235b-2507</span>
-        <span class="preset" onclick="applyPreset('qwen/qwen3-30b-a3b')">qwen3-30b</span>
-        <span class="preset" onclick="applyPreset('deepseek/deepseek-r1-0528')">deepseek-r1-0528</span>
-        <span class="preset" onclick="applyPreset('anthropic/claude-3-haiku')">claude-3-haiku</span>
-        <span class="preset" onclick="applyPreset('anthropic/claude-3-5-sonnet')">claude-3.5-sonnet</span>
-        <span class="preset" onclick="applyPreset('openai/gpt-4o')">gpt-4o</span>
-        <span class="preset" onclick="applyPreset('google/gemini-flash-2.0')">gemini-flash-2.0</span>
+    <!-- Packets pane -->
+    <div class="sidebar-pane active" id="spane-packets">
+      <div class="packets-header">
+        <h2>Packets <span id="packet-count" style="font-weight:400;text-transform:none;letter-spacing:0;color:#484f58"></span></h2>
+        <div class="stats-tier-cards">
+          <div class="stats-card all active" data-tier="all" onclick="filterStatsTier('all')">
+            <span class="stats-card-count" id="sc-all">–</span>
+            <span class="stats-card-label">ALL</span>
+          </div>
+          <div class="stats-card easy" data-tier="easy" onclick="filterStatsTier('easy')">
+            <span class="stats-card-count" id="sc-easy">–</span>
+            <span class="stats-card-label">EASY</span>
+          </div>
+          <div class="stats-card medium" data-tier="medium" onclick="filterStatsTier('medium')">
+            <span class="stats-card-count" id="sc-medium">–</span>
+            <span class="stats-card-label">MED</span>
+          </div>
+          <div class="stats-card heavy" data-tier="heavy" onclick="filterStatsTier('heavy')">
+            <span class="stats-card-count" id="sc-heavy">–</span>
+            <span class="stats-card-label">HEAVY</span>
+          </div>
+        </div>
+        <input type="text" class="packet-search" id="packet-search" placeholder="Filter..." oninput="renderPackets()">
       </div>
-    </div>
-
-    <!-- Packet browser -->
-    <div class="sidebar-section grow">
-      <h2>Packets <span id="packet-count" style="font-weight:400;text-transform:none;letter-spacing:0;color:#484f58"></span></h2>
-      <input type="text" class="packet-search" id="packet-search" placeholder="Filter..." oninput="filterPackets()">
       <div class="packet-list" id="packet-list">
         <div style="padding:10px;color:#484f58;font-size:12px">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Config pane -->
+    <div class="sidebar-pane" id="spane-config">
+      <div class="config-pane-inner">
+
+        <div class="sidebar-section">
+          <h2>Model Tiers</h2>
+
+          <div class="tier">
+            <span class="tier-tag easy">EASY</span>
+            <input type="text" id="model-easy" placeholder="model id" onfocus="focusModel(this)" oninput="markDirty()">
+            <span style="font-size:10px;color:#484f58;white-space:nowrap">complexity&nbsp;≤&nbsp;<input type="number" id="thresh-easy" value="20" class="sm" min="1" oninput="markDirty()"></span>
+            <span class="tier-adv-toggle" id="tadv-toggle-easy" onclick="toggleTierAdv('easy')">▶</span>
+          </div>
+          <div class="tier-adv" id="tier-adv-easy">
+            <div class="effort-row" id="effort-easy">
+              <button class="effort-btn active" data-v="">Off</button>
+              <button class="effort-btn" data-v="low">low</button>
+              <button class="effort-btn" data-v="medium">medium</button>
+              <button class="effort-btn" data-v="high">high</button>
+              <button class="effort-btn" data-v="xhigh">xhigh</button>
+            </div>
+          </div>
+
+          <div class="tier">
+            <span class="tier-tag medium">MED</span>
+            <input type="text" id="model-medium" placeholder="model id" onfocus="focusModel(this)" oninput="markDirty()">
+            <span style="font-size:10px;color:#484f58;white-space:nowrap">≤&nbsp;<input type="number" id="thresh-heavy" value="50" class="sm" min="1" oninput="markDirty()"></span>
+            <span class="tier-adv-toggle" id="tadv-toggle-medium" onclick="toggleTierAdv('medium')">▶</span>
+          </div>
+          <div class="tier-adv" id="tier-adv-medium">
+            <div class="effort-row" id="effort-medium">
+              <button class="effort-btn active" data-v="">Off</button>
+              <button class="effort-btn" data-v="low">low</button>
+              <button class="effort-btn" data-v="medium">medium</button>
+              <button class="effort-btn" data-v="high">high</button>
+              <button class="effort-btn" data-v="xhigh">xhigh</button>
+            </div>
+          </div>
+
+          <div class="tier">
+            <span class="tier-tag heavy">HEAVY</span>
+            <input type="text" id="model-heavy" placeholder="empty → return to Claude" onfocus="focusModel(this)" oninput="markDirty()">
+            <span class="tier-adv-toggle" id="tadv-toggle-heavy" onclick="toggleTierAdv('heavy')">▶</span>
+          </div>
+          <div class="tier-adv" id="tier-adv-heavy">
+            <div class="effort-row" id="effort-heavy">
+              <button class="effort-btn active" data-v="">Off</button>
+              <button class="effort-btn" data-v="low">low</button>
+              <button class="effort-btn" data-v="medium">medium</button>
+              <button class="effort-btn" data-v="high">high</button>
+              <button class="effort-btn" data-v="xhigh">xhigh</button>
+            </div>
+          </div>
+
+          <div class="row2" style="margin-top:10px">
+            <div>
+              <label>Temperature</label>
+              <input type="number" id="temperature" value="0" min="0" max="2" step="0.05" oninput="markDirty()">
+            </div>
+            <div>
+              <label>Max output tokens</label>
+              <input type="number" id="max-tokens" value="4096" min="256" max="32768" step="256" oninput="markDirty()">
+            </div>
+          </div>
+
+          <div style="margin-top:6px">
+            <label>Schema format <span style="color:#484f58">(sent in prompt)</span></label>
+            <div class="effort-row" id="format-row">
+              <button class="effort-btn active" data-v="toon" onclick="setFormat(this)">Toon</button>
+              <button class="effort-btn" data-v="json" onclick="setFormat(this)">JSON</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Presets <span class="preset-sub">→ фокус на поле → клик</span></h2>
+          <div class="presets">
+            <span class="preset" onclick="applyPreset('openai/gpt-4o-mini')">gpt-4o-mini</span>
+            <span class="preset" onclick="applyPreset('openai/gpt-oss-120b')">gpt-oss-120b</span>
+            <span class="preset" onclick="applyPreset('qwen/qwen3-235b-a22b-2507')">qwen3-235b-2507</span>
+            <span class="preset" onclick="applyPreset('qwen/qwen3-30b-a3b')">qwen3-30b</span>
+            <span class="preset" onclick="applyPreset('qwen/qwen2.5-coder-32b-instruct')">qwen2.5-coder-32b</span>
+            <span class="preset" onclick="applyPreset('deepseek/deepseek-r1-0528')">deepseek-r1-0528</span>
+            <span class="preset" onclick="applyPreset('anthropic/claude-3-haiku')">claude-3-haiku</span>
+            <span class="preset" onclick="applyPreset('anthropic/claude-3-5-sonnet')">claude-3.5-sonnet</span>
+            <span class="preset" onclick="applyPreset('openai/gpt-4o')">gpt-4o</span>
+            <span class="preset" onclick="applyPreset('google/gemini-flash-2.0')">gemini-flash-2.0</span>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -238,6 +323,7 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
     <div class="toolbar">
       <input class="toolbar-id" type="text" id="packet-id" placeholder="Packet ID, e.g. play.toClient.entity_metadata">
       <button class="btn-primary" id="gen-btn" onclick="generate()">▶ Generate</button>
+      <button class="btn-ghost" id="cancel-btn" onclick="cancelGenerate()" style="display:none;color:#f85149;border-color:#da363655">✕ Cancel</button>
       <button class="btn-blue" id="prompt-btn" onclick="buildPrompt()">📋 Prompt</button>
       <button class="btn-ghost" id="schema-btn" onclick="toggleSchema()">🔍 Schema</button>
       <button class="btn-ghost" onclick="clearOutput()">Clear</button>
@@ -247,12 +333,12 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
       <span>Ready</span>
     </div>
 
-    <!-- Schema panel (auto-shown on packet select) -->
+    <!-- Schema panel -->
     <div class="schema-panel" id="schema-panel">
       <div class="schema-header" id="schema-header">
         <span style="color:#484f58">Loading schema...</span>
       </div>
-      <div class="schema-cols">
+      <div class="schema-cols" id="schema-cols">
         <div class="schema-col">
           <div class="schema-col-hdr">JSON</div>
           <pre id="schema-json" style="margin:0;padding:10px;font-size:11px;background:transparent;border-radius:0;min-height:0"></pre>
@@ -262,6 +348,7 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
           <pre id="schema-toon" style="margin:0;padding:10px;font-size:11px;background:transparent;border-radius:0;min-height:0"></pre>
         </div>
       </div>
+      <div class="h-resize-handle" id="schema-h-resize"></div>
     </div>
 
     <!-- Tab bar -->
@@ -270,12 +357,10 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
       <button class="tab"        id="tab-prompt" onclick="switchTab('prompt')">📋 Prompt</button>
     </div>
 
-    <!-- Code pane -->
     <div class="pane active" id="pane-code">
       <pre id="code-output">// Select a packet from the list or type an ID, then click Generate</pre>
     </div>
 
-    <!-- Prompt pane -->
     <div class="pane" id="pane-prompt">
       <pre id="prompt-output">// Click "📋 Prompt" to build and inspect the prompt</pre>
     </div>
@@ -285,21 +370,19 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
 </div>
 
 <script>
-let allPackets = [];
+let allPackets     = [];
+let statsPackets   = [];
+let statsTierFilter = 'all';
 let saveTimer = null;
-let isDirty = false;
-// Complexity cache: packetId → { score, tier }
+let isDirty   = false;
 const complexityCache = {};
 
-// ── Save state indicator ────────────────────────────────────────────────
+// ── Save state ────────────────────────────────────────────────────────────
 function setSaveState(state, text) {
-  const dot = document.getElementById('save-dot');
-  const lbl = document.getElementById('save-label');
-  dot.className = 'save-dot ' + state;
-  lbl.className = 'save-label ' + state;
-  lbl.textContent = text;
+  document.getElementById('save-dot').className  = 'save-dot '   + state;
+  document.getElementById('save-label').className = 'save-label ' + state;
+  document.getElementById('save-label').textContent = text;
 }
-
 function markDirty() {
   isDirty = true;
   setSaveState('dirty', 'Unsaved');
@@ -307,7 +390,15 @@ function markDirty() {
   saveTimer = setTimeout(saveConfig, 800);
 }
 
-// ── Tabs ────────────────────────────────────────────────────────────────
+// ── Sidebar tabs ──────────────────────────────────────────────────────────
+function switchSidebarTab(name) {
+  document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sidebar-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('stab-' + name).classList.add('active');
+  document.getElementById('spane-' + name).classList.add('active');
+}
+
+// ── Main tabs ─────────────────────────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
@@ -315,93 +406,96 @@ function switchTab(name) {
   document.getElementById('pane-' + name).classList.add('active');
 }
 
-// ── Config ──────────────────────────────────────────────────────────────
+// ── Config ────────────────────────────────────────────────────────────────
+function getTierEffort(tier) {
+  return document.querySelector(`#effort-${tier} .effort-btn.active`)?.dataset.v ?? '';
+}
+function setTierEffort(tier, value) {
+  document.querySelectorAll(`#effort-${tier} .effort-btn`).forEach(b => {
+    b.classList.toggle('active', b.dataset.v === value);
+  });
+}
+function toggleTierAdv(tier) {
+  const adv    = document.getElementById('tier-adv-' + tier);
+  const toggle = document.getElementById('tadv-toggle-' + tier);
+  const open   = adv.classList.toggle('open');
+  toggle.classList.toggle('open', open);
+}
+
+// wire up per-tier effort buttons
+['easy','medium','heavy'].forEach(tier => {
+  document.querySelectorAll(`#effort-${tier} .effort-btn`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`#effort-${tier} .effort-btn`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      markDirty();
+    });
+  });
+});
+
 async function loadConfig() {
   try {
     const r = await fetch('/api/config');
     if (!r.ok) return;
     const c = await r.json();
-    document.getElementById('model-small').value  = c.smallModel      ?? '';
-    document.getElementById('model-medium').value = c.mediumModel     ?? '';
-    document.getElementById('model-heavy').value  = c.heavyModel      ?? '';
-    document.getElementById('thresh-small').value = c.smallComplexityThreshold ?? 20;
+    document.getElementById('model-easy').value   = c.easy?.model   ?? '';
+    document.getElementById('model-medium').value = c.medium?.model ?? '';
+    document.getElementById('model-heavy').value  = c.heavy?.model  ?? '';
+    document.getElementById('thresh-easy').value  = c.easyComplexityThreshold  ?? 20;
     document.getElementById('thresh-heavy').value = c.heavyComplexityThreshold ?? 50;
     document.getElementById('temperature').value  = c.temperature     ?? 0;
     document.getElementById('max-tokens').value   = c.maxOutputTokens ?? 4096;
-    const effort = c.reasoningEffort ?? '';
-    document.querySelectorAll('.effort-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.v === effort);
-    });
+    setTierEffort('easy',   c.easy?.reasoningEffort   ?? '');
+    setTierEffort('medium', c.medium?.reasoningEffort ?? '');
+    setTierEffort('heavy',  c.heavy?.reasoningEffort  ?? '');
     const fmt = c.inputFormat ?? 'toon';
-    document.querySelectorAll('#format-row .effort-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.v === fmt);
-    });
+    document.querySelectorAll('#format-row .effort-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.v === fmt));
     isDirty = false;
     setSaveState('idle', 'Synced');
-  } catch (e) {
-    setSaveState('error', 'Load failed');
-  }
+  } catch { setSaveState('error', 'Load failed'); }
 }
 
-function setEffort(btn) {
-  document.querySelectorAll('#effort-row .effort-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  markDirty();
-}
-function getEffort() {
-  const active = document.querySelector('#effort-row .effort-btn.active');
-  return active ? active.dataset.v : '';
-}
 function setFormat(btn) {
   document.querySelectorAll('#format-row .effort-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  markDirty();
+  btn.classList.add('active'); markDirty();
 }
 function getFormat() {
-  const active = document.querySelector('#format-row .effort-btn.active');
-  return active ? active.dataset.v : 'toon';
+  return document.querySelector('#format-row .effort-btn.active')?.dataset.v ?? 'toon';
 }
 
 async function saveConfig() {
   clearTimeout(saveTimer);
   setSaveState('saving', 'Saving...');
   const cfg = {
-    smallModel:               document.getElementById('model-small').value.trim(),
-    mediumModel:              document.getElementById('model-medium').value.trim(),
-    heavyModel:               document.getElementById('model-heavy').value.trim(),
-    smallComplexityThreshold: parseInt(document.getElementById('thresh-small').value) || 20,
+    easy:   { model: document.getElementById('model-easy').value.trim(),   reasoningEffort: getTierEffort('easy')   },
+    medium: { model: document.getElementById('model-medium').value.trim(), reasoningEffort: getTierEffort('medium') },
+    heavy:  { model: document.getElementById('model-heavy').value.trim(),  reasoningEffort: getTierEffort('heavy')  },
+    easyComplexityThreshold:  parseInt(document.getElementById('thresh-easy').value)  || 20,
     heavyComplexityThreshold: parseInt(document.getElementById('thresh-heavy').value) || 50,
-    temperature:              parseFloat(document.getElementById('temperature').value) || 0,
-    maxOutputTokens:          parseInt(document.getElementById('max-tokens').value)    || 4096,
-    reasoningEffort:          getEffort(),
-    inputFormat:              getFormat(),
+    temperature:     parseFloat(document.getElementById('temperature').value) || 0,
+    maxOutputTokens: parseInt(document.getElementById('max-tokens').value)    || 4096,
+    inputFormat:     getFormat(),
   };
   try {
-    const r = await fetch('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cfg)
-    });
-    if (r.ok) {
-      isDirty = false;
-      setSaveState('idle', 'Synced');
-    } else {
-      setSaveState('error', 'Save failed (' + r.status + ')');
-    }
-  } catch (e) {
-    setSaveState('error', 'Network error');
-  }
+    const r = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) });
+    if (r.ok) { isDirty = false; setSaveState('idle', 'Synced'); loadStats(); }
+    else setSaveState('error', 'Save failed (' + r.status + ')');
+  } catch { setSaveState('error', 'Network error'); }
 }
 
+let _focusedModelId = 'model-easy';
+function focusModel(el) { _focusedModelId = el.id; }
 function applyPreset(model) {
-  document.getElementById('model-small').value = model;
+  const inputId = _focusedModelId;
+  document.getElementById(inputId).value = model;
   markDirty();
 }
 
-// ── Packet browser ──────────────────────────────────────────────────────
+// ── Packet browser ────────────────────────────────────────────────────────
 async function loadPackets() {
   try {
-    const r = await fetch('/api/packets');
+    const r    = await fetch('/api/packets');
     const data = await r.json();
     allPackets = [];
     for (const [ns, names] of Object.entries(data))
@@ -409,33 +503,49 @@ async function loadPackets() {
         allPackets.push(`${ns}.${name}`);
     allPackets.sort();
     document.getElementById('packet-count').textContent = `(${allPackets.length})`;
-    renderPackets(allPackets);
+    renderPackets();
   } catch {
     document.getElementById('packet-list').innerHTML =
       '<div style="padding:10px;color:#f85149;font-size:12px">Failed to load packets</div>';
   }
 }
 
-function renderPackets(list) {
-  const el = document.getElementById('packet-list');
+function renderPackets() {
+  const el        = document.getElementById('packet-list');
   const currentId = document.getElementById('packet-id').value.trim();
-  if (!list.length) {
+  const q         = document.getElementById('packet-search').value.toLowerCase().trim();
+
+  // Use statsPackets (sorted by score) when available, else allPackets (alphabetical)
+  const source = statsPackets.length
+    ? statsPackets.filter(p =>
+        (statsTierFilter === 'all' || p.tier === statsTierFilter) &&
+        (!q || p.id.toLowerCase().includes(q)))
+    : allPackets
+        .filter(p => !q || p.includes(q))
+        .map(id => ({ id }));
+
+  if (!source.length) {
     el.innerHTML = '<div style="padding:10px;color:#484f58;font-size:12px">No results</div>';
     return;
   }
-  el.innerHTML = list.slice(0, 300).map(p => {
-    const sel  = p === currentId ? ' selected' : '';
-    const info = complexityCache[p];
+
+  el.innerHTML = source.slice(0, 400).map(p => {
+    const id   = p.id ?? p;
+    const info = p.tier ? p : complexityCache[id];
+    const sel  = id === currentId ? ' selected' : '';
     const dot  = info
       ? `<span class="packet-tier-dot ${info.tier}" title="complexity ${info.score}"></span>`
       : `<span class="packet-tier-dot unknown"></span>`;
-    return `<div class="packet-item${sel}" title="${p}" onclick="selectPacket('${p}')">${dot}${p}</div>`;
+    const scoreEl = info ? `<span class="packet-item-score">${info.score}</span>` : '';
+    return `<div class="packet-item${sel}" title="${id}" onclick="selectPacket('${id}')">${dot}${id}${scoreEl}</div>`;
   }).join('');
 }
 
-function filterPackets() {
-  const q = document.getElementById('packet-search').value.toLowerCase().trim();
-  renderPackets(q ? allPackets.filter(p => p.includes(q)) : allPackets);
+function filterStatsTier(tier) {
+  statsTierFilter = tier;
+  document.querySelectorAll('.stats-card').forEach(c =>
+    c.classList.toggle('active', c.dataset.tier === tier));
+  renderPackets();
 }
 
 function selectPacket(id) {
@@ -445,7 +555,27 @@ function selectPacket(id) {
   loadSchema(id);
 }
 
-// ── Schema panel ─────────────────────────────────────────────────────────
+// ── Stats ─────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const r = await fetch('/api/stats');
+    if (!r.ok) return;
+    const s = await r.json();
+
+    for (const p of (s.packets ?? []))
+      complexityCache[p.id] = { score: p.score, tier: p.tier };
+
+    document.getElementById('sc-all').textContent    = s.total;
+    document.getElementById('sc-easy').textContent   = s.tiers.easy;
+    document.getElementById('sc-medium').textContent = s.tiers.medium;
+    document.getElementById('sc-heavy').textContent  = s.tiers.heavy;
+
+    statsPackets = (s.packets ?? []).sort((a, b) => b.score - a.score);
+    renderPackets();
+  } catch { /* ignore */ }
+}
+
+// ── Schema panel ──────────────────────────────────────────────────────────
 let schemaLoadedFor = null;
 
 async function loadSchema(id) {
@@ -468,21 +598,17 @@ async function loadSchema(id) {
       hdr.innerHTML = `<span style="color:#f85149">${escHtml(e.error ?? 'Error')}</span>`;
       return;
     }
-    const data = await r.json();
+    const data  = await r.json();
     const score = data.complexityScore ?? '?';
     const tier  = data.tier ?? 'unknown';
 
-    // Cache for dots in packet list
     complexityCache[id] = { score, tier };
-    renderPackets(document.getElementById('packet-search').value.toLowerCase().trim()
-      ? allPackets.filter(p => p.includes(document.getElementById('packet-search').value.toLowerCase().trim()))
-      : allPackets);
+    renderPackets();
 
     hdr.innerHTML =
       `<b style="color:#c9d1d9">${escHtml(id)}</b>` +
       ` <span class="ctier ${tier}">${tier.toUpperCase()}</span>` +
       ` <span style="color:#484f58;font-size:10px">score: <b style="color:#8b949e">${score}</b></span>`;
-
     jsonEl.textContent = data.json;
     toonEl.textContent = data.toon;
   } catch (e) {
@@ -491,31 +617,34 @@ async function loadSchema(id) {
 }
 
 function toggleSchema() {
-  const id = document.getElementById('packet-id').value.trim();
+  const id    = document.getElementById('packet-id').value.trim();
   const panel = document.getElementById('schema-panel');
-  if (panel.style.display !== 'none' && schemaLoadedFor === id) {
+  if (panel.style.display !== 'none' && schemaLoadedFor === id)
     panel.style.display = 'none';
-  } else {
+  else {
     if (id) loadSchema(id);
     else panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
   }
 }
 
-// ── Status bar ──────────────────────────────────────────────────────────
-function setStatus(html) {
-  document.getElementById('status-bar').innerHTML = html;
-}
+// ── Status bar ────────────────────────────────────────────────────────────
+function setStatus(html) { document.getElementById('status-bar').innerHTML = html; }
 function si(label, value) {
   return `<span><span style="color:#484f58">${label}:</span> <b style="color:#c9d1d9">${value}</b></span>`;
 }
 
-// ── Generation ──────────────────────────────────────────────────────────
+// ── Generation ────────────────────────────────────────────────────────────
+let _genAbort = null;
+function cancelGenerate() {
+  if (_genAbort) { _genAbort.abort(); _genAbort = null; }
+}
+
 async function generate() {
   const id = document.getElementById('packet-id').value.trim();
   if (!id) return;
-
   if (isDirty) await saveConfig();
 
+  _genAbort = new AbortController();
   setGenerating(true);
   switchTab('code');
   document.getElementById('code-output').textContent = '// Generating...';
@@ -524,9 +653,8 @@ async function generate() {
   const t0 = performance.now();
   try {
     const r = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+      signal: _genAbort.signal
     });
     const clientMs = Math.round(performance.now() - t0);
 
@@ -540,7 +668,6 @@ async function generate() {
     const data = await r.json();
 
     if (data.systemPrompt) {
-      // Heavy packet — write to prompt pane and switch there
       document.getElementById('prompt-output').textContent =
         `// ⚠️  Heavy packet — returned for Claude to handle\n` +
         `// Complexity: ${data.complexityScore ?? '?'}  Tokens: ${data.tokenCount}\n\n` +
@@ -548,30 +675,29 @@ async function generate() {
         `// ══ USER PROMPT ══\n${data.userPrompt}`;
       document.getElementById('code-output').textContent = `// Heavy packet — see Prompt tab`;
       switchTab('prompt');
-      setStatus(
-        `<span class="badge warn">Heavy → Claude</span>` +
-        ` &nbsp;${si('Tokens', data.tokenCount)}` +
-        ` &nbsp;${si('Client', clientMs + 'ms')}`
-      );
+      setStatus(`<span class="badge warn">Heavy → Claude</span> &nbsp;${si('Tokens', data.tokenCount)} &nbsp;${si('Client', clientMs + 'ms')}`);
       return;
     }
 
     document.getElementById('code-output').textContent = data.code ?? '// (empty response)';
-
-    const effort = getEffort();
-    const usageParts = buildUsageParts(data);
     setStatus(
       `<span class="badge ok">✓ OK</span>` +
       ` &nbsp;${si('Model', data.model ?? '?')}` +
-      (effort ? ` &nbsp;${si('Reasoning', effort)}` : '') +
-      usageParts +
+      (data.reasoningTokens ? ` &nbsp;${si('Reasoning', data.reasoningTokens + ' tok')}` : '') +
+      buildUsageParts(data) +
       ` &nbsp;${si('Server', (data.elapsedMs ?? '?') + 'ms')}` +
       ` &nbsp;${si('Client', clientMs + 'ms')}`
     );
   } catch (e) {
-    document.getElementById('code-output').textContent = `// Network error:\n// ${e.message}`;
-    setStatus(`<span class="badge err">Network Error</span>&nbsp; ${escHtml(e.message)}`);
+    if (e.name === 'AbortError') {
+      document.getElementById('code-output').textContent = `// Cancelled`;
+      setStatus(`<span class="badge warn">Cancelled</span>`);
+    } else {
+      document.getElementById('code-output').textContent = `// Network error:\n// ${e.message}`;
+      setStatus(`<span class="badge err">Network Error</span>&nbsp; ${escHtml(e.message)}`);
+    }
   } finally {
+    _genAbort = null;
     setGenerating(false);
   }
 }
@@ -579,18 +705,12 @@ async function generate() {
 async function buildPrompt() {
   const id = document.getElementById('packet-id').value.trim();
   if (!id) return;
-
   setGenerating(true);
   switchTab('prompt');
   document.getElementById('prompt-output').textContent = '// Building prompt...';
   setStatus(`<span class="spinner"></span>&nbsp; Building prompt for <b>${escHtml(id)}</b>...`);
-
   try {
-    const r = await fetch('/api/prompt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
-    });
+    const r = await fetch('/api/prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
     if (!r.ok) { setStatus('<span class="badge err">Failed</span>'); return; }
     const data = await r.json();
     document.getElementById('prompt-output').textContent =
@@ -617,58 +737,42 @@ function clearOutput() {
 }
 
 function setGenerating(on) {
-  document.getElementById('gen-btn').disabled = on;
+  document.getElementById('gen-btn').disabled    = on;
   document.getElementById('prompt-btn').disabled = on;
-  document.getElementById('gen-btn').innerHTML = on
-    ? '<span class="spinner"></span>'
-    : '▶ Generate';
+  document.getElementById('gen-btn').innerHTML   = on ? '<span class="spinner"></span>' : '▶ Generate';
+  document.getElementById('cancel-btn').style.display = on ? '' : 'none';
 }
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-document.getElementById('packet-id').addEventListener('keydown', e => {
-  if (e.key === 'Enter') generate();
-});
+document.getElementById('packet-id').addEventListener('keydown', e => { if (e.key === 'Enter') generate(); });
+window.addEventListener('beforeunload', e => { if (isDirty) { e.preventDefault(); e.returnValue = ''; } });
 
-window.addEventListener('beforeunload', e => {
-  if (isDirty) { e.preventDefault(); e.returnValue = ''; }
-});
-
-// ── Sidebar resize ──────────────────────────────────────────────────────
+// ── Sidebar resize ────────────────────────────────────────────────────────
 (function() {
   const handle  = document.getElementById('resize-handle');
   const sidebar = document.querySelector('.sidebar');
   let dragging  = false;
-
-  handle.addEventListener('mousedown', e => {
-    dragging = true;
-    handle.classList.add('dragging');
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    const w = e.clientX;
-    if (w >= 200 && w <= 600) sidebar.style.width = w + 'px';
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
-    handle.classList.remove('dragging');
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-  });
+  handle.addEventListener('mousedown', e => { dragging = true; handle.classList.add('dragging'); document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; e.preventDefault(); });
+  document.addEventListener('mousemove', e => { if (!dragging) return; const w = e.clientX; if (w >= 200 && w <= 600) sidebar.style.width = w + 'px'; });
+  document.addEventListener('mouseup', () => { if (!dragging) return; dragging = false; handle.classList.remove('dragging'); document.body.style.cursor = ''; document.body.style.userSelect = ''; });
 })();
 
-// ── Token usage breakdown ────────────────────────────────────────────────
+// ── Schema panel vertical resize ──────────────────────────────────────────
+(function() {
+  const handle = document.getElementById('schema-h-resize');
+  const cols   = document.getElementById('schema-cols');
+  let dragging = false, startY = 0, startH = 0;
+  handle.addEventListener('mousedown', e => { dragging = true; startY = e.clientY; startH = cols.offsetHeight; handle.classList.add('dragging'); document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none'; e.preventDefault(); });
+  document.addEventListener('mousemove', e => { if (!dragging) return; const h = startH + (e.clientY - startY); if (h >= 60 && h <= 700) cols.style.height = h + 'px'; });
+  document.addEventListener('mouseup', () => { if (!dragging) return; dragging = false; handle.classList.remove('dragging'); document.body.style.cursor = ''; document.body.style.userSelect = ''; });
+})();
+
+// ── Token usage breakdown ─────────────────────────────────────────────────
 function buildUsageParts(data) {
   const sep = `<span style="color:#30363d;margin:0 4px">│</span>`;
-
   const systemTok  = data.systemTokenCount ?? 0;
   const userTok    = data.userTokenCount   ?? 0;
   const cached     = data.cachedTokens ?? 0;
@@ -676,26 +780,21 @@ function buildUsageParts(data) {
   const cachedStr  = cached > 0
     ? ` <span><span style="color:#484f58">Cached:</span> <b style="color:#3fb950">${cached}</b><span style="color:#484f58;font-size:10px">(${cacheRatio}%)</span></span>`
     : '';
-
   const promptParts = systemTok > 0
     ? `${sep}${si('Sys', systemTok)} ${si('Packet', userTok)}${cachedStr}`
     : `${sep}${si('~Prompt', data.tokenCount)}${cachedStr}`;
-
   if (data.outputTokens == null) return promptParts;
-
   const output    = data.outputTokens    ?? 0;
   const reasoning = data.reasoningTokens ?? 0;
   const total     = data.totalTokens     ?? (data.inputTokens ?? 0) + output;
-
-  let outputParts = sep + si('Total', total);
-  outputParts += ` ${si('Out', output)}`;
-  if (reasoning > 0) outputParts += ` ${si('Think', reasoning)}`;
-
-  return promptParts + outputParts;
+  let out = sep + si('Total', total) + ` ${si('Out', output)}`;
+  if (reasoning > 0) out += ` ${si('Think', reasoning)}`;
+  return promptParts + out;
 }
 
 loadConfig();
 loadPackets();
+loadStats();
 </script>
 </body>
 </html>

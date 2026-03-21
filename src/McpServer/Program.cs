@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
@@ -99,7 +100,7 @@ app.MapPost("/api/config", async (HttpContext http, ModelConfigService cfg, Canc
         return Results.BadRequest("Invalid config JSON.");
 
     cfg.Update(updated);
-    Console.WriteLine($"[McpServer] Config updated: small={updated.SmallModel} medium={updated.MediumModel} heavy={updated.HeavyModel} thresh={updated.SmallThreshold}/{updated.HeavyThreshold}");
+    Console.WriteLine($"[McpServer] Config updated: easy={updated.Easy.Model} medium={updated.Medium.Model} heavy={updated.Heavy.Model} thresh={updated.EasyComplexityThreshold}/{updated.HeavyComplexityThreshold}");
     return Results.Ok(cfg.Config);
 });
 
@@ -150,34 +151,68 @@ app.MapGet("/api/packets/{ns}/{dir}", (string ns, string dir, IProtocolRepositor
     return Results.Ok(result);
 });
 
+// ── Aggregate stats ──────────────────────────────────────────────────────────
+app.MapGet("/api/stats", (IProtocolRepository repo) =>
+{
+    var cfg = modelConfigService.Config;
+    int total = 0, easy = 0, medium = 0, heavy = 0;
+    var byNs      = new SortedDictionary<string, (int Total, int Easy, int Medium, int Heavy)>();
+    var perPacket = new List<object>();
+
+    foreach (var (ns, packets) in repo.GetPackets())
+    {
+        int nsTotal = 0, nsEasy = 0, nsMedium = 0, nsHeavy = 0;
+        foreach (var (name, def) in packets)
+        {
+            var score = PacketComplexityScorer.Compute(def.History);
+            var tier  = score <= cfg.EasyComplexityThreshold  ? "easy"
+                      : score <= cfg.HeavyComplexityThreshold ? "medium"
+                      : "heavy";
+            total++; nsTotal++;
+            if      (tier == "easy")   { easy++;   nsEasy++;   }
+            else if (tier == "medium") { medium++; nsMedium++; }
+            else                       { heavy++;  nsHeavy++;  }
+
+            perPacket.Add(new { id = $"{ns}.{name}", score, tier });
+        }
+        byNs[ns] = (nsTotal, nsEasy, nsMedium, nsHeavy);
+    }
+
+    return Results.Ok(new
+    {
+        total,
+        tiers = new { easy, medium, heavy },
+        byNamespace = byNs.Select(kv => new
+        {
+            ns     = kv.Key,
+            total  = kv.Value.Total,
+            easy   = kv.Value.Easy,
+            medium = kv.Value.Medium,
+            heavy  = kv.Value.Heavy
+        }).ToArray(),
+        packets = perPacket
+    });
+});
+
 // ── Raw schema viewer ─────────────────────────────────────────────────────────
 app.MapGet("/api/schema/{**id}", (string id, IProtocolRepository repo) =>
 {
     try
     {
-        var packet = repo.GetPacket(id);
+        var packet    = repo.GetPacket(id);
         var supported = repo.GetSupportedProtocols();
-        var first = supported.From.ToString();
-        var last  = supported.To.ToString();
 
         var json = System.Text.Json.JsonSerializer.SerializeToNode(
             packet.History, Protodef.ProtodefType.DefaultJsonOptions)!;
         var obj = json.AsObject();
-        // Replace version numbers with first/last aliases
-        for (var i = 0; i < obj.Count; i++)
-        {
-            var node   = obj.GetAt(i);
-            var newKey = node.Key.Replace(first, "first").Replace(last, "last");
-            if (newKey != node.Key)
-                obj.SetAt(i, newKey, node.Value?.DeepClone());
-        }
+        PacketPostProcessor.ApplyVersionAliases(obj, supported);
 
         var jsonStr = System.Text.Json.JsonSerializer.Serialize(json,
             new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
         var toonStr = Toon.Format.ToonEncoder.EncodeNode(json, new Toon.Format.ToonEncodeOptions());
 
         var score = PacketComplexityScorer.Compute(packet.History);
-        var tier  = score <= modelConfigService.Config.SmallComplexityThreshold ? "small"
+        var tier  = score <= modelConfigService.Config.EasyComplexityThreshold ? "easy"
                   : score <= modelConfigService.Config.HeavyComplexityThreshold ? "medium"
                   : "heavy";
 

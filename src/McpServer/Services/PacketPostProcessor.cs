@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json.Nodes;
 using McpServer.Repositories;
 using Protodef;
 using Scriban;
@@ -85,6 +86,24 @@ public static class PacketPostProcessor
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Replaces numeric version keys in a JsonObject with "first"/"last" aliases
+    /// based on the supported protocol range.
+    /// </summary>
+    public static void ApplyVersionAliases(JsonObject obj, ProtocolRange supportedRange)
+    {
+        var first = supportedRange.From.ToString();
+        var last  = supportedRange.To.ToString();
+
+        for (var i = 0; i < obj.Count; i++)
+        {
+            var node   = obj.GetAt(i);
+            var newKey = node.Key.Replace(first, "first").Replace(last, "last");
+            if (newKey != node.Key)
+                obj.SetAt(i, newKey, node.Value?.DeepClone());
+        }
     }
 
     private static List<ProtocolRange> CompressProtocolSupport(

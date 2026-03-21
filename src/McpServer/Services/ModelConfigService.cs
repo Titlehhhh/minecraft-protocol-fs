@@ -70,17 +70,21 @@ public class ModelConfigService
     /// Returns (modelId, returnToClaude) based on structural complexity score.
     /// returnToClaude=true means prompt should be returned to caller instead of sending to LLM.
     /// </summary>
-    public (string Model, bool ReturnToClaude) PickModel(int complexityScore)
+    public (string Model, string ReasoningEffort, bool ReturnToClaude) PickModel(int complexityScore)
     {
         var cfg = _config;
-        if (complexityScore <= cfg.SmallComplexityThreshold)
-            return (cfg.SmallModel, false);
+        if (complexityScore <= cfg.EasyComplexityThreshold)
+            return (cfg.Easy.Model, cfg.Easy.ReasoningEffort, false);
+
         if (complexityScore <= cfg.HeavyComplexityThreshold)
-            return (string.IsNullOrEmpty(cfg.MediumModel) ? cfg.SmallModel : cfg.MediumModel, false);
+        {
+            var m = string.IsNullOrEmpty(cfg.Medium.Model) ? cfg.Easy.Model : cfg.Medium.Model;
+            return (m, cfg.Medium.ReasoningEffort, false);
+        }
 
-        if (string.IsNullOrEmpty(cfg.HeavyModel))
-            return (string.Empty, true);
+        if (string.IsNullOrEmpty(cfg.Heavy.Model))
+            return (string.Empty, string.Empty, true);
 
-        return (cfg.HeavyModel, false);
+        return (cfg.Heavy.Model, cfg.Heavy.ReasoningEffort, false);
     }
 }

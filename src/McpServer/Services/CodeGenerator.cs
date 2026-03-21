@@ -40,7 +40,7 @@ public class CodeGenerator
         var userTokenCount   = TokenCounter.Count(user);
         var tokenCount       = systemTokenCount + userTokenCount;
         var complexityScore  = PacketComplexityScorer.Compute(packet.History);
-        var (model, returnToClaude) = _modelConfig.PickModel(complexityScore);
+        var (model, reasoningEffort, returnToClaude) = _modelConfig.PickModel(complexityScore);
 
         var className = BuildClassName(id);
 
@@ -66,7 +66,7 @@ public class CodeGenerator
             new(ChatRole.User, user)
         ];
 
-        var chatOptions = BuildChatOptions(_modelConfig.Config);
+        var chatOptions = BuildChatOptions(_modelConfig.Config, reasoningEffort);
         var response = await client.GetResponseAsync(messages, chatOptions, cancellationToken);
 
         sw.Stop();
@@ -118,10 +118,7 @@ public class CodeGenerator
         CancellationToken cancellationToken = default)
     {
         var supported = _repository.GetSupportedProtocols();
-        var first = supported.From.ToString();
-        var last  = supported.To.ToString();
-
-        var packet = _repository.GetPacket(id);
+        var packet    = _repository.GetPacket(id);
 
         var resolvedHistory = packet.History
             .ToDictionary(
@@ -131,13 +128,7 @@ public class CodeGenerator
         var json = JsonSerializer.SerializeToNode(resolvedHistory, ProtodefType.DefaultJsonOptions)!;
         var obj  = json.AsObject();
 
-        for (var i = 0; i < obj.Count; i++)
-        {
-            var node   = obj.GetAt(i);
-            var newKey = node.Key.Replace(first, "first").Replace(last, "last");
-            if (newKey != node.Key)
-                obj.SetAt(i, newKey, node.Value?.DeepClone());
-        }
+        PacketPostProcessor.ApplyVersionAliases(obj, supported);
 
         // Remove null version ranges — they mean "packet didn't exist in those versions".
         // LLM should only see actionable schema entries.
@@ -217,12 +208,12 @@ public class CodeGenerator
         return withoutPrefix.Pascalize() + "Packet";
     }
 
-    private static ChatOptions BuildChatOptions(ModelConfig cfg)
+    private static ChatOptions BuildChatOptions(ModelConfig cfg, string reasoningEffort)
     {
-        if (!string.IsNullOrEmpty(cfg.ReasoningEffort))
+        if (!string.IsNullOrEmpty(reasoningEffort))
         {
 #pragma warning disable OPENAI001
-            var effort    = cfg.ReasoningEffort switch
+            var effort    = reasoningEffort switch
             {
                 "low"             => OpenAI.Chat.ChatReasoningEffortLevel.Low,
                 "medium"          => OpenAI.Chat.ChatReasoningEffortLevel.Medium,

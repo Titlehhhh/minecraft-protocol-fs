@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using McpServer.Services;
 using McpServer.Repositories;
 using ModelContextProtocol.Server;
 using Protodef;
@@ -35,29 +36,49 @@ public static class DataTool
     [McpServerTool]
     [Description(
         "Returns a list of all known packet identifiers.\n\n" +
-        "Filtering:\n" +
-        "- The optional 'filter' parameter is a plain text filter, NOT a regular expression.\n" +
-        "- The filter is case-insensitive.\n" +
-        "- Multiple filter tokens can be provided, separated by '|'.\n" +
-        "- A packet identifier is included only if it contains ALL specified tokens.\n\n" +
-        "Examples:\n" +
-        "- filter = \"player\" → matches PlayerMove, PlayerJoin\n" +
-        "- filter = \"player|move\" → matches PlayerMove\n" +
-        "- filter = \"auth|login\" → matches AuthLoginRequest\n\n" +
-        "Do NOT use wildcards (*), regex syntax, or anchors. " +
-        "This tool is intended for safe discovery and selection of packet identifiers."
+        "Text filtering (filter parameter):\n" +
+        "- Plain text, case-insensitive, NOT a regular expression.\n" +
+        "- Multiple tokens separated by '|' — packet must contain ALL tokens.\n" +
+        "- Example: filter=\"player|move\" → matches play.toServer.player_move\n\n" +
+        "Complexity filtering (tier parameter):\n" +
+        "- Values: 'easy', 'medium', 'heavy'.\n" +
+        "- Filters by structural complexity tier based on current model config thresholds.\n" +
+        "- Use 'easy' to get simple packets safe to generate with cheap models.\n" +
+        "- Use 'heavy' to find packets that require special handling or Claude-level reasoning.\n" +
+        "- Both filters can be combined.\n\n" +
+        "Do NOT use wildcards or regex in the filter parameter."
     )]
     public static string GetPackets(
         IProtocolRepository repository,
-        string? filter = null)
+        ModelConfigService modelConfig,
+        string? filter = null,
+        [Description("Optional complexity tier filter: 'easy', 'medium', or 'heavy'. Leave null to return all tiers.")]
+        string? tier = null)
     {
+        var cfg = modelConfig.Config;
+
+        // Apply complexity tier filter if requested
+        Func<string, string[], string[]> applyTier = tier is null
+            ? (_, names) => names
+            : (ns, names) => names.Where(name =>
+              {
+                  var def   = repository.GetPacket($"{ns}.{name}");
+                  var score = PacketComplexityScorer.Compute(def.History);
+                  var t     = score <= cfg.EasyComplexityThreshold  ? "easy"
+                            : score <= cfg.HeavyComplexityThreshold ? "medium"
+                            : "heavy";
+                  return t == tier;
+              }).ToArray();
+
         var packets =
             repository.GetPackets()
                 .Select(x =>
                 {
-                    var dict = x.Value.Keys.ToArray();
-                    return new KeyValuePair<string, string[]>(x.Key, dict);
-                }).ToDictionary();
+                    var filtered = applyTier(x.Key, x.Value.Keys.ToArray());
+                    return new KeyValuePair<string, string[]>(x.Key, filtered);
+                })
+                .Where(x => x.Value.Length > 0)
+                .ToDictionary();
 
         if (string.IsNullOrWhiteSpace(filter))
         {

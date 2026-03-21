@@ -82,8 +82,8 @@ public static class PacketComplexityScorer
         if (ranges.Count < 2) return 0;
 
         var fieldMaps = ranges
-            .Select(kv => kv.Value is ProtodefContainer c
-                ? c.Fields.ToDictionary(f => f.Name, f => f.Type)
+            .Select(kv => kv.Value is not null
+                ? ExtractNamedFields(kv.Value)
                 : new Dictionary<string, ProtodefType>())
             .ToList();
 
@@ -98,5 +98,35 @@ public static class PacketComplexityScorer
                     .ToList();
                 return types.Count > 1 && types.Any(t => !t.Equals(types[0]));
             });
+    }
+
+    // Рекурсивно собирает именованные поля из типа.
+    // Анонимные поля (anon:true) разворачиваются: рекурсия идёт в их тип.
+    // Тип анон-поля может быть любым: container, switch, array, примитив и т.д.
+    private static Dictionary<string, ProtodefType> ExtractNamedFields(ProtodefType type)
+    {
+        var result = new Dictionary<string, ProtodefType>();
+        ExtractNamedFieldsInto(type, result);
+        return result;
+    }
+
+    private static void ExtractNamedFieldsInto(ProtodefType type, Dictionary<string, ProtodefType> result)
+    {
+        if (type is ProtodefContainer container)
+        {
+            foreach (var field in container.Fields)
+            {
+                if (field.IsAnon)
+                    ExtractNamedFieldsInto(field.Type, result);
+                else
+                    result[field.Name!] = field.Type;
+            }
+        }
+        else if (type is ProtodefSwitch sw)
+        {
+            foreach (var (_, caseType) in sw.Children)
+                ExtractNamedFieldsInto(caseType, result);
+        }
+        // Array, primitives и прочие типы — именованных полей не содержат
     }
 }
