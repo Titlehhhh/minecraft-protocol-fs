@@ -80,6 +80,7 @@ input[type=text]:focus, input[type=number]:focus { outline: none; border-color: 
 .tier-adv-toggle { margin-left: auto; cursor: pointer; color: #484f58; font-size: 11px; user-select: none; transition: transform 0.15s; flex-shrink: 0; }
 .tier-adv-toggle.open { transform: rotate(90deg); color: #8b949e; }
 .tier-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
+.tier-tag.tiny   { background: #23863622; color: #3fb950; border: 1px solid #23863655; cursor:pointer; }
 .tier-tag.easy   { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb55; cursor:pointer; }
 .tier-tag.medium { background: #d2992222; color: #d29922; border: 1px solid #d2992255; cursor:pointer; }
 .tier-tag.heavy  { background: #da363622; color: #f85149; border: 1px solid #da363655; cursor:pointer; }
@@ -114,6 +115,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .packet-search { margin-bottom: 6px; width: 100%; }
 .packet-tier-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.packet-tier-dot.tiny   { background: #3fb950; }
 .packet-tier-dot.easy   { background: #58a6ff; }
 .packet-tier-dot.medium { background: #d29922; }
 .packet-tier-dot.heavy  { background: #f85149; }
@@ -126,10 +128,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .stats-card-count { font-size: 20px; font-weight: 700; line-height: 1; }
 .stats-card-label { font-size: 9px; font-weight: 700; color: #484f58; margin-top: 2px; letter-spacing: 0.5px; }
 .stats-card.all    .stats-card-count { color: #c9d1d9; }
+.stats-card.tiny   .stats-card-count { color: #3fb950; }
 .stats-card.easy   .stats-card-count { color: #58a6ff; }
 .stats-card.medium .stats-card-count { color: #d29922; }
 .stats-card.heavy  .stats-card-count { color: #f85149; }
 .stats-card.all.active    { border-color: #8b949e; background: #21262d; }
+.stats-card.tiny.active   { border-color: #3fb950; background: #23863615; }
 .stats-card.easy.active   { border-color: #58a6ff; background: #1f6feb22; }
 .stats-card.medium.active { border-color: #d29922; background: #d2992215; }
 .stats-card.heavy.active  { border-color: #f85149; background: #da363615; }
@@ -201,6 +205,10 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
             <span class="stats-card-count" id="sc-all">–</span>
             <span class="stats-card-label">ALL</span>
           </div>
+          <div class="stats-card tiny" data-tier="tiny" onclick="filterStatsTier('tiny')">
+            <span class="stats-card-count" id="sc-tiny">–</span>
+            <span class="stats-card-label">TINY</span>
+          </div>
           <div class="stats-card easy" data-tier="easy" onclick="filterStatsTier('easy')">
             <span class="stats-card-count" id="sc-easy">–</span>
             <span class="stats-card-label">EASY</span>
@@ -229,6 +237,23 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
           <h2>Model Tiers</h2>
 
           <div class="tier">
+            <span class="tier-tag tiny">TINY</span>
+            <input type="text" id="model-tiny" placeholder="empty → fallback to Easy" onfocus="focusModel(this)" oninput="markDirty()">
+            <span style="font-size:10px;color:#484f58;white-space:nowrap">complexity&nbsp;≤&nbsp;<input type="number" id="thresh-tiny" value="22" class="sm" min="0" oninput="markDirty()"></span>
+            <span class="tier-adv-toggle" id="tadv-toggle-tiny" onclick="toggleTierAdv('tiny')">▶</span>
+          </div>
+          <div class="tier-adv" id="tier-adv-tiny">
+            <div class="effort-row" id="effort-tiny">
+              <button class="effort-btn active" data-v="">Off</button>
+              <button class="effort-btn" data-v="low">low</button>
+              <button class="effort-btn" data-v="medium">medium</button>
+              <button class="effort-btn" data-v="high">high</button>
+              <button class="effort-btn" data-v="xhigh">xhigh</button>
+            </div>
+            <input type="text" id="endpoint-tiny" placeholder="endpoint (e.g. http://localhost:1234/v1 for LM Studio)" style="margin-top:6px" oninput="markDirty()">
+          </div>
+
+          <div class="tier">
             <span class="tier-tag easy">EASY</span>
             <input type="text" id="model-easy" placeholder="model id" onfocus="focusModel(this)" oninput="markDirty()">
             <span style="font-size:10px;color:#484f58;white-space:nowrap">complexity&nbsp;≤&nbsp;<input type="number" id="thresh-easy" value="20" class="sm" min="1" oninput="markDirty()"></span>
@@ -242,6 +267,7 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
               <button class="effort-btn" data-v="high">high</button>
               <button class="effort-btn" data-v="xhigh">xhigh</button>
             </div>
+            <input type="text" id="endpoint-easy" placeholder="endpoint (empty = OpenRouter, e.g. http://localhost:1234/v1)" style="margin-top:6px" oninput="markDirty()">
           </div>
 
           <div class="tier">
@@ -258,6 +284,7 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
               <button class="effort-btn" data-v="high">high</button>
               <button class="effort-btn" data-v="xhigh">xhigh</button>
             </div>
+            <input type="text" id="endpoint-medium" placeholder="endpoint (empty = OpenRouter, e.g. http://localhost:1234/v1)" style="margin-top:6px" oninput="markDirty()">
           </div>
 
           <div class="tier">
@@ -273,6 +300,7 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
               <button class="effort-btn" data-v="high">high</button>
               <button class="effort-btn" data-v="xhigh">xhigh</button>
             </div>
+            <input type="text" id="endpoint-heavy" placeholder="endpoint (empty = OpenRouter, e.g. http://localhost:1234/v1)" style="margin-top:6px" oninput="markDirty()">
           </div>
 
           <div class="row2" style="margin-top:10px">
@@ -291,6 +319,29 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
             <div class="effort-row" id="format-row">
               <button class="effort-btn active" data-v="toon" onclick="setFormat(this)">Toon</button>
               <button class="effort-btn" data-v="json" onclick="setFormat(this)">JSON</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Complexity Assessor</h2>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <label style="margin:0;flex:1">LLM assessor</label>
+            <button id="assessor-toggle" class="effort-btn" style="width:56px" onclick="toggleAssessor()">OFF</button>
+          </div>
+          <div id="assessor-body" style="display:none">
+            <label>Model</label>
+            <input type="text" id="assessor-model" placeholder="e.g. qwen/qwen3-30b-a3b" onfocus="focusModel(this)" oninput="markDirty()" style="margin-bottom:6px">
+            <label>Endpoint <span style="color:#484f58">(empty = OpenRouter)</span></label>
+            <input type="text" id="assessor-endpoint" placeholder="http://localhost:1234/v1 for LM Studio" oninput="markDirty()" style="margin-bottom:6px">
+            <label>Max output tokens</label>
+            <input type="number" id="assessor-max-tokens" value="1024" min="64" max="16384" step="64" oninput="markDirty()" style="margin-bottom:6px">
+            <label>Reasoning <span style="color:#484f58">(off = faster + no token waste)</span></label>
+            <div class="effort-row" id="effort-assessor">
+              <button class="effort-btn active" data-v="">Off</button>
+              <button class="effort-btn" data-v="low">low</button>
+              <button class="effort-btn" data-v="medium">medium</button>
+              <button class="effort-btn" data-v="high">high</button>
             </div>
           </div>
         </div>
@@ -325,6 +376,7 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
       <button class="btn-primary" id="gen-btn" onclick="generate()">▶ Generate</button>
       <button class="btn-ghost" id="cancel-btn" onclick="cancelGenerate()" style="display:none;color:#f85149;border-color:#da363655">✕ Cancel</button>
       <button class="btn-blue" id="prompt-btn" onclick="buildPrompt()">📋 Prompt</button>
+      <button class="btn-ghost" id="assess-btn" onclick="assess()">🔮 Assess</button>
       <button class="btn-ghost" id="schema-btn" onclick="toggleSchema()">🔍 Schema</button>
       <button class="btn-ghost" onclick="clearOutput()">Clear</button>
     </div>
@@ -423,7 +475,7 @@ function toggleTierAdv(tier) {
 }
 
 // wire up per-tier effort buttons
-['easy','medium','heavy'].forEach(tier => {
+['tiny','easy','medium','heavy','assessor'].forEach(tier => {
   document.querySelectorAll(`#effort-${tier} .effort-btn`).forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll(`#effort-${tier} .effort-btn`).forEach(b => b.classList.remove('active'));
@@ -438,22 +490,48 @@ async function loadConfig() {
     const r = await fetch('/api/config');
     if (!r.ok) return;
     const c = await r.json();
+    document.getElementById('model-tiny').value   = c.tiny?.model   ?? '';
     document.getElementById('model-easy').value   = c.easy?.model   ?? '';
     document.getElementById('model-medium').value = c.medium?.model ?? '';
     document.getElementById('model-heavy').value  = c.heavy?.model  ?? '';
+    document.getElementById('endpoint-tiny').value   = c.tiny?.endpoint   ?? '';
+    document.getElementById('endpoint-easy').value   = c.easy?.endpoint   ?? '';
+    document.getElementById('endpoint-medium').value = c.medium?.endpoint ?? '';
+    document.getElementById('endpoint-heavy').value  = c.heavy?.endpoint  ?? '';
+    document.getElementById('thresh-tiny').value  = c.tinyComplexityThreshold  ?? 22;
     document.getElementById('thresh-easy').value  = c.easyComplexityThreshold  ?? 20;
     document.getElementById('thresh-heavy').value = c.heavyComplexityThreshold ?? 50;
     document.getElementById('temperature').value  = c.temperature     ?? 0;
     document.getElementById('max-tokens').value   = c.maxOutputTokens ?? 4096;
+    setTierEffort('tiny',   c.tiny?.reasoningEffort   ?? '');
     setTierEffort('easy',   c.easy?.reasoningEffort   ?? '');
     setTierEffort('medium', c.medium?.reasoningEffort ?? '');
     setTierEffort('heavy',  c.heavy?.reasoningEffort  ?? '');
     const fmt = c.inputFormat ?? 'toon';
     document.querySelectorAll('#format-row .effort-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.v === fmt));
+    const assessorEnabled = c.assessor?.enabled ?? false;
+    document.getElementById('assessor-model').value      = c.assessor?.model          ?? '';
+    document.getElementById('assessor-endpoint').value   = c.assessor?.endpoint       ?? '';
+    document.getElementById('assessor-max-tokens').value = c.assessor?.maxOutputTokens ?? 1024;
+    setTierEffort('assessor', c.assessor?.reasoningEffort ?? '');
+    setAssessorEnabled(assessorEnabled);
     isDirty = false;
     setSaveState('idle', 'Synced');
   } catch { setSaveState('error', 'Load failed'); }
+}
+
+function setAssessorEnabled(enabled) {
+  const btn  = document.getElementById('assessor-toggle');
+  const body = document.getElementById('assessor-body');
+  btn.textContent = enabled ? 'ON' : 'OFF';
+  btn.classList.toggle('active', enabled);
+  body.style.display = enabled ? 'block' : 'none';
+}
+function toggleAssessor() {
+  const btn = document.getElementById('assessor-toggle');
+  setAssessorEnabled(btn.textContent === 'OFF');
+  markDirty();
 }
 
 function setFormat(btn) {
@@ -468,14 +546,23 @@ async function saveConfig() {
   clearTimeout(saveTimer);
   setSaveState('saving', 'Saving...');
   const cfg = {
-    easy:   { model: document.getElementById('model-easy').value.trim(),   reasoningEffort: getTierEffort('easy')   },
-    medium: { model: document.getElementById('model-medium').value.trim(), reasoningEffort: getTierEffort('medium') },
-    heavy:  { model: document.getElementById('model-heavy').value.trim(),  reasoningEffort: getTierEffort('heavy')  },
+    tiny:   { model: document.getElementById('model-tiny').value.trim(),   reasoningEffort: getTierEffort('tiny'),   endpoint: document.getElementById('endpoint-tiny').value.trim()   },
+    easy:   { model: document.getElementById('model-easy').value.trim(),   reasoningEffort: getTierEffort('easy'),   endpoint: document.getElementById('endpoint-easy').value.trim()   },
+    medium: { model: document.getElementById('model-medium').value.trim(), reasoningEffort: getTierEffort('medium'), endpoint: document.getElementById('endpoint-medium').value.trim() },
+    heavy:  { model: document.getElementById('model-heavy').value.trim(),  reasoningEffort: getTierEffort('heavy'),  endpoint: document.getElementById('endpoint-heavy').value.trim()  },
+    tinyComplexityThreshold: parseInt(document.getElementById('thresh-tiny').value) || 22,
     easyComplexityThreshold:  parseInt(document.getElementById('thresh-easy').value)  || 20,
     heavyComplexityThreshold: parseInt(document.getElementById('thresh-heavy').value) || 50,
     temperature:     parseFloat(document.getElementById('temperature').value) || 0,
     maxOutputTokens: parseInt(document.getElementById('max-tokens').value)    || 4096,
     inputFormat:     getFormat(),
+    assessor: {
+      enabled:         document.getElementById('assessor-toggle').textContent === 'ON',
+      model:           document.getElementById('assessor-model').value.trim(),
+      endpoint:        document.getElementById('assessor-endpoint').value.trim(),
+      maxOutputTokens: parseInt(document.getElementById('assessor-max-tokens').value) || 1024,
+      reasoningEffort: getTierEffort('assessor'),
+    },
   };
   try {
     const r = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) });
@@ -566,9 +653,10 @@ async function loadStats() {
       complexityCache[p.id] = { score: p.score, tier: p.tier };
 
     document.getElementById('sc-all').textContent    = s.total;
-    document.getElementById('sc-easy').textContent   = s.tiers.easy;
-    document.getElementById('sc-medium').textContent = s.tiers.medium;
-    document.getElementById('sc-heavy').textContent  = s.tiers.heavy;
+    document.getElementById('sc-tiny').textContent   = s.tiers.tiny   ?? 0;
+    document.getElementById('sc-easy').textContent   = s.tiers.easy   ?? 0;
+    document.getElementById('sc-medium').textContent = s.tiers.medium ?? 0;
+    document.getElementById('sc-heavy').textContent  = s.tiers.heavy  ?? 0;
 
     statsPackets = (s.packets ?? []).sort((a, b) => b.score - a.score);
     renderPackets();
@@ -631,6 +719,34 @@ function toggleSchema() {
 function setStatus(html) { document.getElementById('status-bar').innerHTML = html; }
 function si(label, value) {
   return `<span><span style="color:#484f58">${label}:</span> <b style="color:#c9d1d9">${value}</b></span>`;
+}
+
+// ── Assess ────────────────────────────────────────────────────────────────
+async function assess() {
+  const id = document.getElementById('packet-id').value.trim();
+  if (!id) return;
+  const btn = document.getElementById('assess-btn');
+  btn.disabled = true;
+  setStatus(`<span class="spinner"></span>&nbsp; Assessing <b>${escHtml(id)}</b>...`);
+  try {
+    const r = await fetch(`/api/assess/${encodeURIComponent(id)}`);
+    const d = await r.json();
+    if (!r.ok) { setStatus(`<span style="color:#f85149">Assess error: ${escHtml(d.error ?? r.status)}</span>`); return; }
+    const score = d.llmScore != null ? ` · llm score: <b style="color:#c9d1d9">${d.llmScore}</b>` : '';
+    const reason = d.reason ? ` · <span style="color:#8b949e;font-style:italic">${escHtml(d.reason)}</span>` : '';
+    setStatus(
+      si('id', escHtml(id)) +
+      si('struct', d.structuralScore) +
+      `<span><span style="color:#484f58">tier:</span> <span class="ctier ${d.tier}">${d.tier.toUpperCase()}</span></span>` +
+      score + reason
+    );
+    complexityCache[id] = { score: d.structuralScore, tier: d.tier };
+    renderPackets();
+  } catch (e) {
+    setStatus(`<span style="color:#f85149">Assess failed: ${escHtml(e.message)}</span>`);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ── Generation ────────────────────────────────────────────────────────────
