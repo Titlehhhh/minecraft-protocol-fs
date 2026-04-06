@@ -109,10 +109,6 @@ These are registered in `Extensions/ProtocolSerializationExtensions.cs` and rout
 - ChatType, ChatTypeParameterType, ChatTypes, ChatTypesHolder,
   PositionUpdateRelatives, RecipeBookSetting, RecipeDisplay, SlotDisplay, MovementFlags
 
-**Death location:**
-
-- DeathLocation
-
 ## RegistryEntryHolder<T>
 
 Supported value types are registered in `ProtocolSerializationExtensions.cs`:
@@ -132,6 +128,18 @@ Return/field type: `NbtTag` (requires `using McProtoNet.NBT;` in the packet file
 - `ReadAnonOptionalNbtTag(protocolVersion)` / `WriteAnonOptionalNbtTag(NbtTag? value, protocolVersion)`
 
 When using NBT, add `using McProtoNet.NBT;` as the first line before `{{usages}}`.
+
+## Direct Extension Methods (NOT usable with ReadArray<T>/WriteArray<T>)
+
+These are direct `ref`/plain extension methods — **not registered in ReadType<T>/WriteType<T>**.
+Do NOT use them with ReadArray/WriteArray. Use a manual loop instead.
+
+**Death location** (`ProtocolSerializationExtensions.SpawnInfo.cs`):
+- `reader.ReadDeathLocation(protocolVersion)` → `DeathLocation`
+- `writer.WriteDeathLocation(DeathLocation value, protocolVersion)`
+
+**Length-prefixed buffer** (raw bytes with a VarInt length prefix):
+- `writer.WriteBuffer<VarInt>(ReadOnlySpan<byte>)` — writes VarInt length then bytes
 
 ## container_id field (protocol 766+)
 
