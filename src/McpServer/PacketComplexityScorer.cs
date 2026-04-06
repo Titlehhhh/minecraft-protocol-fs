@@ -12,11 +12,17 @@ namespace McpServer;
 /// Scoring:
 ///   +10  per non-null version range   (each range = one code path)
 ///   +2   per field in the largest range
-///   +20  if any nested array detected  (array of array)
+///   +15  if any array detected         (any array, including simple)
+///   +20  if any nested array detected  (array of array — on top of +15)
 ///   +5   if any mapper detected        (enum-like type)
 ///   +15  if any switch detected        (complex branching)
 ///   +10  if any option detected        (nullable field)
 ///   +15  per type conflict             (same field name, different type across ranges)
+///
+/// Tiny tier threshold guide (default 22):
+///   1 range + ≤5 primitive fields + no array/switch = 10 + 10 = 20  → tiny ✓
+///   1 range + 1 option + ≤1 field                   = 10 + 2 + 10 = 22 → tiny ✓
+///   1 range + any array                              = 10 + N + 15 = 25+ → easy
 /// </summary>
 public static class PacketComplexityScorer
 {
@@ -37,15 +43,17 @@ public static class PacketComplexityScorer
         score += maxFields * 2;
 
         // 3. Special type features
-        bool hasMapper = false, hasSwitch = false, hasOption = false, hasNestedArray = false;
+        bool hasMapper = false, hasSwitch = false, hasOption = false, hasArray = false, hasNestedArray = false;
         foreach (var (_, type) in nonNull)
         {
             hasMapper      |= HasType<ProtodefMapper>(type!);
             hasSwitch      |= HasType<ProtodefSwitch>(type!);
             hasOption      |= HasType<ProtodefOption>(type!);
+            hasArray       |= HasType<ProtodefArray>(type!);
             hasNestedArray |= HasNestedArray(type!);
         }
 
+        if (hasArray)       score += 15;
         if (hasNestedArray) score += 20;
         if (hasMapper)      score += 5;
         if (hasSwitch)      score += 15;

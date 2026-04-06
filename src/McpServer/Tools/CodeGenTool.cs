@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using McpServer.Models;
@@ -60,8 +61,42 @@ public static class CodeGenTool
                 throw new McpException($"Unknown packet id '{id}'.");
         }
 
-        var tasks = Array.ConvertAll(ids, id => GenerateSafe(codeGenerator, id, cancellationToken));
-        return [..await Task.WhenAll(tasks)];
+        Task<McpGenerationResult>[] tasks = Array.ConvertAll(ids, id => GenerateSafe(codeGenerator, id, cancellationToken));
+        return new List<McpGenerationResult>(await Task.WhenAll(tasks));
+    }
+
+    [McpServerTool(Name = "generate_packets_by_tier")]
+    [Description(
+        "Generates all packets belonging to a specific complexity tier in parallel. " +
+        "Tier is determined by current model config thresholds. " +
+        "Values: 'tiny' (local model), 'easy', 'medium', 'heavy'. " +
+        "Returns a list of McpGenerationResult — same semantics as generate_packet per entry. " +
+        "Per-packet errors are stored in Error field; the batch does not fail as a whole. " +
+        "Use this to bulk-generate all simple/tiny packets without listing them manually.")]
+    public static async Task<List<McpGenerationResult>> GeneratePacketsByTier(
+        CodeGenerator codeGenerator,
+        IProtocolRepository protocol,
+        ModelConfigService modelConfig,
+        [Description("Complexity tier: 'tiny', 'easy', 'medium', or 'heavy'.")]
+        string tier,
+        CancellationToken cancellationToken)
+    {
+        var validTiers = new[] { "tiny", "easy", "medium", "heavy" };
+        if (!Array.Exists(validTiers, t => t == tier))
+            throw new McpException($"Invalid tier '{tier}'. Valid values: tiny, easy, medium, heavy.");
+
+        var ids = protocol.GetPackets()
+            .SelectMany(ns => ns.Value.Keys.Select(name => $"{ns.Key}.{name}"))
+            .Where(id =>
+            {
+                var def   = protocol.GetPacket(id);
+                var score = PacketComplexityScorer.Compute(def.History);
+                return modelConfig.ClassifyTier(score).ToLabel() == tier;
+            })
+            .ToArray();
+
+        Task<McpGenerationResult>[] tasks = Array.ConvertAll(ids, id => GenerateSafe(codeGenerator, id, cancellationToken));
+        return new List<McpGenerationResult>(await Task.WhenAll(tasks));
     }
 
     private static async Task<McpGenerationResult> GenerateSafe(

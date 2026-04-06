@@ -60,31 +60,98 @@ public class ModelConfigService
         }
     }
 
-    public IChatClient CreateClient(string model) =>
-        new OpenAIClient(
-            new ApiKeyCredential(_apiKey),
-            new OpenAIClientOptions { Endpoint = new Uri("https://openrouter.ai/api/v1/") }
+    public IChatClient CreateClient(string model, string endpoint = "")
+    {
+        var uri    = string.IsNullOrEmpty(endpoint)
+            ? new Uri("https://openrouter.ai/api/v1/")
+            : new Uri(endpoint.TrimEnd('/') + "/");
+        var apiKey = string.IsNullOrEmpty(endpoint) ? _apiKey : "lm-studio";
+        return new OpenAIClient(
+            new ApiKeyCredential(apiKey),
+            new OpenAIClientOptions { Endpoint = uri }
         ).GetChatClient(model).AsIChatClient();
+    }
 
     /// <summary>
-    /// Returns (modelId, returnToClaude) based on structural complexity score.
-    /// returnToClaude=true means prompt should be returned to caller instead of sending to LLM.
+    /// Returns (model, reasoningEffort, returnToClaude, endpoint) based on structural complexity score.
+    /// Delegates to PickModel(ComplexityTier).
     /// </summary>
-    public (string Model, string ReasoningEffort, bool ReturnToClaude) PickModel(int complexityScore)
+    public (string Model, string ReasoningEffort, bool ReturnToClaude, string Endpoint) PickModel(int complexityScore)
+        => PickModel(ClassifyTier(complexityScore));
+
+    /// <summary>
+    /// Returns (model, reasoningEffort, returnToClaude, endpoint) for the given tier.
+    /// returnToClaude=true means prompt should be returned to caller instead of sending to LLM.
+    /// endpoint is empty string for OpenRouter (default) or an override URL (e.g. LM Studio).
+    /// </summary>
+    public (string Model, string ReasoningEffort, bool ReturnToClaude, string Endpoint) PickModel(ComplexityTier tier)
     {
         var cfg = _config;
-        if (complexityScore <= cfg.EasyComplexityThreshold)
-            return (cfg.Easy.Model, cfg.Easy.ReasoningEffort, false);
-
-        if (complexityScore <= cfg.HeavyComplexityThreshold)
+        return tier switch
         {
-            var m = string.IsNullOrEmpty(cfg.Medium.Model) ? cfg.Easy.Model : cfg.Medium.Model;
-            return (m, cfg.Medium.ReasoningEffort, false);
+            ComplexityTier.Tiny   => PickTinyTier(cfg),
+            ComplexityTier.Easy   => (cfg.Easy.Model, cfg.Easy.ReasoningEffort, false, cfg.Easy.Endpoint),
+            ComplexityTier.Medium => string.IsNullOrEmpty(cfg.Medium.Model)
+                ? (cfg.Easy.Model, cfg.Easy.ReasoningEffort, false, cfg.Easy.Endpoint)
+                : (cfg.Medium.Model, cfg.Medium.ReasoningEffort, false, cfg.Medium.Endpoint),
+            ComplexityTier.Heavy  => string.IsNullOrEmpty(cfg.Heavy.Model)
+                ? (string.Empty, string.Empty, true, string.Empty)
+                : (cfg.Heavy.Model, cfg.Heavy.ReasoningEffort, false, cfg.Heavy.Endpoint),
+            _ => throw new ArgumentOutOfRangeException(nameof(tier)),
+        };
+    }
+
+    /// <summary>
+    /// Builds ChatOptions with optional reasoning effort control.
+    /// reasoningEffort: "" = off, "low"/"medium"/"high"/"xhigh" = enabled at that level.
+    /// </summary>
+    public static ChatOptions BuildChatOptions(int maxOutputTokens, float temperature, string reasoningEffort)
+    {
+        if (!string.IsNullOrEmpty(reasoningEffort))
+        {
+#pragma warning disable OPENAI001
+            var effort = reasoningEffort switch
+            {
+                "low"             => OpenAI.Chat.ChatReasoningEffortLevel.Low,
+                "medium"          => OpenAI.Chat.ChatReasoningEffortLevel.Medium,
+                "high" or "xhigh" => OpenAI.Chat.ChatReasoningEffortLevel.High,
+                _                 => OpenAI.Chat.ChatReasoningEffortLevel.Medium,
+            };
+            return new ChatOptions
+            {
+                MaxOutputTokens          = maxOutputTokens,
+                Temperature              = temperature,
+                RawRepresentationFactory = _ => new OpenAI.Chat.ChatCompletionOptions
+                {
+                    ReasoningEffortLevel = effort,
+                    MaxOutputTokenCount  = maxOutputTokens,
+                    Temperature          = temperature,
+                }
+            };
+#pragma warning restore OPENAI001
         }
 
-        if (string.IsNullOrEmpty(cfg.Heavy.Model))
-            return (string.Empty, string.Empty, true);
+        return new ChatOptions
+        {
+            Temperature     = temperature,
+            MaxOutputTokens = maxOutputTokens,
+        };
+    }
 
-        return (cfg.Heavy.Model, cfg.Heavy.ReasoningEffort, false);
+    private static (string Model, string ReasoningEffort, bool ReturnToClaude, string Endpoint) PickTinyTier(ModelConfig cfg)
+    {
+        var t = string.IsNullOrEmpty(cfg.Tiny.Model) ? cfg.Easy : cfg.Tiny;
+        return (t.Model, t.ReasoningEffort, false, t.Endpoint);
+    }
+
+    /// <summary>Classifies a structural complexity score into a ComplexityTier.</summary>
+    public ComplexityTier ClassifyTier(int complexityScore)
+    {
+        var cfg = _config;
+        if (cfg.TinyComplexityThreshold > 0 && complexityScore <= cfg.TinyComplexityThreshold)
+            return ComplexityTier.Tiny;
+        if (complexityScore <= cfg.EasyComplexityThreshold) return ComplexityTier.Easy;
+        if (complexityScore <= cfg.HeavyComplexityThreshold) return ComplexityTier.Medium;
+        return ComplexityTier.Heavy;
     }
 }

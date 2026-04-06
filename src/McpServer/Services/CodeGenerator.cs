@@ -18,18 +18,21 @@ namespace McpServer.Services;
 
 public class CodeGenerator
 {
-    private readonly IProtocolRepository _repository;
-    private readonly ModelConfigService  _modelConfig;
+    private readonly IProtocolRepository  _repository;
+    private readonly ModelConfigService   _modelConfig;
     private readonly IArtifactsRepository _artifacts;
+    private readonly IComplexityAssessor  _assessor;
 
     public CodeGenerator(
         IProtocolRepository repository,
         ModelConfigService modelConfig,
-        IArtifactsRepository artifacts)
+        IArtifactsRepository artifacts,
+        IComplexityAssessor assessor)
     {
         _repository  = repository;
         _modelConfig = modelConfig;
         _artifacts   = artifacts;
+        _assessor    = assessor;
     }
 
     public async Task<GenerationData> GenerateAsync(string id, CancellationToken cancellationToken = default)
@@ -40,7 +43,8 @@ public class CodeGenerator
         var userTokenCount   = TokenCounter.Count(user);
         var tokenCount       = systemTokenCount + userTokenCount;
         var complexityScore  = PacketComplexityScorer.Compute(packet.History);
-        var (model, reasoningEffort, returnToClaude) = _modelConfig.PickModel(complexityScore);
+        var assessment       = await _assessor.AssessAsync(packet.History, cancellationToken);
+        var (model, reasoningEffort, returnToClaude, endpoint) = _modelConfig.PickModel(assessment.Tier);
 
         var className = BuildClassName(id);
 
@@ -52,13 +56,16 @@ public class CodeGenerator
                 UserTokenCount   = userTokenCount,
                 TokenCount       = tokenCount,
                 ComplexityScore  = complexityScore,
+                Tier             = assessment.Tier.ToLabel(),
+                AssessorScore    = assessment.LlmScore,
+                AssessorReason   = assessment.Reason,
                 SystemPrompt     = system,
                 UserPrompt       = user,
             };
 
         var sw = Stopwatch.StartNew();
 
-        using var client = _modelConfig.CreateClient(model);
+        using var client = _modelConfig.CreateClient(model, endpoint);
 
         ChatMessage[] messages =
         [
@@ -66,7 +73,7 @@ public class CodeGenerator
             new(ChatRole.User, user)
         ];
 
-        var chatOptions = BuildChatOptions(_modelConfig.Config, reasoningEffort);
+        var chatOptions = ModelConfigService.BuildChatOptions(_modelConfig.Config.MaxOutputTokens, _modelConfig.Config.Temperature, reasoningEffort);
         var response = await client.GetResponseAsync(messages, chatOptions, cancellationToken);
 
         sw.Stop();
@@ -103,6 +110,9 @@ public class CodeGenerator
             UserTokenCount   = userTokenCount,
             TokenCount       = tokenCount,
             ComplexityScore  = complexityScore,
+            Tier             = assessment.Tier.ToLabel(),
+            AssessorScore    = assessment.LlmScore,
+            AssessorReason   = assessment.Reason,
             ElapsedMs        = sw.ElapsedMilliseconds,
             Model            = model,
             InputTokens      = inputTokens,
@@ -206,41 +216,6 @@ public class CodeGenerator
             ? lastPart["packet_".Length..]
             : lastPart;
         return withoutPrefix.Pascalize() + "Packet";
-    }
-
-    private static ChatOptions BuildChatOptions(ModelConfig cfg, string reasoningEffort)
-    {
-        if (!string.IsNullOrEmpty(reasoningEffort))
-        {
-#pragma warning disable OPENAI001
-            var effort    = reasoningEffort switch
-            {
-                "low"             => OpenAI.Chat.ChatReasoningEffortLevel.Low,
-                "medium"          => OpenAI.Chat.ChatReasoningEffortLevel.Medium,
-                "high" or "xhigh" => OpenAI.Chat.ChatReasoningEffortLevel.High,
-                _                 => OpenAI.Chat.ChatReasoningEffortLevel.Medium,
-            };
-            var maxTokens = cfg.MaxOutputTokens;
-            var temp      = cfg.Temperature;
-            return new ChatOptions
-            {
-                MaxOutputTokens          = maxTokens,
-                Temperature              = temp,
-                RawRepresentationFactory = _ => new OpenAI.Chat.ChatCompletionOptions
-                {
-                    ReasoningEffortLevel = effort,
-                    MaxOutputTokenCount  = maxTokens,
-                    Temperature          = temp,
-                }
-            };
-#pragma warning restore OPENAI001
-        }
-
-        return new ChatOptions
-        {
-            Temperature     = cfg.Temperature,
-            MaxOutputTokens = cfg.MaxOutputTokens,
-        };
     }
 
     private static string ExtractCode(string text)

@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using McpServer.Models;
 using McpServer.Services;
 using McpServer.Repositories;
 using ModelContextProtocol.Server;
@@ -52,11 +53,9 @@ public static class DataTool
         IProtocolRepository repository,
         ModelConfigService modelConfig,
         string? filter = null,
-        [Description("Optional complexity tier filter: 'easy', 'medium', or 'heavy'. Leave null to return all tiers.")]
+        [Description("Optional complexity tier filter: 'tiny', 'easy', 'medium', or 'heavy'. Leave null to return all tiers.")]
         string? tier = null)
     {
-        var cfg = modelConfig.Config;
-
         // Apply complexity tier filter if requested
         Func<string, string[], string[]> applyTier = tier is null
             ? (_, names) => names
@@ -64,10 +63,7 @@ public static class DataTool
               {
                   var def   = repository.GetPacket($"{ns}.{name}");
                   var score = PacketComplexityScorer.Compute(def.History);
-                  var t     = score <= cfg.EasyComplexityThreshold  ? "easy"
-                            : score <= cfg.HeavyComplexityThreshold ? "medium"
-                            : "heavy";
-                  return t == tier;
+                  return modelConfig.ClassifyTier(score).ToLabel() == tier;
               }).ToArray();
 
         var packets =
