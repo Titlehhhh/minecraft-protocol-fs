@@ -13,6 +13,7 @@ public sealed class RestGenerationResult
     public string? SystemPrompt { get; init; }   // set when packet is too complex — heavy packet
     public string? UserPrompt   { get; init; }
     public string? Error        { get; init; }   // per-item error used in batch responses
+    public string? SavedTo      { get; init; }   // path where file was saved (if outputBaseDir was set)
 
     // Estimated prompt token breakdown
     public int     SystemTokenCount { get; init; }
@@ -27,7 +28,7 @@ public sealed class RestGenerationResult
     public long?   ReasoningTokens { get; init; }   // thinking (subset of OutputTokens)
     public long?   TotalTokens     { get; init; }   // InputTokens + OutputTokens
 
-    public static RestGenerationResult From(GenerationData d) => new()
+    public static RestGenerationResult From(GenerationData d, string? savedTo = null) => new()
     {
         Name             = d.Name,
         Code             = d.Code,
@@ -44,5 +45,6 @@ public sealed class RestGenerationResult
         OutputTokens     = d.OutputTokens,
         ReasoningTokens  = d.ReasoningTokens,
         TotalTokens      = d.TotalTokens,
+        SavedTo          = savedTo,
     };
 }

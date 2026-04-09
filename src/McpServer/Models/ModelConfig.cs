@@ -29,14 +29,19 @@ public class TierConfig
     /// Empty = use OpenRouter (https://openrouter.ai/api/v1/).
     /// </summary>
     public string Endpoint        { get; set; } = "";
+    /// <summary>
+    /// Max concurrent LLM requests for this tier in batch/tier generation.
+    /// Use 1-2 for local models (LM Studio), 4-8 for cloud APIs (OpenRouter).
+    /// </summary>
+    public int MaxConcurrency { get; set; } = 4;
 }
 
 public class ModelConfig
 {
-    public TierConfig Tiny   { get; set; } = new();
+    public TierConfig Tiny   { get; set; } = new() { MaxConcurrency = 2 };
     public TierConfig Easy   { get; set; } = new() { Model = "openai/gpt-4o-mini" };
     public TierConfig Medium { get; set; } = new() { Model = "openai/gpt-4o-mini" };
-    public TierConfig Heavy  { get; set; } = new();
+    public TierConfig Heavy  { get; set; } = new() { MaxConcurrency = 2 };
 
     /// <summary>
     /// Complexity score ≤ this → Tiny tier (local model, e.g. LM Studio).
@@ -55,4 +60,10 @@ public class ModelConfig
     public int    MaxOutputTokens { get; set; } = 4096;
     /// <summary>Format for the packet schema sent in the prompt. "toon" or "json".</summary>
     public string InputFormat     { get; set; } = "toon";
+    /// <summary>
+    /// Default base directory for saving generated packets.
+    /// When set, UI "Generate &amp; Save" writes files directly to disk without manual curl.
+    /// Example: "C:/repo/McProtoNet/src/McProtoNet.Protocol/Packets"
+    /// </summary>
+    public string OutputBaseDir   { get; set; } = "";
 }

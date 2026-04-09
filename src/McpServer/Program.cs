@@ -297,6 +297,12 @@ app.MapPost("/api/generate", async (HttpContext http, CodeGenerator gen, Cancell
     if (string.IsNullOrWhiteSpace(id))
         return Results.BadRequest("'id' must not be empty.");
 
+    var outputBaseDir = body.RootElement.TryGetProperty("outputBaseDir", out var dirEl)
+        ? dirEl.GetString()
+        : null;
+    if (string.IsNullOrWhiteSpace(outputBaseDir))
+        outputBaseDir = modelConfigService.Config.OutputBaseDir;
+
     GenerationData data;
     try
     {
@@ -311,7 +317,25 @@ app.MapPost("/api/generate", async (HttpContext http, CodeGenerator gen, Cancell
         return Results.Problem(detail, statusCode: 500);
     }
 
-    return Results.Ok(RestGenerationResult.From(data));
+    string? savedTo = null;
+    if (!string.IsNullOrWhiteSpace(outputBaseDir) && !string.IsNullOrWhiteSpace(data.Code))
+    {
+        try
+        {
+            var subdir = ResolvePacketSubdir(id);
+            var dir    = Path.Combine(outputBaseDir, subdir);
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, data.Name + ".cs");
+            await File.WriteAllTextAsync(path, data.Code, ct);
+            savedTo = path;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Generate] Failed to save file: {ex.Message}");
+        }
+    }
+
+    return Results.Ok(RestGenerationResult.From(data, savedTo));
 });
 
 // ── Batch generation ──────────────────────────────────────────────────────────
@@ -335,6 +359,85 @@ app.MapPost("/api/generate/batch", async (HttpContext http, CodeGenerator gen, C
     return Results.Ok(results);
 });
 
+// ── Batch generation (SSE streaming) ─────────────────────────────────────────
+
+app.MapPost("/api/generate/by-namespace", async (HttpContext http, CodeGenerator gen, IProtocolRepository proto, ModelConfigService mcs, CancellationToken ct) =>
+{
+    string? ns = null, outputBaseDir = null;
+    try
+    {
+        using var body = await JsonDocument.ParseAsync(http.Request.Body, cancellationToken: ct);
+        ns            = body.RootElement.TryGetProperty("ns",            out var nsEl)  ? nsEl.GetString()  : null;
+        outputBaseDir = body.RootElement.TryGetProperty("outputBaseDir", out var dirEl) ? dirEl.GetString() : null;
+    }
+    catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body."); return; }
+
+    if (string.IsNullOrWhiteSpace(ns))
+    { http.Response.StatusCode = 400; await http.Response.WriteAsync("Missing 'ns' field."); return; }
+
+    var all = proto.GetPackets();
+    if (!all.TryGetValue(ns, out var packets))
+    { http.Response.StatusCode = 400; await http.Response.WriteAsync($"Unknown namespace '{ns}'. Valid: {string.Join(", ", all.Keys)}"); return; }
+
+    var ids = packets.Keys.Select(name => $"{ns}.{name}").ToArray();
+    if (string.IsNullOrWhiteSpace(outputBaseDir)) outputBaseDir = mcs.Config.OutputBaseDir;
+    await StreamBatchSse(http, gen, proto, mcs, ids, outputBaseDir, ct);
+});
+
+app.MapPost("/api/generate/by-tier", async (HttpContext http, CodeGenerator gen, IProtocolRepository proto, ModelConfigService mcs, CancellationToken ct) =>
+{
+    string? tier = null, outputBaseDir = null;
+    try
+    {
+        using var body = await JsonDocument.ParseAsync(http.Request.Body, cancellationToken: ct);
+        tier          = body.RootElement.TryGetProperty("tier",          out var tierEl) ? tierEl.GetString() : null;
+        outputBaseDir = body.RootElement.TryGetProperty("outputBaseDir", out var dirEl)  ? dirEl.GetString() : null;
+    }
+    catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body."); return; }
+
+    var validTiers = new[] { "tiny", "easy", "medium", "heavy" };
+    if (string.IsNullOrWhiteSpace(tier) || !Array.Exists(validTiers, t => t == tier))
+    { http.Response.StatusCode = 400; await http.Response.WriteAsync($"Invalid tier. Valid: {string.Join(", ", validTiers)}"); return; }
+
+    var ids = proto.GetPackets()
+        .SelectMany(kvp => kvp.Value.Keys.Select(name => $"{kvp.Key}.{name}"))
+        .Where(id =>
+        {
+            try
+            {
+                var def   = proto.GetPacket(id);
+                var score = PacketComplexityScorer.Compute(def.History);
+                return mcs.ClassifyTier(score).ToLabel() == tier;
+            }
+            catch { return false; }
+        })
+        .ToArray();
+
+    if (string.IsNullOrWhiteSpace(outputBaseDir)) outputBaseDir = mcs.Config.OutputBaseDir;
+    await StreamBatchSse(http, gen, proto, mcs, ids, outputBaseDir, ct);
+});
+
+app.MapPost("/api/generate/batch-ids", async (HttpContext http, CodeGenerator gen, IProtocolRepository proto, ModelConfigService mcs, CancellationToken ct) =>
+{
+    string[]? ids = null;
+    string? outputBaseDir = null;
+    try
+    {
+        using var body = await JsonDocument.ParseAsync(http.Request.Body, cancellationToken: ct);
+        if (body.RootElement.TryGetProperty("ids", out var idsEl))
+            ids = idsEl.EnumerateArray().Select(e => e.GetString()!).ToArray();
+        if (body.RootElement.TryGetProperty("outputBaseDir", out var dirEl))
+            outputBaseDir = dirEl.GetString();
+    }
+    catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body."); return; }
+
+    if (ids == null || ids.Length == 0)
+    { http.Response.StatusCode = 400; await http.Response.WriteAsync("Missing or empty 'ids' array."); return; }
+
+    if (string.IsNullOrWhiteSpace(outputBaseDir)) outputBaseDir = mcs.Config.OutputBaseDir;
+    await StreamBatchSse(http, gen, proto, mcs, ids, outputBaseDir, ct);
+});
+
 app.MapMcp("/mcp");
 
 Console.WriteLine("[McpServer] Ready.");
@@ -342,6 +445,97 @@ Console.WriteLine("[McpServer]   MCP:  http://0.0.0.0:5000/mcp");
 Console.WriteLine("[McpServer]   UI:   http://localhost:5000/");
 
 await app.RunAsync();
+
+static async Task StreamBatchSse(
+    HttpContext http, CodeGenerator gen, IProtocolRepository proto,
+    ModelConfigService mcs, string[] ids, string? outputBaseDir, CancellationToken ct)
+{
+    http.Response.ContentType = "text/event-stream; charset=utf-8";
+    http.Response.Headers["Cache-Control"] = "no-cache";
+    http.Response.Headers["X-Accel-Buffering"] = "no";
+
+    var writeLock = new SemaphoreSlim(1, 1);
+    int okCount = 0, errCount = 0;
+
+    async Task WriteSse(object data)
+    {
+        var json = JsonSerializer.Serialize(data);
+        await writeLock.WaitAsync(ct);
+        try   { await http.Response.WriteAsync($"data: {json}\n\n", ct); await http.Response.Body.FlushAsync(ct); }
+        finally { writeLock.Release(); }
+    }
+
+    await WriteSse(new { type = "start", total = ids.Length });
+
+    var semaphores = RestBuildTierSemaphores(mcs.Config);
+    try
+    {
+        var tasks = ids.Select(async id =>
+        {
+            SemaphoreSlim sem;
+            try
+            {
+                var def  = proto.GetPacket(id);
+                var tier = mcs.ClassifyTier(PacketComplexityScorer.Compute(def.History));
+                sem = semaphores[tier];
+            }
+            catch { sem = semaphores[ComplexityTier.Easy]; }
+
+            await sem.WaitAsync(ct);
+            try
+            {
+                string? error = null, model = null, savedTo = null;
+                long elapsedMs = 0;
+                try
+                {
+                    var data = await gen.GenerateAsync(id, ct);
+                    model = data.Model; elapsedMs = data.ElapsedMs;
+                    if (!string.IsNullOrWhiteSpace(outputBaseDir) && !string.IsNullOrWhiteSpace(data.Code))
+                    {
+                        try
+                        {
+                            var dir = Path.Combine(outputBaseDir, ResolvePacketSubdir(id));
+                            Directory.CreateDirectory(dir);
+                            var path = Path.Combine(dir, data.Name + ".cs");
+                            await File.WriteAllTextAsync(path, data.Code, ct);
+                            savedTo = path;
+                        }
+                        catch (Exception ex) { Console.Error.WriteLine($"[Batch] Save failed '{id}': {ex.Message}"); }
+                    }
+                    Interlocked.Increment(ref okCount);
+                }
+                catch (Exception ex)
+                {
+                    error = $"{ex.GetType().Name}: {ex.Message}";
+                    Interlocked.Increment(ref errCount);
+                }
+                await WriteSse(new { type = "packet", id, success = error == null, model, elapsedMs, savedTo, error });
+            }
+            finally { sem.Release(); }
+        }).ToArray();
+
+        await Task.WhenAll(tasks);
+    }
+    catch (OperationCanceledException) { /* client disconnected */ }
+    finally
+    {
+        foreach (var s in semaphores.Values) s.Dispose();
+        writeLock.Dispose();
+    }
+
+    try { await WriteSse(new { type = "done", total = ids.Length, ok = okCount, err = errCount }); }
+    catch { /* client may have disconnected */ }
+}
+
+static Dictionary<ComplexityTier, SemaphoreSlim> RestBuildTierSemaphores(ModelConfig cfg) =>
+    Enum.GetValues<ComplexityTier>().ToDictionary(t => t, t => new SemaphoreSlim(Math.Max(1, t switch
+    {
+        ComplexityTier.Tiny   => cfg.Tiny.MaxConcurrency,
+        ComplexityTier.Easy   => cfg.Easy.MaxConcurrency,
+        ComplexityTier.Medium => cfg.Medium.MaxConcurrency,
+        ComplexityTier.Heavy  => cfg.Heavy.MaxConcurrency,
+        _                     => 4,
+    })));
 
 static async Task<RestGenerationResult> SafeGenerateRest(CodeGenerator gen, string id, CancellationToken ct)
 {
@@ -353,4 +547,28 @@ static async Task<RestGenerationResult> SafeGenerateRest(CodeGenerator gen, stri
     {
         return new RestGenerationResult { Name = id, Error = $"{ex.GetType().Name}: {ex.Message}" };
     }
+}
+
+static string ResolvePacketSubdir(string id)
+{
+    var parts = id.Split('.');
+    if (parts.Length < 2) return "";
+    var ns  = parts[0].ToLowerInvariant();
+    var dir = parts[1].ToLowerInvariant();
+    var nsName = ns switch
+    {
+        "play"          => "Play",
+        "login"         => "Login",
+        "status"        => "Status",
+        "configuration" => "Configuration",
+        "handshaking"   => "Handshaking",
+        _               => ns,
+    };
+    var dirName = dir switch
+    {
+        "toclient" => "Clientbound",
+        "toserver" => "Serverbound",
+        _          => dir,
+    };
+    return Path.Combine(nsName, dirName);
 }

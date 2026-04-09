@@ -15,8 +15,9 @@ public sealed class McpGenerationResult
     public string? SystemPrompt { get; init; }   // set when packet is too complex — caller generates
     public string? UserPrompt   { get; init; }
     public string? Error        { get; init; }
+    public string? SavedTo      { get; init; }   // set when outputBaseDir was provided and file was saved
 
-    public static McpGenerationResult From(GenerationData d) => new()
+    public static McpGenerationResult From(GenerationData d, string? savedTo = null) => new()
     {
         Name         = d.Name,
         Link         = d.Link,
@@ -25,5 +26,6 @@ public sealed class McpGenerationResult
         Model        = d.Model,
         SystemPrompt = d.SystemPrompt,
         UserPrompt   = d.UserPrompt,
+        SavedTo      = savedTo,
     };
 }

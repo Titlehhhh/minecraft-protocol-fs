@@ -32,6 +32,11 @@ header span { color: #484f58; font-size: 12px; }
 .packet-item { padding: 4px 10px; cursor: pointer; font-size: 11px; font-family: 'Cascadia Code', Consolas, monospace; color: #8b949e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
 .packet-item:hover { background: #21262d; color: #c9d1d9; }
 .packet-item.selected { background: #1f6feb22; color: #58a6ff; }
+.packet-item.checked { background: #23863618; }
+.packet-item.checked .pchk { accent-color: #3fb950; }
+.pchk { width: 12px; height: 12px; flex-shrink: 0; cursor: pointer; accent-color: #3fb950; margin: 0; }
+.batch-bar { padding: 8px 10px; border-top: 1px solid #21262d; flex-shrink: 0; display: flex; align-items: center; gap: 6px; background: #0d1117; }
+.batch-bar-count { font-size: 11px; color: #8b949e; flex: 1; }
 .packet-item-score { margin-left: auto; font-size: 10px; color: #484f58; flex-shrink: 0; padding-left: 4px; }
 
 /* Config pane */
@@ -227,6 +232,13 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
       <div class="packet-list" id="packet-list">
         <div style="padding:10px;color:#484f58;font-size:12px">Loading...</div>
       </div>
+      <!-- Batch bar (shown when items are checked) -->
+      <div class="batch-bar" id="batch-bar" style="display:none">
+        <span class="batch-bar-count" id="batch-bar-count">0 selected</span>
+        <button class="btn-ghost" style="font-size:11px;padding:4px 8px" onclick="selectAllVisible()">All</button>
+        <button class="btn-ghost" style="font-size:11px;padding:4px 8px" onclick="clearSelection()">Clear</button>
+        <button class="btn-primary" id="batch-run-btn" style="font-size:11px;padding:4px 10px" onclick="runBatchSelected()">⚡ Run</button>
+      </div>
     </div>
 
     <!-- Config pane -->
@@ -251,6 +263,10 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
               <button class="effort-btn" data-v="xhigh">xhigh</button>
             </div>
             <input type="text" id="endpoint-tiny" placeholder="endpoint (e.g. http://localhost:1234/v1 for LM Studio)" style="margin-top:6px" oninput="markDirty()">
+            <div style="margin-top:6px;display:flex;align-items:center;gap:6px">
+              <span style="font-size:11px;color:#484f58">batch concurrency</span>
+              <input type="number" id="concurrency-tiny" value="2" min="1" max="32" class="sm" oninput="markDirty()">
+            </div>
           </div>
 
           <div class="tier">
@@ -268,6 +284,10 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
               <button class="effort-btn" data-v="xhigh">xhigh</button>
             </div>
             <input type="text" id="endpoint-easy" placeholder="endpoint (empty = OpenRouter, e.g. http://localhost:1234/v1)" style="margin-top:6px" oninput="markDirty()">
+            <div style="margin-top:6px;display:flex;align-items:center;gap:6px">
+              <span style="font-size:11px;color:#484f58">batch concurrency</span>
+              <input type="number" id="concurrency-easy" value="4" min="1" max="32" class="sm" oninput="markDirty()">
+            </div>
           </div>
 
           <div class="tier">
@@ -285,6 +305,10 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
               <button class="effort-btn" data-v="xhigh">xhigh</button>
             </div>
             <input type="text" id="endpoint-medium" placeholder="endpoint (empty = OpenRouter, e.g. http://localhost:1234/v1)" style="margin-top:6px" oninput="markDirty()">
+            <div style="margin-top:6px;display:flex;align-items:center;gap:6px">
+              <span style="font-size:11px;color:#484f58">batch concurrency</span>
+              <input type="number" id="concurrency-medium" value="4" min="1" max="32" class="sm" oninput="markDirty()">
+            </div>
           </div>
 
           <div class="tier">
@@ -301,6 +325,10 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
               <button class="effort-btn" data-v="xhigh">xhigh</button>
             </div>
             <input type="text" id="endpoint-heavy" placeholder="endpoint (empty = OpenRouter, e.g. http://localhost:1234/v1)" style="margin-top:6px" oninput="markDirty()">
+            <div style="margin-top:6px;display:flex;align-items:center;gap:6px">
+              <span style="font-size:11px;color:#484f58">batch concurrency</span>
+              <input type="number" id="concurrency-heavy" value="2" min="1" max="32" class="sm" oninput="markDirty()">
+            </div>
           </div>
 
           <div class="row2" style="margin-top:10px">
@@ -320,6 +348,11 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
               <button class="effort-btn active" data-v="toon" onclick="setFormat(this)">Toon</button>
               <button class="effort-btn" data-v="json" onclick="setFormat(this)">JSON</button>
             </div>
+          </div>
+
+          <div style="margin-top:10px">
+            <label>Output directory <span style="color:#484f58">(auto-save generated files)</span></label>
+            <input type="text" id="output-base-dir" placeholder="e.g. C:/repo/McProtoNet/src/McProtoNet.Protocol/Packets" oninput="markDirty()" style="font-size:11px">
           </div>
         </div>
 
@@ -373,7 +406,8 @@ pre { background: #0d1117; border-radius: 8px; padding: 16px; font-family: 'Casc
   <div class="main">
     <div class="toolbar">
       <input class="toolbar-id" type="text" id="packet-id" placeholder="Packet ID, e.g. play.toClient.entity_metadata">
-      <button class="btn-primary" id="gen-btn" onclick="generate()">▶ Generate</button>
+      <button class="btn-primary" id="gen-btn" onclick="generate(false)">▶ Generate</button>
+      <button class="btn-blue" id="gen-save-btn" onclick="generate(true)" title="Generate and save to Output directory">💾 Save</button>
       <button class="btn-ghost" id="cancel-btn" onclick="cancelGenerate()" style="display:none;color:#f85149;border-color:#da363655">✕ Cancel</button>
       <button class="btn-blue" id="prompt-btn" onclick="buildPrompt()">📋 Prompt</button>
       <button class="btn-ghost" id="assess-btn" onclick="assess()">🔮 Assess</button>
@@ -507,6 +541,11 @@ async function loadConfig() {
     setTierEffort('easy',   c.easy?.reasoningEffort   ?? '');
     setTierEffort('medium', c.medium?.reasoningEffort ?? '');
     setTierEffort('heavy',  c.heavy?.reasoningEffort  ?? '');
+    document.getElementById('concurrency-tiny').value   = c.tiny?.maxConcurrency   ?? 2;
+    document.getElementById('concurrency-easy').value   = c.easy?.maxConcurrency   ?? 4;
+    document.getElementById('concurrency-medium').value = c.medium?.maxConcurrency ?? 4;
+    document.getElementById('concurrency-heavy').value  = c.heavy?.maxConcurrency  ?? 2;
+    document.getElementById('output-base-dir').value = c.outputBaseDir ?? '';
     const fmt = c.inputFormat ?? 'toon';
     document.querySelectorAll('#format-row .effort-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.v === fmt));
@@ -546,16 +585,17 @@ async function saveConfig() {
   clearTimeout(saveTimer);
   setSaveState('saving', 'Saving...');
   const cfg = {
-    tiny:   { model: document.getElementById('model-tiny').value.trim(),   reasoningEffort: getTierEffort('tiny'),   endpoint: document.getElementById('endpoint-tiny').value.trim()   },
-    easy:   { model: document.getElementById('model-easy').value.trim(),   reasoningEffort: getTierEffort('easy'),   endpoint: document.getElementById('endpoint-easy').value.trim()   },
-    medium: { model: document.getElementById('model-medium').value.trim(), reasoningEffort: getTierEffort('medium'), endpoint: document.getElementById('endpoint-medium').value.trim() },
-    heavy:  { model: document.getElementById('model-heavy').value.trim(),  reasoningEffort: getTierEffort('heavy'),  endpoint: document.getElementById('endpoint-heavy').value.trim()  },
+    tiny:   { model: document.getElementById('model-tiny').value.trim(),   reasoningEffort: getTierEffort('tiny'),   endpoint: document.getElementById('endpoint-tiny').value.trim(),   maxConcurrency: parseInt(document.getElementById('concurrency-tiny').value)   || 2 },
+    easy:   { model: document.getElementById('model-easy').value.trim(),   reasoningEffort: getTierEffort('easy'),   endpoint: document.getElementById('endpoint-easy').value.trim(),   maxConcurrency: parseInt(document.getElementById('concurrency-easy').value)   || 4 },
+    medium: { model: document.getElementById('model-medium').value.trim(), reasoningEffort: getTierEffort('medium'), endpoint: document.getElementById('endpoint-medium').value.trim(), maxConcurrency: parseInt(document.getElementById('concurrency-medium').value) || 4 },
+    heavy:  { model: document.getElementById('model-heavy').value.trim(),  reasoningEffort: getTierEffort('heavy'),  endpoint: document.getElementById('endpoint-heavy').value.trim(),  maxConcurrency: parseInt(document.getElementById('concurrency-heavy').value)  || 2 },
     tinyComplexityThreshold: parseInt(document.getElementById('thresh-tiny').value) || 22,
     easyComplexityThreshold:  parseInt(document.getElementById('thresh-easy').value)  || 20,
     heavyComplexityThreshold: parseInt(document.getElementById('thresh-heavy').value) || 50,
     temperature:     parseFloat(document.getElementById('temperature').value) || 0,
     maxOutputTokens: parseInt(document.getElementById('max-tokens').value)    || 4096,
     inputFormat:     getFormat(),
+    outputBaseDir:   document.getElementById('output-base-dir').value.trim(),
     assessor: {
       enabled:         document.getElementById('assessor-toggle').textContent === 'ON',
       model:           document.getElementById('assessor-model').value.trim(),
@@ -755,21 +795,29 @@ function cancelGenerate() {
   if (_genAbort) { _genAbort.abort(); _genAbort = null; }
 }
 
-async function generate() {
+async function generate(andSave = false) {
   const id = document.getElementById('packet-id').value.trim();
   if (!id) return;
   if (isDirty) await saveConfig();
+
+  const outputBaseDir = andSave ? (document.getElementById('output-base-dir').value.trim() || null) : null;
+  if (andSave && !outputBaseDir) {
+    setStatus(`<span class="badge err">No output directory set</span> &nbsp; Configure it in Settings`);
+    return;
+  }
 
   _genAbort = new AbortController();
   setGenerating(true);
   switchTab('code');
   document.getElementById('code-output').textContent = '// Generating...';
-  setStatus(`<span class="spinner"></span>&nbsp; Generating <b>${escHtml(id)}</b>...`);
+  const saveLabel = andSave ? ' &amp; Save' : '';
+  setStatus(`<span class="spinner"></span>&nbsp; Generating${saveLabel} <b>${escHtml(id)}</b>...`);
 
   const t0 = performance.now();
   try {
     const r = await fetch('/api/generate', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, outputBaseDir }),
       signal: _genAbort.signal
     });
     const clientMs = Math.round(performance.now() - t0);
@@ -802,7 +850,8 @@ async function generate() {
       (data.reasoningTokens ? ` &nbsp;${si('Reasoning', data.reasoningTokens + ' tok')}` : '') +
       buildUsageParts(data) +
       ` &nbsp;${si('Server', (data.elapsedMs ?? '?') + 'ms')}` +
-      ` &nbsp;${si('Client', clientMs + 'ms')}`
+      ` &nbsp;${si('Client', clientMs + 'ms')}` +
+      (data.savedTo ? ` &nbsp;<span style="color:#3fb950;font-size:11px" title="${escHtml(data.savedTo)}">💾 Saved</span>` : '')
     );
   } catch (e) {
     if (e.name === 'AbortError') {
@@ -853,9 +902,10 @@ function clearOutput() {
 }
 
 function setGenerating(on) {
-  document.getElementById('gen-btn').disabled    = on;
-  document.getElementById('prompt-btn').disabled = on;
-  document.getElementById('gen-btn').innerHTML   = on ? '<span class="spinner"></span>' : '▶ Generate';
+  document.getElementById('gen-btn').disabled      = on;
+  document.getElementById('gen-save-btn').disabled = on;
+  document.getElementById('prompt-btn').disabled   = on;
+  document.getElementById('gen-btn').innerHTML     = on ? '<span class="spinner"></span>' : '▶ Generate';
   document.getElementById('cancel-btn').style.display = on ? '' : 'none';
 }
 
@@ -906,6 +956,141 @@ function buildUsageParts(data) {
   let out = sep + si('Total', total) + ` ${si('Out', output)}`;
   if (reasoning > 0) out += ` ${si('Think', reasoning)}`;
   return promptParts + out;
+}
+
+// ── Multi-select ──────────────────────────────────────────────────────────
+const checkedIds = new Set();
+
+function updateBatchBar() {
+  const n   = checkedIds.size;
+  const bar = document.getElementById('batch-bar');
+  bar.style.display = n > 0 ? 'flex' : 'none';
+  document.getElementById('batch-bar-count').textContent = `${n} selected`;
+}
+
+function toggleCheck(id, checked) {
+  if (checked) checkedIds.add(id);
+  else         checkedIds.delete(id);
+  // sync checkbox in DOM (it might be re-rendered)
+  document.querySelectorAll(`.packet-item`).forEach(el => {
+    if (el.getAttribute('data-id') === id) {
+      el.classList.toggle('checked', checked);
+      const cb = el.querySelector('.pchk');
+      if (cb) cb.checked = checked;
+    }
+  });
+  updateBatchBar();
+}
+
+function selectAllVisible() {
+  document.querySelectorAll('.packet-item').forEach(el => {
+    const id = el.getAttribute('data-id');
+    if (id) { checkedIds.add(id); el.classList.add('checked'); const cb = el.querySelector('.pchk'); if (cb) cb.checked = true; }
+  });
+  updateBatchBar();
+}
+
+function clearSelection() {
+  checkedIds.clear();
+  document.querySelectorAll('.packet-item').forEach(el => {
+    el.classList.remove('checked');
+    const cb = el.querySelector('.pchk');
+    if (cb) cb.checked = false;
+  });
+  updateBatchBar();
+}
+
+// ── Batch run ─────────────────────────────────────────────────────────────
+let _batchAbort = null;
+
+async function runBatchSelected() {
+  if (!checkedIds.size) return;
+  if (isDirty) await saveConfig();
+
+  const outputBaseDir = document.getElementById('output-base-dir').value.trim();
+  if (!outputBaseDir) {
+    setStatus(`<span class="badge err">No output directory set</span> &nbsp; Configure it in ⚙️ Config`);
+    switchTab('code');
+    return;
+  }
+
+  const ids = [...checkedIds];
+  _batchAbort = new AbortController();
+  document.getElementById('batch-run-btn').disabled = true;
+  switchTab('code');
+
+  let done = 0, ok = 0, err = 0;
+  const lines = [];
+
+  function redraw() {
+    document.getElementById('code-output').textContent = lines.join('\n');
+  }
+
+  setStatus(`<span class="spinner"></span>&nbsp; Batch: 0 / ${ids.length}`);
+  lines.push(`// Batch generate — ${ids.length} packets → ${outputBaseDir}\n`);
+  redraw();
+
+  try {
+    const r = await fetch('/api/generate/batch-ids', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, outputBaseDir }),
+      signal: _batchAbort.signal,
+    });
+
+    if (!r.ok) {
+      const txt = await r.text().catch(() => `HTTP ${r.status}`);
+      setStatus(`<span class="badge err">Error ${r.status}</span>&nbsp; ${escHtml(txt)}`);
+      lines.push(`// ERROR: ${txt}`);
+      redraw();
+      return;
+    }
+
+    const reader  = r.body.getReader();
+    const decoder = new TextDecoder();
+    let   buffer  = '';
+
+    while (true) {
+      const { done: streamDone, value } = await reader.read();
+      if (streamDone) break;
+      buffer += decoder.decode(value, { stream: true });
+      const chunks = buffer.split('\n\n');
+      buffer = chunks.pop();
+      for (const chunk of chunks) {
+        if (!chunk.startsWith('data: ')) continue;
+        let ev;
+        try { ev = JSON.parse(chunk.slice(6)); } catch { continue; }
+
+        if (ev.type === 'packet') {
+          done++;
+          if (ev.success) { ok++; lines.push(`✓  ${ev.id}${ev.savedTo ? '  → saved' : ''}  [${ev.model ?? '?'}, ${ev.elapsedMs}ms]`); }
+          else            { err++; lines.push(`✗  ${ev.id}  ERROR: ${ev.error ?? '?'}`); }
+          setStatus(`<span class="spinner"></span>&nbsp; Batch: ${done} / ${ids.length}  ok=${ok} err=${err}`);
+          redraw();
+        } else if (ev.type === 'done') {
+          lines.push(`\n// Done — ${ev.ok} ok, ${ev.err} errors`);
+          setStatus(
+            `<span class="badge ok">Batch done</span>` +
+            ` &nbsp;${si('Total', ev.total)} &nbsp;${si('OK', ev.ok)}` +
+            (ev.err > 0 ? ` &nbsp;<span class="badge err">${ev.err} errors</span>` : '')
+          );
+          redraw();
+        }
+      }
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      lines.push('\n// Cancelled');
+      setStatus('<span class="badge warn">Cancelled</span>');
+    } else {
+      lines.push(`\n// Network error: ${e.message}`);
+      setStatus(`<span class="badge err">Network Error</span>&nbsp; ${escHtml(e.message)}`);
+    }
+    redraw();
+  } finally {
+    _batchAbort = null;
+    document.getElementById('batch-run-btn').disabled = false;
+  }
 }
 
 loadConfig();

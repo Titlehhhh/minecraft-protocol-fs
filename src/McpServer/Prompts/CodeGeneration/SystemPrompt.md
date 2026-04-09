@@ -51,19 +51,19 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
 14. Output ONLY: the `{{usages}}` placeholder, the `{{namespace_decl}}` placeholder, the `{{attributes}}` placeholder,
     and then the class body. No markdown, no extra comments.
 15. Do NOT add any comments inside the generated code.
+15a. If ALL version ranges contain an empty container (`["container", []]` with no fields), the packet has NO
+    properties. Serialize and Deserialize MUST be empty methods. Do NOT invent any fields.
+    Example:
+    ```
+    internal void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion) { }
+    internal void Deserialize(ref MinecraftPrimitiveReader reader, int protocolVersion) { }
+    ```
 15b. `mapper` type in schema: use the UNDERLYING PRIMITIVE type as the C# property type.
     Do NOT invent enums, classes, or custom types for mapper.
     Examples:
     - `["mapper", {"type": "varint", "mappings": {...}}]` → C# type `int`, use ReadVarInt/WriteVarInt
     - `["mapper", {"type": "u8",     "mappings": {...}}]` → C# type `byte`, use ReadUnsignedByte/WriteUnsignedByte
     - `["mapper", {"type": "i16",    "mappings": {...}}]` → C# type `short`, use ReadSignedShort/WriteSignedShort
-15a. If ALL version ranges contain an empty container (`["container", []]` with no fields), the packet has NO
-    properties. Serialize and Deserialize MUST be empty methods. Do NOT invent any fields.
-    Example:
-    ```
-    internal void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion) { }
-    internal void Deserialize(ref MinecraftPrimitiveReader reader, int protocolVersion) { }
-    ```
 16. The schema you receive has null version ranges pre-filtered out — they will never appear in the input.
     If somehow a null range appears: skip it entirely, do NOT generate any code for it.
 17. If the schema has ONLY ONE non-null version range (all other ranges are null or absent), do NOT use a switch
@@ -72,7 +72,7 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
     Example of correct single-range packet:
     ```
     public long KeepAliveId { get; set; }
-    internal void Serialize(ref MinecraftPrimitiveWriter writer, int protocolVersion)
+    internal void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
         => writer.WriteSignedLong(KeepAliveId);
     internal void Deserialize(ref MinecraftPrimitiveReader reader, int protocolVersion)
         => KeepAliveId = reader.ReadSignedLong();

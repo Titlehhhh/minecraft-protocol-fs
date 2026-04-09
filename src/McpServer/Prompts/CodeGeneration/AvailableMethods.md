@@ -70,6 +70,22 @@ foreach (var item in Items)
 These are registered in `Extensions/ProtocolSerializationExtensions.cs` and routed via
 `ReadType<T>(protocolVersion)` / `WriteType<T>(value, protocolVersion)`.
 
+**Protodef type → C# type mapping (IMPORTANT):**
+
+Always use the C# type name from the right column, regardless of field name:
+
+| protodef type | C# type |
+|---|---|
+| `position` | `Position` |
+| `vec2f` | `Vec2f` |
+| `vec3f` | `Vec3f` |
+| `vec3f64` | `Vec3f64` |
+| `vec3i` | `Vec3i` |
+| `vec4f` | `Vec4f` |
+
+Example: field `{"name": "location", "type": "position"}` → property `Position Location`, serialized as `writer.WriteType<Position>(Location, protocolVersion)`.
+DO NOT name the type after the field — `WriteType<Location>` is WRONG.
+
 **Geometric types:**
 
 - Position, Vec2f, Vec3f, Vec3f64, Vec3i, Vec4f
@@ -91,10 +107,6 @@ These are registered in `Extensions/ProtocolSerializationExtensions.cs` and rout
   EntityMetadataPaintingVariant, EntityMetadataWolfVariant, IDSet, InstrumentData,
   ItemBlockPredicate, ItemBookPage, ItemConsumeEffect, ItemFireworkExplosion,
   ItemPotionEffect, ItemSoundHolder, ItemWrittenBookPage, JukeboxSongData
-
-**Entity metadata:**
-
-- EntityMetadataEntry
 
 **Packet common payloads:**
 
@@ -133,6 +145,10 @@ When using NBT, add `using McProtoNet.NBT;` as the first line before `{{usages}}
 
 These are direct `ref`/plain extension methods — **not registered in ReadType<T>/WriteType<T>**.
 Do NOT use them with ReadArray/WriteArray. Use a manual loop instead.
+
+**Entity metadata** (`ProtocolSerializationExtensions.EntityMetadata.cs`):
+- `reader.ReadEntityMetadataEntry(protocolVersion)` → `EntityMetadataEntry`
+- `writer.WriteEntityMetadataEntry(EntityMetadataEntry value, protocolVersion)`
 
 **Death location** (`ProtocolSerializationExtensions.SpawnInfo.cs`):
 - `reader.ReadDeathLocation(protocolVersion)` → `DeathLocation`
