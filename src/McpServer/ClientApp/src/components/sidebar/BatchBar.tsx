@@ -3,12 +3,16 @@ import { useGenerationStore } from '../../store/generationStore'
 import { useConfigStore } from '../../store/configStore'
 
 export function BatchBar() {
-  const { checkedIds, allPackets, statsPackets, tierFilter, searchQuery, checkAll, clearChecked } = usePacketsStore()
-  const { runBatch, cancelBatch, isBatchRunning } = useGenerationStore(s => ({
-    runBatch: s.runBatch,
-    cancelBatch: s.cancelBatch,
-    isBatchRunning: s.isBatchRunning,
-  }))
+  const checkedIds = usePacketsStore(s => s.checkedIds)
+  const allPackets = usePacketsStore(s => s.allPackets)
+  const statsPackets = usePacketsStore(s => s.statsPackets)
+  const tierFilter = usePacketsStore(s => s.tierFilter)
+  const searchQuery = usePacketsStore(s => s.searchQuery)
+  const checkAll = usePacketsStore(s => s.checkAll)
+  const clearChecked = usePacketsStore(s => s.clearChecked)
+  const runBatch = useGenerationStore(s => s.runBatch)
+  const cancelBatch = useGenerationStore(s => s.cancelBatch)
+  const isBatchRunning = useGenerationStore(s => s.isBatchRunning)
   const outputBaseDir = useConfigStore(s => s.config.outputBaseDir)
 
   if (checkedIds.size === 0) return null

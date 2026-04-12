@@ -8,7 +8,8 @@ const LABELS: Record<string, string> = {
 }
 
 export function SaveIndicator() {
-  const { saveState, saveError } = useConfigStore(s => ({ saveState: s.saveState, saveError: s.saveError }))
+  const saveState = useConfigStore(s => s.saveState)
+  const saveError = useConfigStore(s => s.saveError)
   const label = saveState === 'error' && saveError ? saveError : LABELS[saveState]
   return (
     <>

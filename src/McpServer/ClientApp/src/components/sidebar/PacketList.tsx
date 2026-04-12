@@ -4,11 +4,15 @@ import { useGenerationStore } from '../../store/generationStore'
 import { PacketItem } from './PacketItem'
 
 export function PacketList() {
-  const {
-    allPackets, statsPackets, complexityCache,
-    tierFilter, searchQuery, selectedId, checkedIds,
-    selectPacket, toggleCheck,
-  } = usePacketsStore()
+  const allPackets = usePacketsStore(s => s.allPackets)
+  const statsPackets = usePacketsStore(s => s.statsPackets)
+  const complexityCache = usePacketsStore(s => s.complexityCache)
+  const tierFilter = usePacketsStore(s => s.tierFilter)
+  const searchQuery = usePacketsStore(s => s.searchQuery)
+  const selectedId = usePacketsStore(s => s.selectedId)
+  const checkedIds = usePacketsStore(s => s.checkedIds)
+  const selectPacket = usePacketsStore(s => s.selectPacket)
+  const toggleCheck = usePacketsStore(s => s.toggleCheck)
   const loadSchema = useGenerationStore(s => s.loadSchema)
 
   const source = useMemo(() => {

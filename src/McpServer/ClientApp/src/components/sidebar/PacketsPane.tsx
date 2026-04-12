@@ -4,12 +4,10 @@ import { PacketList } from './PacketList'
 import { BatchBar } from './BatchBar'
 
 export function PacketsPane() {
-  const { allPackets, totalCount, searchQuery, setSearchQuery } = usePacketsStore(s => ({
-    allPackets: s.allPackets,
-    totalCount: s.totalCount,
-    searchQuery: s.searchQuery,
-    setSearchQuery: s.setSearchQuery,
-  }))
+  const allPackets = usePacketsStore(s => s.allPackets)
+  const totalCount = usePacketsStore(s => s.totalCount)
+  const searchQuery = usePacketsStore(s => s.searchQuery)
+  const setSearchQuery = usePacketsStore(s => s.setSearchQuery)
 
   const count = totalCount || allPackets.length
 

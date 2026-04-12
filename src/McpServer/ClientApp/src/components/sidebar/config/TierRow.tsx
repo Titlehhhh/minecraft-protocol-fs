@@ -47,7 +47,8 @@ interface Props {
 
 export function TierRow({ def, onFocusModel }: Props) {
   const [open, setOpen] = useState(false)
-  const { config, update } = useConfigStore()
+  const config = useConfigStore(s => s.config)
+  const update = useConfigStore(s => s.update)
 
   const tierCfg: TierConfig = config[def.tier]
 

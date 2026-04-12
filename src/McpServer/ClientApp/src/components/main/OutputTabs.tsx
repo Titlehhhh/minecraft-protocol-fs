@@ -2,11 +2,10 @@ import { useUIStore } from '../../store/uiStore'
 import { useGenerationStore } from '../../store/generationStore'
 
 export function OutputTabs() {
-  const { mainTab, setMainTab } = useUIStore()
-  const { codeOutput, promptOutput } = useGenerationStore(s => ({
-    codeOutput: s.codeOutput,
-    promptOutput: s.promptOutput,
-  }))
+  const mainTab = useUIStore(s => s.mainTab)
+  const setMainTab = useUIStore(s => s.setMainTab)
+  const codeOutput = useGenerationStore(s => s.codeOutput)
+  const promptOutput = useGenerationStore(s => s.promptOutput)
 
   return (
     <>

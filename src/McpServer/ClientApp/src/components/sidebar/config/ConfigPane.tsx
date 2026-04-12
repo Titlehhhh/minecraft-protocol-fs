@@ -7,7 +7,8 @@ import type { Tier, InputFormat } from '../../../types'
 
 export function ConfigPane() {
   const [focusedTier, setFocusedTier] = useState<Tier>('easy')
-  const { config, update } = useConfigStore()
+  const config = useConfigStore(s => s.config)
+  const update = useConfigStore(s => s.update)
 
   return (
     <div className="config-pane-inner">

@@ -1,5 +1,6 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+body { background: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; overflow: hidden; }
+#root { display: flex; flex-direction: column; height: 100%; }
 
 header { background: #161b22; padding: 10px 20px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #30363d; flex-shrink: 0; }
 header h1 { font-size: 16px; color: #58a6ff; font-weight: 600; }

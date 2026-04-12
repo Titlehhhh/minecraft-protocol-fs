@@ -15,15 +15,11 @@ export function App() {
     initial: 310,
   })
 
-  const load = useConfigStore(s => s.load)
-  const loadPackets = usePacketsStore(s => s.loadPackets)
-  const loadStats = usePacketsStore(s => s.loadStats)
-
   useEffect(() => {
-    load()
-    loadPackets()
-    loadStats()
-  }, [load, loadPackets, loadStats])
+    useConfigStore.getState().load()
+    usePacketsStore.getState().loadPackets()
+    usePacketsStore.getState().loadStats()
+  }, [])
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {

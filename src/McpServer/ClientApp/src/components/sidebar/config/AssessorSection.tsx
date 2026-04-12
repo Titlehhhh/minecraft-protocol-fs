@@ -3,7 +3,8 @@ import { EffortPicker } from './EffortPicker'
 import type { ReasoningEffort } from '../../../types'
 
 export function AssessorSection() {
-  const { config, update } = useConfigStore()
+  const config = useConfigStore(s => s.config)
+  const update = useConfigStore(s => s.update)
   const { assessor } = config
 
   const set = (patch: Partial<typeof assessor>) =>

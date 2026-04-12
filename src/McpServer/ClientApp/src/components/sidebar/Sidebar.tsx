@@ -8,7 +8,8 @@ interface Props {
 }
 
 export function Sidebar({ style }: Props) {
-  const { sidebarTab, setSidebarTab } = useUIStore()
+  const sidebarTab = useUIStore(s => s.sidebarTab)
+  const setSidebarTab = useUIStore(s => s.setSidebarTab)
 
   return (
     <div className="sidebar" style={style}>

@@ -5,8 +5,14 @@ import { useGenerationStore } from '../../store/generationStore'
 export function Toolbar() {
   const selectedId = usePacketsStore(s => s.selectedId)
   const selectPacket = usePacketsStore(s => s.selectPacket)
-  const { generate, buildPrompt, assess, toggleSchema, cancel, clearOutput, isGenerating, isAssessing } =
-    useGenerationStore()
+  const generate = useGenerationStore(s => s.generate)
+  const buildPrompt = useGenerationStore(s => s.buildPrompt)
+  const assess = useGenerationStore(s => s.assess)
+  const toggleSchema = useGenerationStore(s => s.toggleSchema)
+  const cancel = useGenerationStore(s => s.cancel)
+  const clearOutput = useGenerationStore(s => s.clearOutput)
+  const isGenerating = useGenerationStore(s => s.isGenerating)
+  const isAssessing = useGenerationStore(s => s.isAssessing)
 
   // Local input state — syncs from store when packet is selected from list
   const [packetId, setPacketId] = useState('')

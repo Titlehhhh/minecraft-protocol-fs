@@ -14,12 +14,10 @@ const COUNT_IDS: Record<string, string> = {
 }
 
 export function TierCards() {
-  const { tierFilter, setTierFilter, tierCounts, totalCount } = usePacketsStore(s => ({
-    tierFilter: s.tierFilter,
-    setTierFilter: s.setTierFilter,
-    tierCounts: s.tierCounts,
-    totalCount: s.totalCount,
-  }))
+  const tierFilter = usePacketsStore(s => s.tierFilter)
+  const setTierFilter = usePacketsStore(s => s.setTierFilter)
+  const tierCounts = usePacketsStore(s => s.tierCounts)
+  const totalCount = usePacketsStore(s => s.totalCount)
 
   const getCount = (tier: TierFilter) => {
     if (tier === 'all') return totalCount || '–'
