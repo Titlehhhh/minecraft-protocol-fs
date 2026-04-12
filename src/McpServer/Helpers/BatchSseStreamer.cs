@@ -102,12 +102,12 @@ public static class BatchSseStreamer
         catch (OperationCanceledException) { /* client disconnected */ }
         finally
         {
-            foreach (var s in semaphores.Values) s.Dispose();
+          try { await WriteSse(new { type = "done", total = ids.Length, ok = okCount, err = errCount }); }
+          catch { /* client may have disconnected */ }
+          
+          foreach (var s in semaphores.Values) s.Dispose();
             writeLock.Dispose();
         }
-
-        try { await WriteSse(new { type = "done", total = ids.Length, ok = okCount, err = errCount }); }
-        catch { /* client may have disconnected */ }
     }
 
     private static Dictionary<ComplexityTier, SemaphoreSlim> BuildTierSemaphores(ModelConfig cfg) =>

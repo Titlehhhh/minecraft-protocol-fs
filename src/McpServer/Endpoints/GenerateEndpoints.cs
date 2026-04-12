@@ -133,14 +133,14 @@ public static class GenerateEndpoints
                 ns            = body.RootElement.TryGetProperty("ns",            out var nsEl)  ? nsEl.GetString()  : null;
                 outputBaseDir = body.RootElement.TryGetProperty("outputBaseDir", out var dirEl) ? dirEl.GetString() : null;
             }
-            catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body."); return; }
+            catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body.", cancellationToken: ct); return; }
 
             if (string.IsNullOrWhiteSpace(ns))
-            { http.Response.StatusCode = 400; await http.Response.WriteAsync("Missing 'ns' field."); return; }
+            { http.Response.StatusCode = 400; await http.Response.WriteAsync("Missing 'ns' field.", cancellationToken: ct); return; }
 
             var all = proto.GetPackets();
             if (!all.TryGetValue(ns, out var packets))
-            { http.Response.StatusCode = 400; await http.Response.WriteAsync($"Unknown namespace '{ns}'. Valid: {string.Join(", ", all.Keys)}"); return; }
+            { http.Response.StatusCode = 400; await http.Response.WriteAsync($"Unknown namespace '{ns}'. Valid: {string.Join(", ", all.Keys)}", cancellationToken: ct); return; }
 
             var ids = packets.Keys.Select(name => $"{ns}.{name}").ToArray();
             if (string.IsNullOrWhiteSpace(outputBaseDir)) outputBaseDir = mcs.Config.OutputBaseDir;
@@ -159,11 +159,11 @@ public static class GenerateEndpoints
                 tier          = body.RootElement.TryGetProperty("tier",          out var tierEl) ? tierEl.GetString() : null;
                 outputBaseDir = body.RootElement.TryGetProperty("outputBaseDir", out var dirEl)  ? dirEl.GetString() : null;
             }
-            catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body."); return; }
+            catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body.", cancellationToken: ct); return; }
 
             var validTiers = new[] { "tiny", "easy", "medium", "heavy" };
             if (string.IsNullOrWhiteSpace(tier) || !Array.Exists(validTiers, t => t == tier))
-            { http.Response.StatusCode = 400; await http.Response.WriteAsync($"Invalid tier. Valid: {string.Join(", ", validTiers)}"); return; }
+            { http.Response.StatusCode = 400; await http.Response.WriteAsync($"Invalid tier. Valid: {string.Join(", ", validTiers)}", cancellationToken: ct); return; }
 
             var ids = proto.GetPackets()
                 .SelectMany(kvp => kvp.Value.Keys.Select(name => $"{kvp.Key}.{name}"))
@@ -198,10 +198,10 @@ public static class GenerateEndpoints
                 if (body.RootElement.TryGetProperty("outputBaseDir", out var dirEl))
                     outputBaseDir = dirEl.GetString();
             }
-            catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body."); return; }
+            catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body.", cancellationToken: ct); return; }
 
             if (ids == null || ids.Length == 0)
-            { http.Response.StatusCode = 400; await http.Response.WriteAsync("Missing or empty 'ids' array."); return; }
+            { http.Response.StatusCode = 400; await http.Response.WriteAsync("Missing or empty 'ids' array.", cancellationToken: ct); return; }
 
             if (string.IsNullOrWhiteSpace(outputBaseDir)) outputBaseDir = mcs.Config.OutputBaseDir;
             await BatchSseStreamer.StreamAsync(http, gen, proto, mcs, ids, outputBaseDir, ct);

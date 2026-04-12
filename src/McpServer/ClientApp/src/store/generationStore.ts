@@ -215,6 +215,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
     const lines: string[] = [`// Batch generate — ${ids.length} packets → ${outputBaseDir}\n`]
     let done = 0, ok = 0, err = 0
+    let finished = false
 
     const redraw = () => set({ codeOutput: lines.join('\n') })
 
@@ -235,14 +236,18 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
           set({ statusHtml: `<span class="spinner"></span>&nbsp; Batch: ${done} / ${ids.length}  ok=${ok} err=${err}` })
           redraw()
         } else if (event.type === 'done') {
+          finished = true
           lines.push(`\n// Done — ${event.ok} ok, ${event.err} errors`)
           set({
             statusHtml:
               `<span class="badge ok">Batch done</span>` +
               ` &nbsp;${si('Total', event.total)} &nbsp;${si('OK', event.ok)}` +
               (event.err > 0 ? ` &nbsp;<span class="badge err">${event.err} errors</span>` : ''),
+            isBatchRunning: false,
+            batchAbortController: null,
           })
           redraw()
+          break
         }
       }
     } catch (e) {
@@ -256,7 +261,9 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       }
       redraw()
     } finally {
-      set({ isBatchRunning: false, batchAbortController: null })
+      if (!finished) {
+        set({ isBatchRunning: false, batchAbortController: null })
+      }
     }
   },
 
