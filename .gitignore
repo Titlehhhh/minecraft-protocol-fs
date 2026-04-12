@@ -13,3 +13,7 @@ artifacts/
 ConsoleApp1/
 
 cloc-2.06.exe
+
+# React / Node
+src/McpServer/ClientApp/node_modules/
+src/McpServer/ClientApp/dist/

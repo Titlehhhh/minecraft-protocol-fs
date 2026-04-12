@@ -30,4 +30,9 @@
         <ProjectReference Include="..\ProtoCore\ProtoCore.csproj"/>
     </ItemGroup>
 
+    <Target Name="BuildClientApp" BeforeTargets="Build" Condition="Exists('ClientApp/package.json')">
+        <Exec Command="npm install" WorkingDirectory="ClientApp" />
+        <Exec Command="npm run build" WorkingDirectory="ClientApp" />
+    </Target>
+
 </Project>

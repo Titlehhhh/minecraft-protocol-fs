@@ -1,0 +1,82 @@
+import { useState } from 'react'
+import { useConfigStore } from '../../../store/configStore'
+import { TierRow, TIER_ROW_DEFS } from './TierRow'
+import { AssessorSection } from './AssessorSection'
+import { PresetsSection } from './PresetsSection'
+import type { Tier, InputFormat } from '../../../types'
+
+export function ConfigPane() {
+  const [focusedTier, setFocusedTier] = useState<Tier>('easy')
+  const { config, update } = useConfigStore()
+
+  return (
+    <div className="config-pane-inner">
+      <div className="sidebar-section">
+        <h2>Model Tiers</h2>
+
+        {TIER_ROW_DEFS.map(def => (
+          <TierRow key={def.tier} def={def} onFocusModel={setFocusedTier} />
+        ))}
+
+        <div className="row2" style={{ marginTop: 10 }}>
+          <div>
+            <label>Temperature</label>
+            <input
+              type="number"
+              value={config.temperature}
+              min={0}
+              max={2}
+              step={0.05}
+              onChange={e => update({ temperature: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+          <div>
+            <label>Max output tokens</label>
+            <input
+              type="number"
+              value={config.maxOutputTokens}
+              min={256}
+              max={32768}
+              step={256}
+              onChange={e => update({ maxOutputTokens: parseInt(e.target.value) || 4096 })}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginTop: 6 }}>
+          <label>
+            Schema format <span style={{ color: '#484f58' }}>(sent in prompt)</span>
+          </label>
+          <div className="effort-row">
+            {(['toon', 'json'] as InputFormat[]).map(fmt => (
+              <button
+                key={fmt}
+                className={`effort-btn${config.inputFormat === fmt ? ' active' : ''}`}
+                data-v={fmt}
+                onClick={() => update({ inputFormat: fmt })}
+              >
+                {fmt.charAt(0).toUpperCase() + fmt.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 10 }}>
+          <label>
+            Output directory <span style={{ color: '#484f58' }}>(auto-save generated files)</span>
+          </label>
+          <input
+            type="text"
+            value={config.outputBaseDir}
+            placeholder="e.g. C:/repo/McProtoNet/src/McProtoNet.Protocol/Packets"
+            style={{ fontSize: 11 }}
+            onChange={e => update({ outputBaseDir: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <AssessorSection />
+      <PresetsSection focusedTier={focusedTier} />
+    </div>
+  )
+}
