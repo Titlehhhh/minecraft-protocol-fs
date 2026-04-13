@@ -1,5 +1,3 @@
-using System;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using McpServer.Models;
@@ -16,18 +14,9 @@ public static class ConfigEndpoints
         app.MapGet("/api/config", (ModelConfigService cfg) =>
             Results.Ok(cfg.Config));
 
-        app.MapPost("/api/config", async (HttpContext http, ModelConfigService cfg, CancellationToken ct) =>
+        app.MapPost("/api/config", async (ModelConfig updated, ModelConfigService cfg, CancellationToken ct) =>
         {
-            var updated = await JsonSerializer.DeserializeAsync<ModelConfig>(
-                http.Request.Body,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
-                ct);
-
-            if (updated is null)
-                return Results.BadRequest("Invalid config JSON.");
-
-            cfg.Update(updated);
-            Console.WriteLine($"[McpServer] Config updated: easy={updated.Easy.Model} medium={updated.Medium.Model} heavy={updated.Heavy.Model} thresh={updated.EasyComplexityThreshold}/{updated.HeavyComplexityThreshold}");
+            await cfg.UpdateAsync(updated, ct);
             return Results.Ok(cfg.Config);
         });
     }

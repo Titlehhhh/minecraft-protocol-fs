@@ -1,16 +1,13 @@
-using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using McpServer.Helpers;
 using McpServer.Models;
 using McpServer.Repositories;
 using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using ProtoCore;
 
 namespace McpServer.Endpoints;
 
@@ -19,19 +16,14 @@ public static class GenerateEndpoints
     public static void MapGenerateApi(this WebApplication app)
     {
         // ── Prompt preview (dry-run) ──────────────────────────────────────────
-        app.MapPost("/api/prompt", async (HttpContext http, CodeGenerator gen, CancellationToken ct) =>
+        app.MapPost("/api/prompt", async (PromptRequest req, CodeGenerator gen, CancellationToken ct) =>
         {
-            using var body = await JsonDocument.ParseAsync(http.Request.Body, cancellationToken: ct);
-            if (!body.RootElement.TryGetProperty("id", out var idEl))
-                return Results.BadRequest("Missing 'id' field.");
-
-            var id = idEl.GetString();
-            if (string.IsNullOrWhiteSpace(id))
+            if (string.IsNullOrWhiteSpace(req.Id))
                 return Results.BadRequest("'id' must not be empty.");
 
             try
             {
-                var (system, user, _) = await gen.BuildPromptAsync(id, ct);
+                var (system, user, _) = await gen.BuildPromptAsync(req.Id, ct);
                 var systemTokens = TokenCounter.Count(system);
                 var userTokens   = TokenCounter.Count(user);
                 return Results.Ok(new
@@ -43,180 +35,149 @@ public static class GenerateEndpoints
                     tokenCount = systemTokens + userTokens,
                 });
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 return Results.BadRequest(new { error = $"{ex.GetType().Name}: {ex.Message}" });
             }
         });
 
         // ── Single generation ─────────────────────────────────────────────────
-        app.MapPost("/api/generate", async (HttpContext http, CodeGenerator gen, ModelConfigService mcs, CancellationToken ct) =>
+        app.MapPost("/api/generate", async (
+            GenerateRequest     req,
+            GenerationService   svc,
+            IPacketFileService  fileService,
+            ModelConfigService  mcs,
+            CancellationToken   ct) =>
         {
-            using var body = await JsonDocument.ParseAsync(http.Request.Body, cancellationToken: ct);
-            if (!body.RootElement.TryGetProperty("id", out var idEl))
-                return Results.BadRequest("Missing 'id' field.");
-
-            var id = idEl.GetString();
-            if (string.IsNullOrWhiteSpace(id))
+            if (string.IsNullOrWhiteSpace(req.Id))
                 return Results.BadRequest("'id' must not be empty.");
 
-            var outputBaseDir = body.RootElement.TryGetProperty("outputBaseDir", out var dirEl)
-                ? dirEl.GetString()
-                : null;
-            if (string.IsNullOrWhiteSpace(outputBaseDir))
-                outputBaseDir = mcs.Config.OutputBaseDir;
+            var result = await svc.GenerateAsync(req.Id, ct);
 
-            GenerationData data;
-            try
-            {
-                data = await gen.GenerateAsync(id, ct);
-            }
-            catch (Exception ex)
-            {
-                var detail = ex is System.ClientModel.ClientResultException cre
-                    ? $"{ex.GetType().Name}: {ex.Message}\nResponse body: {cre.GetRawResponse()?.Content?.ToString()}"
-                    : $"{ex.GetType().Name}: {ex.Message}";
-                Console.Error.WriteLine($"[Generate] ERROR for '{id}': {detail}");
-                return Results.Problem(detail, statusCode: 500);
-            }
+            if (!result.IsSuccess)
+                return Results.Problem(
+                    detail:     result.Error.Message,
+                    statusCode: 500,
+                    extensions: new Dictionary<string, object?> { ["kind"] = result.Error.Kind.ToString() });
 
-            string? savedTo = null;
-            if (!string.IsNullOrWhiteSpace(outputBaseDir) && !string.IsNullOrWhiteSpace(data.Code))
-            {
-                try
-                {
-                    var dir  = Path.Combine(outputBaseDir, PacketFileHelper.ResolveSubdir(id));
-                    Directory.CreateDirectory(dir);
-                    var path = Path.Combine(dir, data.Name + ".cs");
-                    await File.WriteAllTextAsync(path, data.Code, ct);
-                    savedTo = path;
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"[Generate] Failed to save file: {ex.Message}");
-                }
-            }
+            var savedTo = string.IsNullOrWhiteSpace(mcs.Config.OutputBaseDir)
+                ? null
+                : await fileService.TrySaveAsync(result.Data, req.Id, mcs.Config.OutputBaseDir, ct);
 
-            return Results.Ok(RestGenerationResult.From(data, savedTo));
+            return Results.Ok(RestGenerationResult.From(result.Data, savedTo));
         });
 
-        // ── Batch (simple, returns all at once) ───────────────────────────────
-        app.MapPost("/api/generate/batch", async (HttpContext http, CodeGenerator gen, CancellationToken ct) =>
+        // ── Batch (returns all at once, no SSE) ───────────────────────────────
+        app.MapPost("/api/generate/batch", async (
+            string[]           ids,
+            GenerationService  svc,
+            CancellationToken  ct) =>
         {
-            string[]? ids;
-            try
-            {
-                ids = await JsonSerializer.DeserializeAsync<string[]>(http.Request.Body, cancellationToken: ct);
-            }
-            catch
-            {
-                return Results.BadRequest("Body must be a JSON array of packet id strings.");
-            }
-
             if (ids is null || ids.Length == 0)
                 return Results.BadRequest("Provide at least one packet id.");
 
-            var tasks   = Array.ConvertAll(ids, id => SafeGenerateRest(gen, id, ct));
-            var results = await Task.WhenAll(tasks);
+            var results = new List<RestGenerationResult>();
+            await foreach (var r in svc.GenerateBatchAsync(ids, ct))
+                results.Add(r.IsSuccess
+                    ? RestGenerationResult.From(r.Data)
+                    : new RestGenerationResult { Name = r.Id, Error = r.Error!.Message });
+
             return Results.Ok(results);
         });
 
         // ── Batch by namespace (SSE) ──────────────────────────────────────────
-        app.MapPost("/api/generate/by-namespace", async (
-            HttpContext http, CodeGenerator gen, IProtocolRepository proto,
-            ModelConfigService mcs, CancellationToken ct) =>
+        app.MapPost("/api/generate/by-namespace", IResult (
+            GenerateByNamespaceRequest req,
+            GenerationService svc, IProtocolRepository proto,
+            IPacketFileService fileService, ModelConfigService mcs,
+            CancellationToken ct) =>
         {
-            string? ns = null, outputBaseDir = null;
-            try
-            {
-                using var body = await JsonDocument.ParseAsync(http.Request.Body, cancellationToken: ct);
-                ns            = body.RootElement.TryGetProperty("ns",            out var nsEl)  ? nsEl.GetString()  : null;
-                outputBaseDir = body.RootElement.TryGetProperty("outputBaseDir", out var dirEl) ? dirEl.GetString() : null;
-            }
-            catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body.", cancellationToken: ct); return; }
-
-            if (string.IsNullOrWhiteSpace(ns))
-            { http.Response.StatusCode = 400; await http.Response.WriteAsync("Missing 'ns' field.", cancellationToken: ct); return; }
+            if (string.IsNullOrWhiteSpace(req.Ns))
+                return Results.BadRequest("Missing 'ns' field.");
 
             var all = proto.GetPackets();
-            if (!all.TryGetValue(ns, out var packets))
-            { http.Response.StatusCode = 400; await http.Response.WriteAsync($"Unknown namespace '{ns}'. Valid: {string.Join(", ", all.Keys)}", cancellationToken: ct); return; }
+            if (!all.TryGetValue(req.Ns, out var packets))
+                return Results.BadRequest($"Unknown namespace '{req.Ns}'. Valid: {string.Join(", ", all.Keys)}");
 
-            var ids = packets.Keys.Select(name => $"{ns}.{name}").ToArray();
-            if (string.IsNullOrWhiteSpace(outputBaseDir)) outputBaseDir = mcs.Config.OutputBaseDir;
-            await BatchSseStreamer.StreamAsync(http, gen, proto, mcs, ids, outputBaseDir, ct);
+            var ids = packets.Keys.Select(name => $"{req.Ns}.{name}").ToArray();
+            return TypedResults.ServerSentEvents(ToSseStream(ids, svc, fileService, mcs, ct));
         });
 
         // ── Batch by tier (SSE) ───────────────────────────────────────────────
-        app.MapPost("/api/generate/by-tier", async (
-            HttpContext http, CodeGenerator gen, IProtocolRepository proto,
-            ModelConfigService mcs, CancellationToken ct) =>
+        app.MapPost("/api/generate/by-tier", IResult (
+            GenerateByTierRequest req,
+            GenerationService svc, IProtocolRepository proto,
+            IPacketFileService fileService, ModelConfigService mcs,
+            CancellationToken ct) =>
         {
-            string? tier = null, outputBaseDir = null;
-            try
-            {
-                using var body = await JsonDocument.ParseAsync(http.Request.Body, cancellationToken: ct);
-                tier          = body.RootElement.TryGetProperty("tier",          out var tierEl) ? tierEl.GetString() : null;
-                outputBaseDir = body.RootElement.TryGetProperty("outputBaseDir", out var dirEl)  ? dirEl.GetString() : null;
-            }
-            catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body.", cancellationToken: ct); return; }
-
             var validTiers = new[] { "tiny", "easy", "medium", "heavy" };
-            if (string.IsNullOrWhiteSpace(tier) || !Array.Exists(validTiers, t => t == tier))
-            { http.Response.StatusCode = 400; await http.Response.WriteAsync($"Invalid tier. Valid: {string.Join(", ", validTiers)}", cancellationToken: ct); return; }
+            if (string.IsNullOrWhiteSpace(req.Tier) || !System.Array.Exists(validTiers, t => t == req.Tier))
+                return Results.BadRequest($"Invalid tier. Valid: {string.Join(", ", validTiers)}");
 
             var ids = proto.GetPackets()
-                .SelectMany(kvp => kvp.Value.Keys.Select(name => $"{kvp.Key}.{name}"))
+                .SelectMany(kv => kv.Value.Keys.Select(name => $"{kv.Key}.{name}"))
                 .Where(id =>
                 {
                     try
                     {
-                        var def   = proto.GetPacket(id);
-                        var score = PacketComplexityScorer.Compute(def.History);
-                        return mcs.ClassifyTier(score).ToLabel() == tier;
+                        var def = proto.GetPacket(id);
+                        return mcs.ClassifyTier(PacketComplexityScorer.Compute(def.History)).ToLabel() == req.Tier;
                     }
                     catch { return false; }
                 })
                 .ToArray();
 
-            if (string.IsNullOrWhiteSpace(outputBaseDir)) outputBaseDir = mcs.Config.OutputBaseDir;
-            await BatchSseStreamer.StreamAsync(http, gen, proto, mcs, ids, outputBaseDir, ct);
+            return TypedResults.ServerSentEvents(ToSseStream(ids, svc, fileService, mcs, ct));
         });
 
         // ── Batch by explicit ids (SSE) ───────────────────────────────────────
-        app.MapPost("/api/generate/batch-ids", async (
-            HttpContext http, CodeGenerator gen, IProtocolRepository proto,
-            ModelConfigService mcs, CancellationToken ct) =>
+        app.MapPost("/api/generate/batch-ids", IResult (
+            GenerateBatchIdsRequest req,
+            GenerationService svc, IPacketFileService fileService, ModelConfigService mcs,
+            CancellationToken ct) =>
         {
-            string[]? ids = null;
-            string? outputBaseDir = null;
-            try
-            {
-                using var body = await JsonDocument.ParseAsync(http.Request.Body, cancellationToken: ct);
-                if (body.RootElement.TryGetProperty("ids", out var idsEl))
-                    ids = idsEl.EnumerateArray().Select(e => e.GetString()!).ToArray();
-                if (body.RootElement.TryGetProperty("outputBaseDir", out var dirEl))
-                    outputBaseDir = dirEl.GetString();
-            }
-            catch { http.Response.StatusCode = 400; await http.Response.WriteAsync("Invalid JSON body.", cancellationToken: ct); return; }
+            if (req.Ids is null || req.Ids.Length == 0)
+                return Results.BadRequest("Missing or empty 'ids' array.");
 
-            if (ids == null || ids.Length == 0)
-            { http.Response.StatusCode = 400; await http.Response.WriteAsync("Missing or empty 'ids' array.", cancellationToken: ct); return; }
-
-            if (string.IsNullOrWhiteSpace(outputBaseDir)) outputBaseDir = mcs.Config.OutputBaseDir;
-            await BatchSseStreamer.StreamAsync(http, gen, proto, mcs, ids, outputBaseDir, ct);
+            return TypedResults.ServerSentEvents(ToSseStream(req.Ids, svc, fileService, mcs, ct));
         });
     }
 
-    private static async Task<RestGenerationResult> SafeGenerateRest(CodeGenerator gen, string id, CancellationToken ct)
+    // ── Shared SSE stream — единственное место с батч-логикой ─────────────────
+    // Используем перегрузку TypedResults.ServerSentEvents<T>(IAsyncEnumerable<T>):
+    // type-дискриминатор внутри JSON-тела, как и в оригинале (без SSE event: заголовка).
+    private static async IAsyncEnumerable<object> ToSseStream(
+        string[]           ids,
+        GenerationService  svc,
+        IPacketFileService fileService,
+        ModelConfigService mcs,
+        [EnumeratorCancellation] CancellationToken ct)
     {
-        try
+        yield return new { type = "start", total = ids.Length };
+
+        int ok = 0, err = 0;
+
+        await foreach (var result in svc.GenerateBatchAsync(ids, ct))
         {
-            return RestGenerationResult.From(await gen.GenerateAsync(id, ct));
+            string? savedTo = null;
+            if (result.IsSuccess && !string.IsNullOrWhiteSpace(mcs.Config.OutputBaseDir))
+                savedTo = await fileService.TrySaveAsync(result.Data, result.Id, mcs.Config.OutputBaseDir, ct);
+
+            if (result.IsSuccess) ok++; else err++;
+
+            yield return new
+            {
+                type      = "packet",
+                id        = result.Id,
+                success   = result.IsSuccess,
+                model     = result.Data?.Model,
+                elapsedMs = result.Data?.ElapsedMs,
+                savedTo,
+                error     = result.Error?.Message,
+                errorKind = result.Error?.Kind.ToString(),
+            };
         }
-        catch (Exception ex)
-        {
-            return new RestGenerationResult { Name = id, Error = $"{ex.GetType().Name}: {ex.Message}" };
-        }
+
+        yield return new { type = "done", total = ids.Length, ok, err };
     }
 }

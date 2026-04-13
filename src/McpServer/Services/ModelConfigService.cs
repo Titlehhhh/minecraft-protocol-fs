@@ -2,6 +2,8 @@ using System;
 using System.ClientModel;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using McpServer.Models;
 using Microsoft.Extensions.AI;
 using OpenAI;
@@ -10,6 +12,12 @@ namespace McpServer.Services;
 
 public class ModelConfigService
 {
+    /// <summary>
+    /// Raised after config is updated. Subscribers (e.g. GenerationService) use this
+    /// to rebuild their semaphore pools without polling.
+    /// </summary>
+    public event Action<ModelConfig>? ConfigChanged;
+
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         WriteIndented = true,
@@ -29,12 +37,13 @@ public class ModelConfigService
 
     public ModelConfig Config => _config;
 
-    public void Update(ModelConfig config)
+    public async Task UpdateAsync(ModelConfig config, CancellationToken ct = default)
     {
         _config = config;
+        ConfigChanged?.Invoke(config);
         try
         {
-            File.WriteAllText(_configFilePath, JsonSerializer.Serialize(config, JsonOpts));
+            await File.WriteAllTextAsync(_configFilePath, JsonSerializer.Serialize(config, JsonOpts), ct);
         }
         catch (Exception ex)
         {

@@ -42,6 +42,8 @@ public static class ServiceRegistration
         builder.Services.AddSingleton<LlmComplexityAssessor>();
         builder.Services.AddSingleton<IComplexityAssessor>(sp => sp.GetRequiredService<LlmComplexityAssessor>());
         builder.Services.AddSingleton<CodeGenerator>();
+        builder.Services.AddSingleton<GenerationService>();
+        builder.Services.AddSingleton<IPacketFileService, PacketFileService>();
 
         builder.Services
             .AddMcpServer(options =>
