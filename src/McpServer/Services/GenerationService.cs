@@ -1,12 +1,14 @@
 using System;
 using System.ClientModel;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using McpServer.Models;
 using McpServer.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace McpServer.Services;
 
@@ -19,29 +21,35 @@ public sealed class GenerationService : IDisposable
 {
     private const int MaxAttempts = 4;
 
-    private readonly CodeGenerator       _codeGenerator;
-    private readonly IProtocolRepository _protocol;
-    private readonly ModelConfigService  _modelConfig;
+    private readonly CodeGenerator          _codeGenerator;
+    private readonly IProtocolRepository    _protocol;
+    private readonly ModelConfigService     _modelConfig;
+    private readonly ILogger<GenerationService> _logger;
 
     // Swapped atomically on config change — in-flight tasks hold a reference to the old dict
     // and Release() on their semaphore safely; the old dict is GC'd when all waiters are done.
     private volatile Dictionary<ComplexityTier, SemaphoreSlim> _semaphores;
 
     public GenerationService(
-        CodeGenerator       codeGenerator,
-        IProtocolRepository protocol,
-        ModelConfigService  modelConfig)
+        CodeGenerator            codeGenerator,
+        IProtocolRepository      protocol,
+        ModelConfigService       modelConfig,
+        ILogger<GenerationService> logger)
     {
         _codeGenerator = codeGenerator;
         _protocol      = protocol;
         _modelConfig   = modelConfig;
+        _logger        = logger;
         _semaphores    = BuildSemaphores(modelConfig.Config);
 
         modelConfig.ConfigChanged += OnConfigChanged;
     }
 
-    private void OnConfigChanged(ModelConfig cfg) =>
+    private void OnConfigChanged(ModelConfig cfg)
+    {
         Interlocked.Exchange(ref _semaphores, BuildSemaphores(cfg));
+        _logger.LogInformation("Semaphores rebuilt after config change");
+    }
 
     /// <summary>
     /// Generates a single packet with throttling and retry.
@@ -51,7 +59,10 @@ public sealed class GenerationService : IDisposable
     {
         var tier = ClassifyTier(id);
         var sem  = _semaphores[tier];
+
+        _logger.LogDebug("[{Id}] Waiting for semaphore (tier={Tier})", id, tier);
         await sem.WaitAsync(ct);
+        _logger.LogInformation("[{Id}] Starting generation (tier={Tier})", id, tier);
         try
         {
             return await GenerateWithRetryAsync(id, ct);
@@ -59,6 +70,7 @@ public sealed class GenerationService : IDisposable
         finally
         {
             sem.Release();
+            _logger.LogDebug("[{Id}] Semaphore released (tier={Tier})", id, tier);
         }
     }
 
@@ -70,9 +82,14 @@ public sealed class GenerationService : IDisposable
         IEnumerable<string> ids,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var tasks = ids.Select(id => GenerateAsync(id, ct)).ToList();
+        var idList = ids.ToList();
+        _logger.LogInformation("Batch started: {Count} packets", idList.Count);
+
+        var tasks = idList.Select(id => GenerateAsync(id, ct)).ToList();
         await foreach (var task in Task.WhenEach(tasks).WithCancellation(ct))
             yield return await task;
+
+        _logger.LogInformation("Batch finished: {Count} packets", idList.Count);
     }
 
     // ── Internals ─────────────────────────────────────────────────────────────
@@ -94,42 +111,48 @@ public sealed class GenerationService : IDisposable
     {
         for (int attempt = 1; attempt <= MaxAttempts; attempt++)
         {
+            var sw = Stopwatch.StartNew();
             try
             {
                 var data = await _codeGenerator.GenerateAsync(id, ct);
+                _logger.LogInformation("[{Id}] OK in {Ms}ms (model={Model})", id, sw.ElapsedMilliseconds, data.Model);
                 return GenerationResult.Ok(id, data);
             }
             catch (OperationCanceledException)
             {
+                _logger.LogWarning("[{Id}] Cancelled after {Ms}ms", id, sw.ElapsedMilliseconds);
                 throw;
             }
             catch (ClientResultException ex) when (IsRetryable(ex) && attempt < MaxAttempts)
             {
-                await Task.Delay(attempt * 2000, ct);
+                var body  = ex.GetRawResponse()?.Content.ToString() ?? "";
+                var delay = attempt * 2000;
+                _logger.LogWarning("[{Id}] HTTP {Status} — retrying in {Delay}ms (attempt {Attempt}/{Max})\nBody: {Body}",
+                    id, ex.Status, delay, attempt, MaxAttempts, body);
+                await Task.Delay(delay, ct);
             }
             catch (ClientResultException ex)
             {
-                return GenerationResult.Fail(id, MapHttpError(ex));
+                var err = MapHttpError(ex);
+                _logger.LogError("[{Id}] HTTP {Status} [{Kind}]: {Message}", id, ex.Status, err.Kind, err.Message);
+                return GenerationResult.Fail(id, err);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "[{Id}] Unexpected error after {Ms}ms", id, sw.ElapsedMilliseconds);
                 return GenerationResult.Fail(id, new GenerationError(GenerationErrorKind.Unknown, ex.Message));
             }
         }
 
+        _logger.LogError("[{Id}] Max retries exceeded", id);
         return GenerationResult.Fail(id, new GenerationError(GenerationErrorKind.Unknown, "Max retries exceeded"));
     }
 
     private static bool IsRetryable(ClientResultException ex)
     {
-        if (ex.Status is 429 or 503 or 502) return true;
-        if (ex.Status == 400)
-        {
-            var body = ex.GetRawResponse()?.Content.ToString() ?? "";
-            return body.Contains("Context size",    StringComparison.OrdinalIgnoreCase)
-                || body.Contains("context_length",  StringComparison.OrdinalIgnoreCase);
-        }
-        return false;
+        // 429/502/503 — временные проблемы на стороне API, ретраим
+        // 400 context_length — контент не изменится, НЕ ретраим
+        return ex.Status is 429 or 503 or 502;
     }
 
     private static GenerationError MapHttpError(ClientResultException ex)

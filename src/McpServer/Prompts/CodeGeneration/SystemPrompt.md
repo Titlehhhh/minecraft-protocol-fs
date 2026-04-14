@@ -77,3 +77,31 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
     internal void Deserialize(ref MinecraftPrimitiveReader reader, int protocolVersion)
         => KeepAliveId = reader.ReadSignedLong();
     ```
+18. Don't simplify switch cases to if statements in Serialize/Deserialize. Follow the code template strictly and don't forget the brackets ({}) in the case statement.
+
+# Common mistakes to AVOID
+
+## RegistryEntryHolder<T> types
+
+❌ Do NOT invent C# types based on schema field names or `baseName`.
+   Example: `"baseName": "dialog"` does NOT mean use type `Dialog` — this type doesn't exist!
+
+✅ CORRECT: Use ONLY supported types: string, int, ArmorTrimMaterial, ArmorTrimPattern, BannerPattern, EntityMetadataPaintingVariant, EntityMetadataWolfVariant, InstrumentData, ItemSoundEvent, JukeboxSongData
+
+✅ If unsure: default to `RegistryEntryHolder<string>`
+
+## WriteArray vs WriteType confusion
+
+❌ Do NOT use WriteArray<T> for custom types without protocolVersion
+   `writer.WriteArray(Items);` — WRONG (missing protocolVersion for custom types)
+
+✅ CORRECT for arrays of custom types:
+   `writer.WriteArray<Position>(Positions, protocolVersion);`
+
+## mapper type handling
+
+❌ Do NOT invent enums for mapper types
+   `["mapper", {"type": "varint", "mappings": {...}}]` does NOT mean create an enum
+
+✅ CORRECT: Use the mapped primitive type
+   `["mapper", {"type": "varint", ...}]` → C# type `int`, use ReadVarInt/WriteVarInt

@@ -2,19 +2,36 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using McpServer.Repositories;
 using Protodef;
 using Scriban;
+using Scriban.Runtime;
 
 namespace McpServer.Services;
 
 public static class PacketPostProcessor
 {
-    private const string Usings =
-        "using McProtoNet.Protocol;\nusing McProtoNet.Protocol.Attributes;\nusing McProtoNet.Serialization;";
+    private static readonly string[] RequiredUsings =
+    [
+        "using McProtoNet.Protocol;",
+        "using McProtoNet.Protocol.Attributes;",
+        "using McProtoNet.Serialization;",
+        "using McProtoNet.NBT;"
+    ];
+
+    private static readonly string[] RequiredPlaceholders =
+        ["usages", "namespace_decl", "attributes", "interface"];
+
+    private static string BuildUsings()
+    {
+        return string.Join("\n", RequiredUsings);
+    }
 
     public static string Process(string code, PacketDefinition packet, ProtocolRange supportedRange)
     {
+        ValidatePlaceholders(code);
+
         var nsParts = packet.Namespace.Split('.');
         var isServerbound = nsParts.Length > 1 && nsParts[1] == "toServer";
         var iface = isServerbound ? "IClientPacket" : "IServerPacket";
@@ -28,18 +45,39 @@ public static class PacketPostProcessor
             "handshaking"   => "Handshaking",
             var s           => throw new ArgumentException($"Unknown state: {s}")
         };
-        var dirPart   = isServerbound ? "Serverbound" : "Clientbound";
-        var nsDecl    = $"namespace McProtoNet.Protocol.Packets.{statePart}.{dirPart};";
+        var dirPart = isServerbound ? "Serverbound" : "Clientbound";
+        var nsDecl  = $"namespace McProtoNet.Protocol.Packets.{statePart}.{dirPart};";
 
-        var attributes = BuildAttributes(packet, supportedRange);
+        var template = Template.ParseLiquid(code);
+        if (template.HasErrors)
+            throw new InvalidOperationException(
+                $"Template parse errors:\n{string.Join("\n", template.Messages)}");
 
-        return Template.ParseLiquid(code).Render(new
+        var scriptObj = new ScriptObject();
+        scriptObj["usages"]         = BuildUsings();
+        scriptObj["namespace_decl"] = nsDecl;
+        scriptObj["attributes"]     = BuildAttributes(packet, supportedRange);
+        scriptObj["interface"]      = iface;
+
+        var context = new TemplateContext { StrictVariables = true };
+        context.PushGlobal(scriptObj);
+
+        return template.Render(context);
+    }
+
+    /// <summary>
+    /// Throws if the generated code is missing any required Liquid placeholder.
+    /// Checks for <c>{{ placeholder_name }}</c> (or with filters/spaces).
+    /// </summary>
+    private static void ValidatePlaceholders(string code)
+    {
+        foreach (var name in RequiredPlaceholders)
         {
-            usages         = Usings,
-            namespace_decl = nsDecl,
-            attributes     = attributes,
-            @interface     = iface
-        });
+            // Match {{ name }}, {{name}}, {{ name | filter }}, etc.
+            if (!Regex.IsMatch(code, @"\{\{[^}]*\b" + Regex.Escape(name) + @"\b[^}]*\}\}"))
+                throw new InvalidOperationException(
+                    $"Generated packet code is missing required template placeholder: {{{{ {name} }}}}");
+        }
     }
 
     private static string BuildAttributes(PacketDefinition packet, ProtocolRange supportedRange)

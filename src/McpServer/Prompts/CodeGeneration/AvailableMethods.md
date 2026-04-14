@@ -121,25 +121,57 @@ DO NOT name the type after the field — `WriteType<Location>` is WRONG.
 - ChatType, ChatTypeParameterType, ChatTypes, ChatTypesHolder,
   PositionUpdateRelatives, RecipeBookSetting, RecipeDisplay, SlotDisplay, MovementFlags
 
-## RegistryEntryHolder<T>
+## RegistryEntryHolder<T> — Registry from server
 
-Supported value types are registered in `ProtocolSerializationExtensions.cs`:
+Used when field schema type is: `["registryEntryHolder", { "baseName": "...", "otherwise": ... }]`
 
+⚠️ **CRITICAL:** The `"baseName"` is the **registry NAME, NOT a C# type!** 
+   - `"baseName": "dialog"` does NOT mean use type `Dialog`
+   - `"baseName": "armor_trim_material"` does NOT mean invent type `ArmorTrimMaterial` (it already exists!)
+
+**How to determine the value type T:**
+1. Look at schema structure and context from the field name and baseName
+2. Use ONLY one of the **Supported value types** below
+3. If unsure, default to `string`
+
+**Supported value types:**
 - string, int, ArmorTrimMaterial, ArmorTrimPattern, BannerPattern,
   EntityMetadataPaintingVariant, EntityMetadataWolfVariant, InstrumentData,
   ItemSoundEvent, JukeboxSongData
 
-## NBT Helpers
+**Example (ShowDialog packet, field "dialog"):**
+
+Schema:
+```json
+{
+  "name": "dialog",
+  "type": ["registryEntryHolder", {"baseName": "dialog", "otherwise": {...}}]
+}
+```
+
+✅ **CORRECT** C# code:
+```csharp
+public RegistryEntryHolder<string> Dialog { get; set; }
+writer.WriteRegistryEntryHolder<string>(Dialog, protocolVersion);
+Dialog = reader.ReadRegistryEntryHolder<string>(protocolVersion);
+```
+
+❌ **WRONG** — do NOT do this:
+```csharp
+public RegistryEntryHolder<Dialog> Dialog { get; set; }  // Dialog type does not exist!
+```
+
+## NBT Helpers (⚠️ POST-PROCESSING REQUIRED)
 
 From `ProtocolSerializationExtensions.Nbt.cs`. All methods require `protocolVersion` argument.
-Return/field type: `NbtTag` (requires `using McProtoNet.NBT;` in the packet file).
+Return/field type: `NbtTag`.
 
 - `ReadNbtTag(protocolVersion)` / `WriteNbtTag(NbtTag value, protocolVersion)`
 - `ReadOptionalNbtTag(protocolVersion)` / `WriteOptionalNbtTag(NbtTag? value, protocolVersion)`
 - `ReadAnonymousNbtTag(protocolVersion)` / `WriteAnonymousNbtTag(NbtTag value, protocolVersion)`
 - `ReadAnonOptionalNbtTag(protocolVersion)` / `WriteAnonOptionalNbtTag(NbtTag? value, protocolVersion)`
 
-When using NBT, add `using McProtoNet.NBT;` as the first line before `{{usages}}`.
+⚠️ **NOTE:** Generated code using NbtTag will require manual addition of `using McProtoNet.NBT;` after generation, as PacketPostProcessor does not add it automatically.
 
 ## Direct Extension Methods (NOT usable with ReadArray<T>/WriteArray<T>)
 

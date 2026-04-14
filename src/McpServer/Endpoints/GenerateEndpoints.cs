@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using McpServer.Models;
@@ -144,16 +145,15 @@ public static class GenerateEndpoints
     }
 
     // ── Shared SSE stream — единственное место с батч-логикой ─────────────────
-    // Используем перегрузку TypedResults.ServerSentEvents<T>(IAsyncEnumerable<T>):
-    // type-дискриминатор внутри JSON-тела, как и в оригинале (без SSE event: заголовка).
-    private static async IAsyncEnumerable<object> ToSseStream(
+    // JsonNode — явный JSON, нет проблем с source-generated сериализацией object/анонимных типов.
+    private static async IAsyncEnumerable<JsonNode> ToSseStream(
         string[]           ids,
         GenerationService  svc,
         IPacketFileService fileService,
         ModelConfigService mcs,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        yield return new { type = "start", total = ids.Length };
+        yield return new JsonObject { ["type"] = "start", ["total"] = ids.Length };
 
         int ok = 0, err = 0;
 
@@ -165,19 +165,19 @@ public static class GenerateEndpoints
 
             if (result.IsSuccess) ok++; else err++;
 
-            yield return new
+            yield return new JsonObject
             {
-                type      = "packet",
-                id        = result.Id,
-                success   = result.IsSuccess,
-                model     = result.Data?.Model,
-                elapsedMs = result.Data?.ElapsedMs,
-                savedTo,
-                error     = result.Error?.Message,
-                errorKind = result.Error?.Kind.ToString(),
+                ["type"]      = "packet",
+                ["id"]        = result.Id,
+                ["success"]   = result.IsSuccess,
+                ["model"]     = result.Data?.Model,
+                ["elapsedMs"] = result.Data?.ElapsedMs,
+                ["savedTo"]   = savedTo,
+                ["error"]     = result.Error?.Message,
+                ["errorKind"] = result.Error?.Kind.ToString(),
             };
         }
 
-        yield return new { type = "done", total = ids.Length, ok, err };
+        yield return new JsonObject { ["type"] = "done", ["total"] = ids.Length, ["ok"] = ok, ["err"] = err };
     }
 }

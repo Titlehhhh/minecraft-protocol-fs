@@ -13,7 +13,7 @@ public sealed partial class CLASS_NAME : {{interface}}
                 return;
 
             case >= FROM2 and <= TO2:
-            {
+            { 
                 var fields = VERSION_PROP ?? throw new InvalidOperationException("CLASS_NAME FROM2-TO2 fields missing.");
                 return;
             }
@@ -33,13 +33,19 @@ public sealed partial class CLASS_NAME : {{interface}}
         switch (protocolVersion)
         {
             case >= MinecraftVersion.StartProtocol and <= TO1:
+            {
                 return;
+            }
             case >= FROM2 and <= TO2:
+            {
                 VERSION_PROP = new VERSION_STRUCT { ExtraField = reader.ReadVarInt() };
                 return;
+            }
             case >= FROM3 and <= MinecraftVersion.LatestProtocol:
+            {
                 VERSION_PROP2 = new VERSION_STRUCT2 { ComplexField = reader.ReadType<SomeType>(protocolVersion) };
                 return;
+            }
             default:
                 ThrowHelper.ThrowProtocolNotSupported(nameof(CLASS_NAME), protocolVersion, SupportedVersions);
                 return;
