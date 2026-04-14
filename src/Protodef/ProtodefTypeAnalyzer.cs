@@ -53,6 +53,7 @@ public static class ProtodefTypeAnalyzer
         ProtodefTopBitSetTerminatedArray => "topBitSetTerminatedArray",
         ProtodefRegistryEntryHolder      => "registryEntryHolder",
         ProtodefRegistryEntryHolderSet   => "registryEntryHolderSet",
+        ProtodefCustomType cus           => cus.Name,
         _                                => $"unknownType_{type.GetType().Name}"
     };
 }
