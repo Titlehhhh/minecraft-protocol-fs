@@ -15,6 +15,7 @@ const DEFAULT_CONFIG: ModelConfig = {
   maxOutputTokens: 4096,
   inputFormat: 'toon',
   outputBaseDir: '',
+  dynamicContext: true,
   assessor: {
     enabled: false,
     model: '',

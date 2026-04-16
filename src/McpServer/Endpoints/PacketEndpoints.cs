@@ -9,6 +9,7 @@ using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using ProtoCore;
+using Protodef;
 
 namespace McpServer.Endpoints;
 
@@ -87,6 +88,32 @@ public static class PacketEndpoints
                 }).ToArray(),
                 packets = perPacket
             });
+        });
+
+        app.MapGet("/api/types", (IProtocolRepository repo) =>
+        {
+            var types = repo.GetTypes().OrderBy(t => t).ToArray();
+            return Results.Ok(types);
+        });
+
+        app.MapGet("/api/packets/{**id}/composition", (string id, IProtocolRepository repo) =>
+        {
+            try
+            {
+                var packet = repo.GetPacket(id);
+                var composition = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var (_, type) in packet.History)
+                {
+                    if (type is null) continue;
+                    var resolved = type.CreatePrimitiveResolvedCopy();
+                    composition.UnionWith(ProtodefTypeAnalyzer.GetTypeComposition(resolved));
+                }
+                return Results.Ok(composition.OrderBy(k => k).ToArray());
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
         });
 
         app.MapGet("/api/assess/{**id}", async (

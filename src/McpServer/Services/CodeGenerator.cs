@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -148,10 +149,17 @@ public class CodeGenerator
 
         var promptsFolder = ResolvePromptsFolder();
 
-        var systemBase       = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "SystemPrompt.md"), cancellationToken);
-        var skeleton         = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "Sceleton.md"), cancellationToken);
-        var availableMethods = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "AvailableMethods.md"), cancellationToken);
-        var basePrompt       = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "BasePrompt.md"), cancellationToken);
+        var systemBase = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "SystemPrompt.md"), cancellationToken);
+        var skeleton   = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "Sceleton.md"), cancellationToken);
+        var basePrompt = await File.ReadAllTextAsync(Path.Combine(promptsFolder, "BasePrompt.md"), cancellationToken);
+
+        var composition = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (_, type) in resolvedHistory)
+            if (type is not null)
+                composition.UnionWith(ProtodefTypeAnalyzer.GetTypeComposition(type));
+
+        var sectionsFolder   = Path.Combine(promptsFolder, "Methods");
+        var availableMethods = ContextBuilder.Build(composition, sectionsFolder, _modelConfig.Config.DynamicContext);
 
         var system = systemBase
             + "\n\n# TYPES AND IO METHODS\n\n" + availableMethods

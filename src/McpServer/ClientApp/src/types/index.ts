@@ -32,6 +32,7 @@ export interface ModelConfig {
   inputFormat: InputFormat
   outputBaseDir: string
   assessor: AssessorConfig
+  dynamicContext: boolean
 }
 
 export interface PacketStat {

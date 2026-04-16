@@ -6,6 +6,8 @@ import { SaveIndicator } from './components/shared/SaveIndicator'
 import { useResize } from './hooks/useResize'
 import { useConfigStore } from './store/configStore'
 import { usePacketsStore } from './store/packetsStore'
+import { useUIStore } from './store/uiStore'
+import { fetchProtocolTypes } from './api/packets'
 
 export function App() {
   const { size: sidebarWidth, isDragging, onMouseDown } = useResize({
@@ -19,6 +21,9 @@ export function App() {
     useConfigStore.getState().load()
     usePacketsStore.getState().loadPackets()
     usePacketsStore.getState().loadStats()
+    fetchProtocolTypes()
+      .then(types => useUIStore.getState().setProtocolTypes(types))
+      .catch(() => { /* ignore — non-critical */ })
   }, [])
 
   useEffect(() => {

@@ -58,12 +58,6 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
     internal void Serialize(MinecraftPrimitiveWriter writer, int protocolVersion) { }
     internal void Deserialize(ref MinecraftPrimitiveReader reader, int protocolVersion) { }
     ```
-15b. `mapper` type in schema: use the UNDERLYING PRIMITIVE type as the C# property type.
-    Do NOT invent enums, classes, or custom types for mapper.
-    Examples:
-    - `["mapper", {"type": "varint", "mappings": {...}}]` → C# type `int`, use ReadVarInt/WriteVarInt
-    - `["mapper", {"type": "u8",     "mappings": {...}}]` → C# type `byte`, use ReadUnsignedByte/WriteUnsignedByte
-    - `["mapper", {"type": "i16",    "mappings": {...}}]` → C# type `short`, use ReadSignedShort/WriteSignedShort
 16. The schema you receive has null version ranges pre-filtered out — they will never appear in the input.
     If somehow a null range appears: skip it entirely, do NOT generate any code for it.
 17. If the schema has ONLY ONE non-null version range (all other ranges are null or absent), do NOT use a switch
@@ -78,30 +72,3 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
         => KeepAliveId = reader.ReadSignedLong();
     ```
 18. Don't simplify switch cases to if statements in Serialize/Deserialize. Follow the code template strictly and don't forget the brackets ({}) in the case statement.
-
-# Common mistakes to AVOID
-
-## RegistryEntryHolder<T> types
-
-❌ Do NOT invent C# types based on schema field names or `baseName`.
-   Example: `"baseName": "dialog"` does NOT mean use type `Dialog` — this type doesn't exist!
-
-✅ CORRECT: Use ONLY supported types: string, int, ArmorTrimMaterial, ArmorTrimPattern, BannerPattern, EntityMetadataPaintingVariant, EntityMetadataWolfVariant, InstrumentData, ItemSoundEvent, JukeboxSongData
-
-✅ If unsure: default to `RegistryEntryHolder<string>`
-
-## WriteArray vs WriteType confusion
-
-❌ Do NOT use WriteArray<T> for custom types without protocolVersion
-   `writer.WriteArray(Items);` — WRONG (missing protocolVersion for custom types)
-
-✅ CORRECT for arrays of custom types:
-   `writer.WriteArray<Position>(Positions, protocolVersion);`
-
-## mapper type handling
-
-❌ Do NOT invent enums for mapper types
-   `["mapper", {"type": "varint", "mappings": {...}}]` does NOT mean create an enum
-
-✅ CORRECT: Use the mapped primitive type
-   `["mapper", {"type": "varint", ...}]` → C# type `int`, use ReadVarInt/WriteVarInt

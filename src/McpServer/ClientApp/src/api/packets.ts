@@ -27,3 +27,18 @@ export async function assessPacket(id: string): Promise<AssessResponse> {
   if (!r.ok) throw new Error((d as { error?: string }).error ?? `HTTP ${r.status}`)
   return d as AssessResponse
 }
+
+export async function fetchComposition(id: string): Promise<string[]> {
+  const r = await fetch(`/api/packets/${encodeURIComponent(id)}/composition`)
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({ error: `HTTP ${r.status}` }))
+    throw new Error((e as { error?: string }).error ?? 'Error')
+  }
+  return r.json()
+}
+
+export async function fetchProtocolTypes(): Promise<string[]> {
+  const r = await fetch('/api/types')
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}

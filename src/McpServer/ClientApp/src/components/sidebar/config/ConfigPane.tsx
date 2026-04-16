@@ -74,6 +74,20 @@ export function ConfigPane() {
             onChange={e => update({ outputBaseDir: e.target.value })}
           />
         </div>
+
+        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            id="dynamic-context"
+            type="checkbox"
+            checked={config.dynamicContext ?? true}
+            onChange={e => update({ dynamicContext: e.target.checked })}
+            style={{ cursor: 'pointer' }}
+          />
+          <label htmlFor="dynamic-context" style={{ cursor: 'pointer', userSelect: 'none' }}>
+            Dynamic context{' '}
+            <span style={{ color: '#484f58' }}>(only relevant IO methods in prompt)</span>
+          </label>
+        </div>
       </div>
 
       <AssessorSection />

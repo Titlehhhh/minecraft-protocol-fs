@@ -24,6 +24,6 @@ public class ProtocolMap
                 protocolPath, null, [minecraftVersion]));
         }
 
-        VersionToProtocol.Add(minecraftVersion, version);
+        VersionToProtocol.TryAdd(minecraftVersion, version);
     }
 }

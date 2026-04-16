@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { generatePacket, buildPrompt as apiBuildPrompt, batchGenerate } from '../api/generate'
-import { assessPacket, fetchSchema } from '../api/packets'
+import { assessPacket, fetchSchema, fetchComposition } from '../api/packets'
 import { useConfigStore } from './configStore'
 import { usePacketsStore } from './packetsStore'
 import { useUIStore } from './uiStore'
@@ -11,6 +11,7 @@ interface SchemaState {
   visible: boolean
   loadedFor: string | null
   data: SchemaData | null
+  composition: string[] | null
   loading: boolean
   error: string | null
 }
@@ -46,7 +47,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   abortController: null,
   isBatchRunning: false,
   batchAbortController: null,
-  schema: { visible: false, loadedFor: null, data: null, loading: false, error: null },
+  schema: { visible: false, loadedFor: null, data: null, composition: null, loading: false, error: null },
 
   async generate(id, andSave) {
     if (!id) return
@@ -185,11 +186,11 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   async loadSchema(id) {
     const current = get().schema
     if (current.loadedFor === id && current.visible) return
-    set(s => ({ schema: { ...s.schema, visible: true, loadedFor: id, loading: true, error: null, data: null } }))
+    set(s => ({ schema: { ...s.schema, visible: true, loadedFor: id, loading: true, error: null, data: null, composition: null } }))
     try {
-      const data = await fetchSchema(id)
+      const [data, composition] = await Promise.all([fetchSchema(id), fetchComposition(id).catch(() => null)])
       usePacketsStore.getState().cacheComplexity(id, { score: data.complexityScore, tier: data.tier })
-      set(s => ({ schema: { ...s.schema, loading: false, data } }))
+      set(s => ({ schema: { ...s.schema, loading: false, data, composition } }))
     } catch (e) {
       set(s => ({ schema: { ...s.schema, loading: false, error: (e as Error).message } }))
     }

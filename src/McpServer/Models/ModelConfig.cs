@@ -66,4 +66,10 @@ public class ModelConfig
     /// Example: "C:/repo/McProtoNet/src/McProtoNet.Protocol/Packets"
     /// </summary>
     public string OutputBaseDir   { get; set; } = "";
+
+    /// <summary>
+    /// When true, only the IO method sections relevant to the packet's protodef kinds
+    /// are included in the system prompt. When false, all sections are included.
+    /// </summary>
+    public bool DynamicContext { get; set; } = true;
 }

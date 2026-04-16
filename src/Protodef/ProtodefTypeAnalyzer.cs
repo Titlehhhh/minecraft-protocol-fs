@@ -43,7 +43,7 @@ public static class ProtodefTypeAnalyzer
         ProtodefContainer                => "container",
         ProtodefArray                    => "array",
         ProtodefBuffer                   => "buffer",
-        ProtodefCustomSwitch n           => n.Owner ?? "cus_switch",
+        ProtodefCustomSwitch             => "cus_switch",
         ProtodefSwitch                   => "switch",
         ProtodefMapper                   => "mapper",
         ProtodefBitField                 => "bitfield",
@@ -54,6 +54,6 @@ public static class ProtodefTypeAnalyzer
         ProtodefRegistryEntryHolder      => "registryEntryHolder",
         ProtodefRegistryEntryHolderSet   => "registryEntryHolderSet",
         ProtodefCustomType cus           => cus.Name,
-        _                                => $"unknownType_{type.GetType().Name}"
+        _                                => throw new InvalidOperationException($"Type {type.GetType()} is not supported.")
     };
 }
