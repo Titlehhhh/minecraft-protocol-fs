@@ -139,19 +139,6 @@ public static class ContextBuilder
             ["itemWrittenBookPage"]            = ["ProtocolTypes"],
             ["jukeboxSongData"]                = ["ProtocolTypes"],
 
-            ["packetCommonAddResourcePack"]    = ["ProtocolTypes"],
-            ["packetCommonClearDialog"]        = ["ProtocolTypes"],
-            ["packetCommonCookieRequest"]      = ["ProtocolTypes"],
-            ["packetCommonCookieResponse"]     = ["ProtocolTypes"],
-            ["packetCommonCustomClickAction"]  = ["ProtocolTypes"],
-            ["packetCommonCustomReportDetails"] = ["ProtocolTypes"],
-            ["packetCommonRemoveResourcePack"] = ["ProtocolTypes"],
-            ["packetCommonSelectKnownPacks"]   = ["ProtocolTypes"],
-            ["packetCommonServerLinks"]        = ["ProtocolTypes"],
-            ["packetCommonSettings"]           = ["ProtocolTypes"],
-            ["packetCommonStoreCookie"]        = ["ProtocolTypes"],
-            ["packetCommonTransfer"]           = ["ProtocolTypes"],
-
             // ── direct extension methods (NOT in ReadType/WriteType) ────────────────
             ["entityMetadataEntry"] = ["DirectExtensions"],
             ["deathLocation"]       = ["DirectExtensions"],

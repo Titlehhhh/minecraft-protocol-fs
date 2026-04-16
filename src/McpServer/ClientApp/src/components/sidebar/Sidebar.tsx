@@ -2,6 +2,7 @@ import { CSSProperties } from 'react'
 import { useUIStore } from '../../store/uiStore'
 import { PacketsPane } from './PacketsPane'
 import { TypesPane } from './TypesPane'
+import { NativeTypesPane } from './NativeTypesPane'
 import { ConfigPane } from './config/ConfigPane'
 
 interface Props {
@@ -28,6 +29,12 @@ export function Sidebar({ style }: Props) {
           🗂 Types
         </button>
         <button
+          className={`sidebar-tab${sidebarTab === 'native' ? ' active' : ''}`}
+          onClick={() => setSidebarTab('native')}
+        >
+          🔲 Native
+        </button>
+        <button
           className={`sidebar-tab${sidebarTab === 'config' ? ' active' : ''}`}
           onClick={() => setSidebarTab('config')}
         >
@@ -40,6 +47,9 @@ export function Sidebar({ style }: Props) {
       </div>
       <div className={`sidebar-pane${sidebarTab === 'types' ? ' active' : ''}`}>
         <TypesPane />
+      </div>
+      <div className={`sidebar-pane${sidebarTab === 'native' ? ' active' : ''}`}>
+        <NativeTypesPane />
       </div>
       <div className={`sidebar-pane${sidebarTab === 'config' ? ' active' : ''}`}>
         <ConfigPane />

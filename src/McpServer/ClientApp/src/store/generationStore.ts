@@ -190,7 +190,10 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   async loadSchema(id) {
     const current = get().schema
     if (current.loadedFor === id && current.visible) return
-    set(s => ({ schema: { ...s.schema, visible: true, loadedFor: id, loading: true, error: null, data: null, composition: null } }))
+    set(s => ({ 
+      schema: { ...s.schema, visible: true, loadedFor: id, loading: true, error: null, data: null, composition: null },
+      typeSchema: { ...s.typeSchema, visible: false }
+    }))
     try {
       const [data, composition] = await Promise.all([fetchSchema(id), fetchComposition(id).catch(() => null)])
       usePacketsStore.getState().cacheComplexity(id, { score: data.complexityScore, tier: data.tier })
@@ -213,7 +216,10 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   async loadTypeSchema(id) {
     const current = get().typeSchema
     if (current.loadedFor === id && current.visible) return
-    set(s => ({ typeSchema: { ...s.typeSchema, visible: true, loadedFor: id, loading: true, error: null, data: null, composition: null } }))
+    set(s => ({ 
+      typeSchema: { ...s.typeSchema, visible: true, loadedFor: id, loading: true, error: null, data: null, composition: null },
+      schema: { ...s.schema, visible: false }
+    }))
     try {
       const data = await fetchTypeSchema(id)
       set(s => ({ typeSchema: { ...s.typeSchema, loading: false, data } }))

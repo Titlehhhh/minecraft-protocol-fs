@@ -7,6 +7,7 @@ public interface IProtocolRepository
     ProtocolRange GetSupportedProtocols();
 
     IEnumerable<string> GetTypes();
+    IEnumerable<string> GetNativeTypes();
     Dictionary<string, Dictionary<string, PacketDefinition>> GetPackets();
 
     PacketDefinition GetPacket(string id);

@@ -61,4 +61,9 @@ public sealed class ProtodefLoop : ProtodefType
 
         return EndValue == other.EndValue && Type.Equals(other.Type);
     }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(EndValue, Type.GetHashCode());
+    }
 }

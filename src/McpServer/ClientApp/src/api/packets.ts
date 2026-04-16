@@ -43,6 +43,18 @@ export async function fetchProtocolTypes(): Promise<string[]> {
   return r.json()
 }
 
+export async function fetchNativeTypes(): Promise<string[]> {
+  const r = await fetch('/api/native-types')
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}
+
+export async function fetchProtocolTypesByKind(): Promise<Record<string, string[]>> {
+  const r = await fetch('/api/types-by-kind')
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}
+
 export async function fetchTypeSchema(id: string): Promise<SchemaData> {
   const r = await fetch(`/api/type/${encodeURIComponent(id)}`)
   if (!r.ok) {

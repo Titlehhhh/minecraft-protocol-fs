@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using ProtoCore;
 using Protodef;
+using Protodef.Primitive;
+using Protodef.Enumerable;
 
 namespace McpServer.Endpoints;
 
@@ -94,6 +96,72 @@ public static class PacketEndpoints
         {
             var types = repo.GetTypes().OrderBy(t => t).ToArray();
             return Results.Ok(types);
+        });
+
+        app.MapGet("/api/native-types", (IProtocolRepository repo) =>
+        {
+            return Results.Ok(repo.GetNativeTypes());
+        });
+
+        app.MapGet("/api/types-by-kind", (IProtocolRepository repo) =>
+        {
+            var types = repo.GetTypes();
+            var grouped = new System.Collections.Generic.SortedDictionary<string, List<string>>();
+
+            foreach (var typeId in types)
+            {
+                try
+                {
+                    var typeHistory = repo.GetTypeHistory(typeId);
+                    string? kind = null;
+
+                    // Determine kind from the first non-null type in history
+                    foreach (var (_, protodefType) in typeHistory.History)
+                    {
+                        if (protodefType is null) continue;
+
+                        kind = protodefType switch
+                        {
+                            ProtodefContainer _ => "container",
+                            ProtodefBitField _ => "bitfield",
+                            ProtodefBitFlags _ => "bitflags",
+                            ProtodefBuffer _ => "buffer",
+                            ProtodefMapper _ => "mapper",
+                            ProtodefArray _ => "array",
+                            ProtodefOption _ => "option",
+                            ProtodefPrefixedString _ => "pstring",
+                            ProtodefSwitch _ => "switch",
+                            ProtodefLoop _ => "loop",
+                            ProtodefTopBitSetTerminatedArray _ => "topBitSetTerminatedArray",
+                            ProtodefVarInt _ => "varint",
+                            ProtodefVarLong _ => "varlong",
+                            ProtodefVoid _ => "void",
+                            ProtodefString _ => "string",
+                            ProtodefBool _ => "bool",
+                            ProtodefCustomType _ => "custom",
+                            _ => "unknown"
+                        };
+                        break;
+                    }
+
+                    kind ??= "unknown";
+
+                    if (!grouped.ContainsKey(kind))
+                        grouped[kind] = new List<string>();
+
+                    grouped[kind].Add(typeId);
+                }
+                catch
+                {
+                    // Skip types that can't be loaded
+                    if (!grouped.ContainsKey("error"))
+                        grouped["error"] = new List<string>();
+                    grouped["error"].Add(typeId);
+                }
+            }
+
+            var result = grouped.ToDictionary(kv => kv.Key, kv => kv.Value.OrderBy(t => t).ToArray());
+            return Results.Ok(result);
         });
 
         app.MapGet("/api/composition/{**id}", (string id, IProtocolRepository repo) =>

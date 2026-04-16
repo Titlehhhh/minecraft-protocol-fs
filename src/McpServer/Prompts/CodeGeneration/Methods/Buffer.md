@@ -1,29 +1,25 @@
-## Buffer (raw byte arrays)
+## Buffers
 
-**MinecraftPrimitiveReader/Writer (L1 — без LengthFormat):**
-- `reader.ReadBuffer(int length)` → `byte[]`      — читает ровно `length` байт
-- `reader.ReadRestBuffer()` → `byte[]`             — читает все оставшиеся байты
-- `writer.WriteBuffer(ReadOnlySpan<byte>)`         — пишет сырые байты БЕЗ префикса длины
-
-**ProtocolSerializationExtensions (L2 — с LengthFormat):**
+**ProtocolSerializationExtensions:**
+- `reader.ReadBuffer(int length)`
 - `reader.ReadBuffer(LengthFormat lengthFormat = LengthFormat.VarInt)` → `byte[]`
-  Читает длину (по формату) + байты одним вызовом.
 - `writer.WriteBuffer(ReadOnlySpan<byte> buff, LengthFormat lengthFormat = LengthFormat.VarInt)`
-  Пишет длину (по формату) + байты одним вызовом.
-- `writer.WriteBuffer<VarInt>(ReadOnlySpan<byte> buff)` — то же что VarInt, через generic
-- `writer.WriteBuffer(ReadOnlySpan<byte> buff, int length)` — пишет только первые `length` байт (без префикса)
+- `writer.WriteRestBuffer(ReadOnlySpan<byte> buff)` - Just copies the array 
+- `writer.ReadRestBuffer()` - Reads the remaining bytes from the packet. After the call, the packet is empty.
 
-**Примеры:**
+
+**Examples:**
 ```csharp
-// Читать буфер с VarInt-префиксом (1 вызов — L2):
+// Read buffer with VarInt-prefix:
 byte[] data = reader.ReadBuffer(LengthFormat.VarInt);
 
-// Писать буфер с VarInt-префиксом (1 вызов — L2):
+// Write buffer with VarInt-prefix:
 writer.WriteBuffer(Data, LengthFormat.VarInt);
 
-// Читать буфер с ручным контролем длины (2 вызова — L1):
+// Read buffer with manual length control
 int len = reader.ReadVarInt();
-byte[] data = reader.ReadBuffer(len);
+byte[] data1 = reader.ReadBuffer(len);
+byte[] data2 = reader.ReadBuffer(500);
 ```
 
-**LengthFormat варианты:** `LengthFormat.VarInt`, `LengthFormat.Byte`, `LengthFormat.Short`, `LengthFormat.Int`
+**LengthFormat variants:** `LengthFormat.VarInt`(Most Popular), `LengthFormat.Byte`, `LengthFormat.Short`, `LengthFormat.Int`

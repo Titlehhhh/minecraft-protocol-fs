@@ -7,7 +7,7 @@ import { useResize } from './hooks/useResize'
 import { useConfigStore } from './store/configStore'
 import { usePacketsStore } from './store/packetsStore'
 import { useUIStore } from './store/uiStore'
-import { fetchProtocolTypes } from './api/packets'
+import { fetchProtocolTypesByKind, fetchNativeTypes } from './api/packets'
 
 export function App() {
   const { size: sidebarWidth, isDragging, onMouseDown } = useResize({
@@ -21,8 +21,16 @@ export function App() {
     useConfigStore.getState().load()
     usePacketsStore.getState().loadPackets()
     usePacketsStore.getState().loadStats()
-    fetchProtocolTypes()
-      .then(types => useUIStore.getState().setProtocolTypes(types))
+    fetchProtocolTypesByKind()
+      .then(typesByKind => {
+        useUIStore.getState().setProtocolTypesByKind(typesByKind)
+        // Also set flat list for backwards compatibility
+        const flatList = Object.values(typesByKind).flat().sort()
+        useUIStore.getState().setProtocolTypes(flatList)
+      })
+      .catch(() => { /* ignore — non-critical */ })
+    fetchNativeTypes()
+      .then(types => useUIStore.getState().setNativeTypes(types))
       .catch(() => { /* ignore — non-critical */ })
   }, [])
 

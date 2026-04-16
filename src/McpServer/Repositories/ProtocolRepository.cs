@@ -42,6 +42,7 @@ public class ProtocolRepository : IProtocolRepository
     private readonly Dictionary<string, Dictionary<string, PacketDefinition>> _packets = new();
     private readonly ProtocolRange _range;
     private readonly IReadOnlyDictionary<string, TypeHistory> _types;
+    private readonly string[] _nativeTypes;
 
     public ProtocolRepository(
         ProtocolRange range,
@@ -51,6 +52,7 @@ public class ProtocolRepository : IProtocolRepository
         _range = range;
         _map = map;
         _types = types;
+        _nativeTypes = HistoryBuilder.GetNativeTypeNames(map);
 
         foreach (var kv in types)
             if (kv.Key.EndsWith("packet", StringComparison.OrdinalIgnoreCase))
@@ -93,6 +95,8 @@ public class ProtocolRepository : IProtocolRepository
             where !name.StartsWith("packet", StringComparison.OrdinalIgnoreCase)
             select key;
     }
+
+    public IEnumerable<string> GetNativeTypes() => _nativeTypes;
 
     public IEnumerable<string> GetPacketMappers()
     {

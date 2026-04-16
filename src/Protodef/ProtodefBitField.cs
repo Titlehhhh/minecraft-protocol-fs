@@ -34,7 +34,15 @@ public sealed class ProtodefBitField : ProtodefType, IEnumerable<ProtodefBitFiel
 
     public override int GetHashCode()
     {
-        return nodes.GetHashCode();
+        unchecked
+        {
+            int hash = 0;
+            foreach (var node in nodes)
+            {
+                hash = (hash * 397) ^ (node?.GetHashCode() ?? 0);
+            }
+            return hash;
+        }
     }
 
     public IEnumerator<ProtodefBitFieldNode> GetEnumerator()
@@ -51,7 +59,4 @@ public sealed class ProtodefBitField : ProtodefType, IEnumerable<ProtodefBitFiel
     {
         return new ProtodefBitField(this);
     }
-
-    private static readonly IEqualityComparer<ProtodefBitFieldNode> NodeComparer =
-        EqualityComparer<ProtodefBitFieldNode>.Default;
 }

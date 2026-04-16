@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Humanizer;
 using ProtoCore;
@@ -30,9 +31,20 @@ public static class HistoryBuilder
 
     private static TypeHistory BuildHistory(ProtocolMap map, string path)
     {
+        
         var name = NameFromPath(path).Pascalize();
         var resolved = ResolveType(map, path).ToArray();
 
+        if (path.Contains("MovementFlags"))
+        {
+            var dict = resolved.ToDictionary();
+            var v768 = dict[768]!;
+            var v769 = dict[769]!;
+            
+            var gg = v768.Equals(v769);
+            Debugger.Break();
+        }
+        
         return new TypeHistory
         {
             Id = path,
@@ -159,6 +171,18 @@ public static class HistoryBuilder
                     .Select(y => y.Value.Path))
             .SelectMany(x => x)
             .ToHashSet()
+            .ToArray();
+    }
+
+    public static string[] GetNativeTypeNames(ProtocolMap map)
+    {
+        return map.Protocols.Values
+            .SelectMany(x =>
+                x.Protocol!.EnumerateTypes()
+                    .Where(kv => kv.Value.IsCustom("native"))
+                    .Select(kv => kv.Value.Path))
+            .ToHashSet()
+            .Order()
             .ToArray();
     }
 

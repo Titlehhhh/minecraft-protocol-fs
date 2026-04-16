@@ -1,8 +1,9 @@
 ﻿using System.Text.Json.Serialization;
+using Protodef.Converters;
 
 namespace Protodef;
 
-
+[JsonConverter(typeof(ProtodefBitFlagsConverter))]
 public sealed class ProtodefBitFlags : ProtodefType
 {
     [JsonPropertyName("type")]
@@ -44,6 +45,20 @@ public sealed class ProtodefBitFlags : ProtodefType
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(Type, Flags, Big, Shift);
+        unchecked
+        {
+            int hash = Type?.GetHashCode() ?? 0;
+            hash = (hash * 397) ^ (Flags?.Length.GetHashCode() ?? 0);
+            if (Flags is not null)
+            {
+                foreach (var flag in Flags)
+                {
+                    hash = (hash * 397) ^ (flag?.GetHashCode() ?? 0);
+                }
+            }
+            hash = (hash * 397) ^ Big.GetHashCode();
+            hash = (hash * 397) ^ Shift.GetHashCode();
+            return hash;
+        }
     }
 }
