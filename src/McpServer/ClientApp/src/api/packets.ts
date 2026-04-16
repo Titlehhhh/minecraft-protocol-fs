@@ -29,7 +29,7 @@ export async function assessPacket(id: string): Promise<AssessResponse> {
 }
 
 export async function fetchComposition(id: string): Promise<string[]> {
-  const r = await fetch(`/api/packets/${encodeURIComponent(id)}/composition`)
+  const r = await fetch(`/api/composition/${encodeURIComponent(id)}`)
   if (!r.ok) {
     const e = await r.json().catch(() => ({ error: `HTTP ${r.status}` }))
     throw new Error((e as { error?: string }).error ?? 'Error')
@@ -40,5 +40,14 @@ export async function fetchComposition(id: string): Promise<string[]> {
 export async function fetchProtocolTypes(): Promise<string[]> {
   const r = await fetch('/api/types')
   if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}
+
+export async function fetchTypeSchema(id: string): Promise<SchemaData> {
+  const r = await fetch(`/api/type/${encodeURIComponent(id)}`)
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({ error: `HTTP ${r.status}` }))
+    throw new Error((e as { error?: string }).error ?? 'Error')
+  }
   return r.json()
 }

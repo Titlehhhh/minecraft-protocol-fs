@@ -96,7 +96,7 @@ public static class PacketEndpoints
             return Results.Ok(types);
         });
 
-        app.MapGet("/api/packets/{**id}/composition", (string id, IProtocolRepository repo) =>
+        app.MapGet("/api/composition/{**id}", (string id, IProtocolRepository repo) =>
         {
             try
             {
@@ -159,6 +159,33 @@ public static class PacketEndpoints
                 var toonStr = Toon.Format.ToonEncoder.EncodeNode(json, new Toon.Format.ToonEncodeOptions());
 
                 var score = PacketComplexityScorer.Compute(packet.History);
+                var tier  = mcs.ClassifyTier(score).ToLabel();
+
+                return Results.Ok(new { json = jsonStr, toon = toonStr, complexityScore = score, tier });
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = $"{ex.GetType().Name}: {ex.Message}" });
+            }
+        });
+
+        app.MapGet("/api/type/{**id}", (string id, IProtocolRepository repo, ModelConfigService mcs) =>
+        {
+            try
+            {
+                var type      = repo.GetTypeHistory(id);
+                var supported = repo.GetSupportedProtocols();
+
+                var json = System.Text.Json.JsonSerializer.SerializeToNode(
+                    type.History, Protodef.ProtodefType.DefaultJsonOptions)!;
+                var obj = json.AsObject();
+                PacketPostProcessor.ApplyVersionAliases(obj, supported);
+
+                var jsonStr = System.Text.Json.JsonSerializer.Serialize(json,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                var toonStr = Toon.Format.ToonEncoder.EncodeNode(json, new Toon.Format.ToonEncodeOptions());
+
+                var score = PacketComplexityScorer.Compute(type.History);
                 var tier  = mcs.ClassifyTier(score).ToLabel();
 
                 return Results.Ok(new { json = jsonStr, toon = toonStr, complexityScore = score, tier });

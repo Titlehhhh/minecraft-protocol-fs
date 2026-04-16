@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { generatePacket, buildPrompt as apiBuildPrompt, batchGenerate } from '../api/generate'
-import { assessPacket, fetchSchema, fetchComposition } from '../api/packets'
+import { assessPacket, fetchSchema, fetchComposition, fetchTypeSchema } from '../api/packets'
 import { useConfigStore } from './configStore'
 import { usePacketsStore } from './packetsStore'
 import { useUIStore } from './uiStore'
@@ -26,6 +26,7 @@ interface GenerationStore {
   isBatchRunning: boolean
   batchAbortController: AbortController | null
   schema: SchemaState
+  typeSchema: SchemaState
 
   generate: (id: string, andSave: boolean) => Promise<void>
   buildPrompt: (id: string) => Promise<void>
@@ -34,6 +35,8 @@ interface GenerationStore {
   clearOutput: () => void
   loadSchema: (id: string) => Promise<void>
   toggleSchema: (id: string) => void
+  loadTypeSchema: (id: string) => Promise<void>
+  toggleTypeSchema: (id: string) => void
   runBatch: (ids: string[], outputBaseDir: string) => Promise<void>
   cancelBatch: () => void
 }
@@ -48,6 +51,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   isBatchRunning: false,
   batchAbortController: null,
   schema: { visible: false, loadedFor: null, data: null, composition: null, loading: false, error: null },
+  typeSchema: { visible: false, loadedFor: null, data: null, composition: null, loading: false, error: null },
 
   async generate(id, andSave) {
     if (!id) return
@@ -203,6 +207,28 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     } else {
       if (id) get().loadSchema(id)
       else set(s => ({ schema: { ...s.schema, visible: !s.schema.visible } }))
+    }
+  },
+
+  async loadTypeSchema(id) {
+    const current = get().typeSchema
+    if (current.loadedFor === id && current.visible) return
+    set(s => ({ typeSchema: { ...s.typeSchema, visible: true, loadedFor: id, loading: true, error: null, data: null, composition: null } }))
+    try {
+      const data = await fetchTypeSchema(id)
+      set(s => ({ typeSchema: { ...s.typeSchema, loading: false, data } }))
+    } catch (e) {
+      set(s => ({ typeSchema: { ...s.typeSchema, loading: false, error: (e as Error).message } }))
+    }
+  },
+
+  toggleTypeSchema(id) {
+    const { typeSchema } = get()
+    if (typeSchema.visible && typeSchema.loadedFor === id) {
+      set(s => ({ typeSchema: { ...s.typeSchema, visible: false } }))
+    } else {
+      if (id) get().loadTypeSchema(id)
+      else set(s => ({ typeSchema: { ...s.typeSchema, visible: !s.typeSchema.visible } }))
     }
   },
 

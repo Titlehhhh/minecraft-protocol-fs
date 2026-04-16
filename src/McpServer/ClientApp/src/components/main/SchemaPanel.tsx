@@ -1,6 +1,12 @@
+import { useMemo } from 'react'
+import hljs from 'highlight.js/lib/core'
+import json from 'highlight.js/lib/languages/json'
+import 'highlight.js/styles/github-dark-dimmed.css'
 import { useGenerationStore } from '../../store/generationStore'
 import { ResizeHandle } from '../shared/ResizeHandle'
 import { useResize } from '../../hooks/useResize'
+
+hljs.registerLanguage('json', json)
 
 const KIND_COLORS: Record<string, string> = {
   container: '#30363d',
@@ -29,8 +35,35 @@ function kindColor(kind: string): string {
   return KIND_COLORS[kind] ?? '#1a3a5e'
 }
 
+interface HighlightedCodeProps {
+  code: string
+  language?: 'json' | 'plaintext'
+}
+
+function HighlightedCode({ code, language = 'plaintext' }: HighlightedCodeProps) {
+  const highlighted = useMemo(() => {
+    if (!code) return ''
+    try {
+      if (language === 'json') {
+        return hljs.highlight(code, { language: 'json', ignoreIllegals: true }).value
+      }
+      return code
+    } catch {
+      return code
+    }
+  }, [code, language])
+
+  return (
+    <pre
+      style={{ margin: 0, padding: 10, fontSize: 11, background: 'transparent', borderRadius: 0, minHeight: 0 }}
+      dangerouslySetInnerHTML={{ __html: highlighted }}
+    />
+  )
+}
+
 export function SchemaPanel() {
   const schema = useGenerationStore(s => s.schema)
+  const typeSchema = useGenerationStore(s => s.typeSchema)
   const { size: colsHeight, isDragging, onMouseDown } = useResize({
     direction: 'row',
     min: 60,
@@ -38,27 +71,30 @@ export function SchemaPanel() {
     initial: 220,
   })
 
-  if (!schema.visible) return null
+  // Show typeSchema if it's visible, otherwise show schema
+  const displaySchema = typeSchema.visible ? typeSchema : schema
+  
+  if (!displaySchema.visible) return null
 
   const renderHeader = () => {
-    if (schema.loading)
-      return <span style={{ color: '#484f58' }}>Loading <b style={{ color: '#8b949e' }}>{schema.loadedFor}</b>...</span>
-    if (schema.error)
-      return <span style={{ color: '#f85149' }}>{schema.error}</span>
-    if (!schema.data) return null
-    const { data } = schema
+    if (displaySchema.loading)
+      return <span style={{ color: '#484f58' }}>Loading <b style={{ color: '#8b949e' }}>{displaySchema.loadedFor}</b>...</span>
+    if (displaySchema.error)
+      return <span style={{ color: '#f85149' }}>{displaySchema.error}</span>
+    if (!displaySchema.data) return null
+    const { data } = displaySchema
     return (
       <>
-        <b style={{ color: '#c9d1d9' }}>{schema.loadedFor}</b>
+        <b style={{ color: '#c9d1d9' }}>{displaySchema.loadedFor}</b>
         {' '}
         <span className={`ctier ${data.tier}`}>{data.tier.toUpperCase()}</span>
         {' '}
         <span style={{ color: '#484f58', fontSize: 10 }}>
           score: <b style={{ color: '#8b949e' }}>{data.complexityScore}</b>
         </span>
-        {schema.composition && schema.composition.length > 0 && (
+        {displaySchema.composition && displaySchema.composition.length > 0 && (
           <span style={{ marginLeft: 10, display: 'inline-flex', flexWrap: 'wrap', gap: 3 }}>
-            {schema.composition.map(kind => (
+            {displaySchema.composition.map(kind => (
               <span
                 key={kind}
                 title={kind}
@@ -87,14 +123,12 @@ export function SchemaPanel() {
       <div className="schema-cols" style={{ height: colsHeight }}>
         <div className="schema-col">
           <div className="schema-col-hdr">JSON</div>
-          <pre style={{ margin: 0, padding: 10, fontSize: 11, background: 'transparent', borderRadius: 0, minHeight: 0 }}>
-            {schema.data?.json ?? ''}
-          </pre>
+          <HighlightedCode code={displaySchema.data?.json ?? ''} language="json" />
         </div>
         <div className="schema-col">
           <div className="schema-col-hdr">Toon</div>
           <pre style={{ margin: 0, padding: 10, fontSize: 11, background: 'transparent', borderRadius: 0, minHeight: 0 }}>
-            {schema.data?.toon ?? ''}
+            {displaySchema.data?.toon ?? ''}
           </pre>
         </div>
       </div>
