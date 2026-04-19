@@ -12,6 +12,8 @@ const DEFAULT_CONFIG: ModelConfig = {
   easyComplexityThreshold: 20,
   heavyComplexityThreshold: 50,
   temperature: 0,
+  topP: null,
+  seed: null,
   maxOutputTokens: 4096,
   inputFormat: 'toon',
   outputBaseDir: '',

@@ -57,6 +57,17 @@ public class ModelConfig
     public AssessorConfig Assessor { get; set; } = new();
 
     public float  Temperature    { get; set; } = 0f;
+    /// <summary>
+    /// Nucleus sampling (0.0–1.0). null = not sent (model default).
+    /// When Temperature=0, set TopP=1 to guarantee deterministic output.
+    /// Do NOT set both Temperature and TopP to non-default at the same time.
+    /// </summary>
+    public float? TopP           { get; set; } = null;
+    /// <summary>
+    /// Fixed random seed for reproducible outputs. null = not sent.
+    /// Supported by OpenAI, some local models. Guarantees same output for same prompt+seed.
+    /// </summary>
+    public long?  Seed           { get; set; } = null;
     public int    MaxOutputTokens { get; set; } = 4096;
     /// <summary>Format for the packet schema sent in the prompt. "toon" or "json".</summary>
     public string InputFormat     { get; set; } = "toon";

@@ -21,7 +21,9 @@ export function ConfigPane() {
 
         <div className="row2" style={{ marginTop: 10 }}>
           <div>
-            <label>Temperature</label>
+            <label title="0 = deterministic greedy decoding. Higher values → more creative but less consistent output.">
+              Temperature <span style={{ color: '#484f58' }}>ⓘ</span>
+            </label>
             <input
               type="number"
               value={config.temperature}
@@ -32,7 +34,9 @@ export function ConfigPane() {
             />
           </div>
           <div>
-            <label>Max output tokens</label>
+            <label title="Max tokens the model can output. Increase for large packets. Thinking models need 8192+.">
+              Max output tokens <span style={{ color: '#484f58' }}>ⓘ</span>
+            </label>
             <input
               type="number"
               value={config.maxOutputTokens}
@@ -40,6 +44,42 @@ export function ConfigPane() {
               max={32768}
               step={256}
               onChange={e => update({ maxOutputTokens: parseInt(e.target.value) || 4096 })}
+            />
+          </div>
+        </div>
+
+        <div className="row2" style={{ marginTop: 8 }}>
+          <div>
+            <label title="Nucleus sampling (0–1). When Temperature=0, set Top-P=1 for fully deterministic output. Leave empty to use model default. Don't set both Temperature and Top-P to non-default simultaneously.">
+              Top-P <span style={{ color: '#484f58' }}>ⓘ</span>
+            </label>
+            <input
+              type="number"
+              value={config.topP ?? ''}
+              placeholder="default"
+              min={0}
+              max={1}
+              step={0.05}
+              onChange={e => {
+                const v = e.target.value === '' ? null : parseFloat(e.target.value)
+                update({ topP: v })
+              }}
+            />
+          </div>
+          <div>
+            <label title="Fixed random seed for reproducible results. Same seed + same prompt = same output. Leave empty to disable. Supported by OpenAI and most local models (LM Studio).">
+              Seed <span style={{ color: '#484f58' }}>ⓘ</span>
+            </label>
+            <input
+              type="number"
+              value={config.seed ?? ''}
+              placeholder="disabled"
+              min={0}
+              step={1}
+              onChange={e => {
+                const v = e.target.value === '' ? null : parseInt(e.target.value)
+                update({ seed: v })
+              }}
             />
           </div>
         </div>

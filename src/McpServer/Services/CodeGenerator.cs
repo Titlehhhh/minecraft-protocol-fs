@@ -74,7 +74,7 @@ public class CodeGenerator
             new(ChatRole.User, user)
         ];
 
-        var chatOptions = ModelConfigService.BuildChatOptions(_modelConfig.Config.MaxOutputTokens, _modelConfig.Config.Temperature, reasoningEffort);
+        var chatOptions = ModelConfigService.BuildChatOptions(_modelConfig.Config.MaxOutputTokens, _modelConfig.Config.Temperature, reasoningEffort, _modelConfig.Config.TopP, _modelConfig.Config.Seed);
         var response = await client.GetResponseAsync(messages, chatOptions, cancellationToken);
 
         sw.Stop();

@@ -42,7 +42,7 @@ public static class HistoryBuilder
             var v769 = dict[769]!;
             
             var gg = v768.Equals(v769);
-            Debugger.Break();
+            //Debugger.Break();
         }
         
         return new TypeHistory

@@ -114,7 +114,7 @@ public class ModelConfigService
     /// Builds ChatOptions with optional reasoning effort control.
     /// reasoningEffort: "" = off, "low"/"medium"/"high"/"xhigh" = enabled at that level.
     /// </summary>
-    public static ChatOptions BuildChatOptions(int maxOutputTokens, float temperature, string reasoningEffort)
+    public static ChatOptions BuildChatOptions(int maxOutputTokens, float temperature, string reasoningEffort, float? topP = null, long? seed = null)
     {
         if (!string.IsNullOrEmpty(reasoningEffort))
         {
@@ -130,11 +130,15 @@ public class ModelConfigService
             {
                 MaxOutputTokens          = maxOutputTokens,
                 Temperature              = temperature,
+                TopP                     = topP,
+                Seed                     = seed,
                 RawRepresentationFactory = _ => new OpenAI.Chat.ChatCompletionOptions
                 {
                     ReasoningEffortLevel = effort,
                     MaxOutputTokenCount  = maxOutputTokens,
                     Temperature          = temperature,
+                    TopP                 = topP,
+                    Seed                 = seed,
                 }
             };
 #pragma warning restore OPENAI001
@@ -143,6 +147,8 @@ public class ModelConfigService
         return new ChatOptions
         {
             Temperature     = temperature,
+            TopP            = topP,
+            Seed            = seed,
             MaxOutputTokens = maxOutputTokens,
         };
     }
