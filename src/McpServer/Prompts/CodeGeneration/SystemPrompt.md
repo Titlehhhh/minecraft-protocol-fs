@@ -43,9 +43,9 @@ Examples: `case >= MinecraftVersion.StartProtocol and <= 758:`, `case >= 767 and
 9. Serialize: if the required version container is null, use:
    `var fields = VERSION_PROP ?? throw new InvalidOperationException("<ClassName> <Version> fields missing.");`
 10. Deserialize: instantiate ONLY the matching version container; set all other version containers to null.
-11. The `default:` case MUST call:
-    `ThrowHelper.ThrowProtocolNotSupported(nameof(<ClassName>), protocolVersion, SupportedVersions);`
+11. Do NOT add a `default:` case in version switches — version validation is handled by the source generator before Serialize/Deserialize is called.
 12. Do NOT generate `SupportedVersions` — it is generated automatically by the source generator.
+12a. Do NOT generate `void IPacket.Serialize(...)` or `void IPacket.Deserialize(...)` — they are generated automatically by the source generator.
 13. Do NOT generate `using` directives, namespace declaration, or attributes. The template already contains `{{usages}}`,
     `{{namespace_decl}}`, `{{attributes}}`, and `{{interface}}` placeholders — output them literally as-is.
 14. Output ONLY: the `{{usages}}` placeholder, the `{{namespace_decl}}` placeholder, the `{{attributes}}` placeholder,

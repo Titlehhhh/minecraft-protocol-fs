@@ -17,7 +17,7 @@ public static class ContextBuilder
 {
     // kind (from ProtodefTypeAnalyzer.GetKindName) → Methods/*.md file names to include
     private static readonly Dictionary<string, string[]> KindToSections =
-        new(StringComparer.Ordinal)
+        new(StringComparer.OrdinalIgnoreCase)
         {
             // ── structural (no IO section) ──────────────────────────────────────────
             ["container"] = [],
@@ -51,6 +51,7 @@ public static class ContextBuilder
 
             // ── buffer ─────────────────────────────────────────────────────────────
             ["buffer"] = ["Buffer"],
+            ["restBuffer"] = ["Buffer"],
 
             // ── arrays ─────────────────────────────────────────────────────────────
             ["array"]                    = ["Arrays"],
@@ -138,10 +139,8 @@ public static class ContextBuilder
             ["itemSoundHolder"]                = ["ProtocolTypes"],
             ["itemWrittenBookPage"]            = ["ProtocolTypes"],
             ["jukeboxSongData"]                = ["ProtocolTypes"],
-
-            // ── direct extension methods (NOT in ReadType/WriteType) ────────────────
-            ["entityMetadataEntry"] = ["DirectExtensions"],
-            ["deathLocation"]       = ["DirectExtensions"],
+            ["entityMetadataEntry"] = ["ProtocolTypes"],
+            ["deathLocation"]       = ["ProtocolTypes"],
         };
 
     /// <summary>

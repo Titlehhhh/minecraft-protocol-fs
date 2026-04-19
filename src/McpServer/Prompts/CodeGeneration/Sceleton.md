@@ -22,9 +22,6 @@ public sealed partial class CLASS_NAME : {{interface}}
                 var fields = VERSION_PROP2 ?? throw new InvalidOperationException("CLASS_NAME FROM3-last fields missing.");
                 return;
             }
-            default:
-                ThrowHelper.ThrowProtocolNotSupported(nameof(CLASS_NAME), protocolVersion, SupportedVersions);
-                return;
         }
     }
 
@@ -46,17 +43,8 @@ public sealed partial class CLASS_NAME : {{interface}}
                 VERSION_PROP2 = new VERSION_STRUCT2 { ComplexField = reader.ReadType<SomeType>(protocolVersion) };
                 return;
             }
-            default:
-                ThrowHelper.ThrowProtocolNotSupported(nameof(CLASS_NAME), protocolVersion, SupportedVersions);
-                return;
         }
     }
-
-    void IPacket.Serialize(MinecraftPrimitiveWriter writer, int protocolVersion)
-        => Serialize(writer, protocolVersion);
-
-    void IPacket.Deserialize(ref MinecraftPrimitiveReader reader, int protocolVersion)
-        => Deserialize(ref reader, protocolVersion);
 
     public struct VFirst_TO1Fields { public int ExtraField { get; set; } }
     public struct V_FROM2_TO2Fields { public int ExtraField { get; set; } }

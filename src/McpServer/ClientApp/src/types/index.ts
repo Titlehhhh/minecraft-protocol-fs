@@ -28,6 +28,8 @@ export interface ModelConfig {
   easyComplexityThreshold: number
   heavyComplexityThreshold: number
   temperature: number
+  topP: number | null
+  seed: number | null
   maxOutputTokens: number
   inputFormat: InputFormat
   outputBaseDir: string

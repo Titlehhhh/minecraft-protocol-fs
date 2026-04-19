@@ -25,7 +25,7 @@ Always use the C# type from the right column, REGARDLESS of the field name.
 **Common types:** BannerPattern, DataComponentMatchers, ExactComponentMatcher, GameProfile,
 ItemBlockProperty, ItemEffectDetail, ItemSoundEvent, MinecraftSimpleRecipeFormat,
 PackedChunkPos, ChatSession, Particle, ParticleData, PreviousMessages, ServerLinkType,
-SoundSource, Tags
+SoundSource, Tags, EntityMetadataEntry, DeathLocation
 
 **Slot component dependencies:** ArmorTrimMaterial, ArmorTrimPattern, BannerPatternLayer,
 EntityMetadataPaintingVariant, EntityMetadataWolfVariant, IDSet, InstrumentData,
