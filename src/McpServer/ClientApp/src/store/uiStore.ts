@@ -1,10 +1,12 @@
 import { create } from 'zustand'
 
 type MainTab = 'code' | 'prompt'
+type MainView = 'generator' | 'graph'
 type SidebarTab = 'packets' | 'types' | 'native' | 'config'
 
 interface UIStore {
   mainTab: MainTab
+  mainView: MainView
   sidebarTab: SidebarTab
   protocolTypes: string[]
   protocolTypesByKind: Record<string, string[]>
@@ -14,6 +16,7 @@ interface UIStore {
   nativeTypes: string[]
   nativeTypesLoaded: boolean
   setMainTab: (tab: MainTab) => void
+  setMainView: (view: MainView) => void
   setSidebarTab: (tab: SidebarTab) => void
   setProtocolTypes: (types: string[]) => void
   setProtocolTypesByKind: (typesByKind: Record<string, string[]>) => void
@@ -24,6 +27,7 @@ interface UIStore {
 
 export const useUIStore = create<UIStore>(set => ({
   mainTab: 'code',
+  mainView: 'generator',
   sidebarTab: 'packets',
   protocolTypes: [],
   protocolTypesByKind: {},
@@ -33,6 +37,7 @@ export const useUIStore = create<UIStore>(set => ({
   nativeTypes: [],
   nativeTypesLoaded: false,
   setMainTab: tab => set({ mainTab: tab }),
+  setMainView: view => set({ mainView: view }),
   setSidebarTab: tab => set({ sidebarTab: tab }),
   setProtocolTypes: types => set({ protocolTypes: types, typesLoaded: true }),
   setProtocolTypesByKind: typesByKind => set({ protocolTypesByKind: typesByKind, typesLoaded: true }),

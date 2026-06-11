@@ -174,3 +174,152 @@ pre code.hljs { background: transparent; padding: 0; border-radius: 0; font-size
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+/* ── Header view switch ── */
+.header-nav { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
+.header-nav-btn { padding: 5px 10px; font-size: 12px; color: #8b949e; background: #0d1117; border: 1px solid #30363d; }
+.header-nav-btn:hover { color: #c9d1d9; border-color: #8b949e; }
+.header-nav-btn.active { color: #58a6ff; border-color: #58a6ff; background: #1f6feb22; }
+
+/* ── Protocol graph ── */
+.graph-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: radial-gradient(circle at top left, #12264a 0, #0d1117 38%); }
+.graph-toolbar { min-height: 58px; padding: 10px 14px; border-bottom: 1px solid #21262d; display: flex; align-items: center; gap: 10px; flex-shrink: 0; background: #161b22cc; backdrop-filter: blur(8px); }
+.graph-toolbar h2 { margin: 0 0 3px; color: #58a6ff; }
+.graph-subtitle { font-size: 11px; color: #8b949e; }
+.graph-toolbar select { background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 6px 9px; font-size: 12px; }
+.graph-toolbar input { width: 260px; }
+.graph-loading { color: #8b949e; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+.graph-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; overflow: hidden; }
+.graph-canvas-wrap { position: relative; min-width: 0; min-height: 0; }
+.graph-canvas { position: absolute; inset: 0; }
+.graph-error { position: absolute; z-index: 2; top: 16px; left: 16px; right: 16px; padding: 12px 14px; border-radius: 8px; border: 1px solid #f8514955; background: #da363622; color: #f85149; }
+.graph-side { border-left: 1px solid #21262d; background: #0d1117dd; overflow: auto; padding: 12px; }
+.graph-card { border: 1px solid #21262d; border-radius: 10px; background: #161b22d9; padding: 12px; margin-bottom: 10px; box-shadow: 0 10px 28px #00000024; }
+.graph-card h2 { margin-bottom: 8px; }
+.graph-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.graph-stat { padding: 8px; border: 1px solid #21262d; border-radius: 8px; background: #0d1117; display: flex; justify-content: space-between; gap: 8px; color: #8b949e; font-size: 12px; }
+.graph-stat b { color: #c9d1d9; }
+.graph-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+.graph-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 7px; border-radius: 999px; background: #1f6feb22; color: #79c0ff; border: 1px solid #1f6feb55; font-size: 11px; max-width: 100%; }
+.graph-pill:hover { border-color: #58a6ff; color: #c9d1d9; }
+.graph-pill.shape { background: #d2992222; color: #d29922; border-color: #d2992255; }
+.graph-pill span { color: #c9d1d9; font-weight: 700; }
+.graph-muted { color: #8b949e; font-size: 12px; line-height: 1.5; }
+.graph-selected { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #8b949e; line-height: 1.45; }
+.graph-selected b { color: #c9d1d9; font-size: 14px; }
+.graph-selected code { color: #79c0ff; word-break: break-all; font-family: 'Cascadia Code', Consolas, monospace; }
+.graph-selected p { margin: 0; }
+
+.graph-check { width: auto; margin: 0; display: inline-flex; align-items: center; gap: 6px; color: #8b949e; font-size: 12px; white-space: nowrap; }
+.graph-check input { width: auto; accent-color: #58a6ff; }
+.graph-note { margin-top: 8px; }
+
+
+/* ── React Flow protocol graph ── */
+.rf-panel .react-flow { background: transparent; }
+.rf-canvas-wrap { background: radial-gradient(circle at 10% 10%, #12264a 0, #0d1117 34%); }
+.rf-graph-node { width: 190px; min-height: 72px; padding: 9px 10px; border-radius: 12px; border: 1px solid #30363d; background: #161b22; box-shadow: 0 10px 24px #00000030; color: #c9d1d9; font-size: 11px; }
+.rf-graph-node strong { display: block; margin-top: 5px; color: #f0f6fc; font-size: 13px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-node-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #8b949e; text-transform: uppercase; letter-spacing: .5px; font-size: 9px; font-weight: 800; }
+.rf-node-top em { font-style: normal; text-transform: none; letter-spacing: 0; padding: 1px 6px; border-radius: 999px; border: 1px solid #30363d; color: #8b949e; }
+.rf-node-meta { display: flex; gap: 8px; margin-top: 7px; color: #8b949e; font-size: 10px; }
+.rf-graph-node.kind-packet { border-color: #1f6feb99; background: linear-gradient(135deg, #1f6feb33, #161b22 54%); }
+.rf-graph-node.kind-namedType { border-color: #23863699; background: linear-gradient(135deg, #23863633, #161b22 54%); }
+.rf-graph-node.kind-shape { border-color: #d2992299; background: linear-gradient(135deg, #d2992230, #161b22 54%); }
+.rf-graph-node.kind-nativeType { border-color: #8b949e77; background: linear-gradient(135deg, #8b949e24, #161b22 54%); }
+.rf-graph-node.tier-heavy .rf-node-top em { color: #f85149; border-color: #f8514977; }
+.rf-graph-node.tier-medium .rf-node-top em { color: #d29922; border-color: #d2992277; }
+.rf-graph-node.tier-easy .rf-node-top em { color: #58a6ff; border-color: #58a6ff77; }
+.rf-graph-node.tier-tiny .rf-node-top em { color: #3fb950; border-color: #3fb95077; }
+.react-flow__edge.rf-edge path { stroke: #40517d; stroke-width: 1.4; }
+.react-flow__edge.edge-containsShape path { stroke: #d2992288; }
+.react-flow__edge.selected path { stroke: #f0f6fc; stroke-width: 2.4; }
+.react-flow__edge-textbg { fill: #0d1117; }
+.react-flow__edge-text { fill: #8b949e; font-size: 9px; }
+.react-flow__controls { background: #161b22; border: 1px solid #30363d; box-shadow: none; }
+.react-flow__controls-button { background: #161b22; border-bottom: 1px solid #30363d; color: #c9d1d9; }
+.react-flow__controls-button:hover { background: #21262d; }
+.react-flow__minimap { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
+
+/* ── React Flow dark overrides / graph toolbar polish ── */
+.rf-toolbar { gap: 8px; flex-wrap: wrap; }
+.graph-title-block { min-width: 260px; margin-right: auto; }
+.graph-toolbar .graph-search { width: 280px; min-width: 220px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 999px; padding: 7px 12px; }
+.graph-toolbar .graph-search::placeholder { color: #6e7681; }
+.graph-toolbar select { border-radius: 999px; min-height: 32px; background: #0d1117; }
+.graph-check { padding: 6px 10px; border: 1px solid #30363d; border-radius: 999px; background: #0d1117; line-height: 1; }
+.graph-check:hover { border-color: #58a6ff88; color: #c9d1d9; }
+.graph-check input { margin: 0; }
+
+.rf-graph-node.kind-field { border-color: #a371f799; background: linear-gradient(135deg, #8957e533, #161b22 54%); }
+.rf-field-type { margin-top: 4px; color: #a5d6ff; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.react-flow__edge.edge-field path { stroke: #a371f7aa; stroke-width: 1.8; }
+
+.rf-panel .react-flow__controls { background: #161b22 !important; border: 1px solid #30363d !important; border-radius: 10px !important; overflow: hidden; box-shadow: 0 12px 28px #00000055 !important; }
+.rf-panel .react-flow__controls-button { width: 30px; height: 30px; background: #161b22 !important; border: 0 !important; border-bottom: 1px solid #30363d !important; color: #c9d1d9 !important; }
+.rf-panel .react-flow__controls-button:hover { background: #21262d !important; }
+.rf-panel .react-flow__controls-button svg { fill: #c9d1d9 !important; }
+.rf-panel .react-flow__controls-button:disabled svg { fill: #484f58 !important; }
+.rf-panel .react-flow__minimap { background: #0d1117 !important; border: 1px solid #30363d !important; border-radius: 12px !important; box-shadow: 0 12px 28px #00000066 !important; }
+.rf-panel .react-flow__minimap-mask { fill: rgba(13, 17, 23, 0.72) !important; }
+.rf-panel .react-flow__minimap-node { stroke: transparent !important; }
+
+/* ── Packet-card protocol graph v2 ── */
+.rf-packet-card { width: 320px; border-radius: 14px; border: 1px solid #1f6feb99; background: linear-gradient(135deg, #1f6feb2b, #161b22 42%); color: #c9d1d9; box-shadow: 0 14px 34px #00000044; overflow: hidden; }
+.rf-packet-card.selected { box-shadow: 0 0 0 2px #58a6ff, 0 16px 38px #00000055; }
+.rf-packet-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; padding: 10px 12px 6px; border-top: 3px solid #58a6ff; }
+.rf-packet-head strong { display: block; margin-top: 3px; color: #f0f6fc; font-size: 13px; line-height: 1.2; word-break: break-word; }
+.rf-kind { color: #79c0ff; text-transform: uppercase; font-size: 9px; font-weight: 900; letter-spacing: .7px; }
+.rf-packet-head em { flex-shrink: 0; font-style: normal; padding: 2px 7px; border-radius: 999px; border: 1px solid #58a6ff77; color: #79c0ff; font-size: 10px; font-weight: 800; }
+.rf-packet-meta { display: flex; gap: 10px; padding: 0 12px 8px; color: #8b949e; font-size: 10px; }
+.rf-field-list { border-top: 1px solid #30363d; background: #0d111766; }
+.rf-field-row { position: relative; min-height: 30px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 29px 5px 10px; border-bottom: 1px solid #21262d; }
+.rf-field-row:last-child { border-bottom: 0; }
+.rf-field-row.common { background: linear-gradient(90deg, #23863618, transparent); }
+.rf-field-row.versioned { background: linear-gradient(90deg, #d299221b, transparent); }
+.rf-field-row.empty { display: block; color: #8b949e; font-size: 11px; font-style: italic; padding: 9px 12px; }
+.rf-field-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.rf-field-name { color: #f0f6fc; font-size: 11px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-field-type { color: #8b949e; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-version-pill { border-radius: 999px; padding: 1px 6px; font-size: 9px; font-weight: 900; border: 1px solid #30363d; color: #8b949e; }
+.rf-field-row.common .rf-version-pill { color: #3fb950; border-color: #3fb95077; background: #2386361c; }
+.rf-field-row.versioned .rf-version-pill { color: #d29922; border-color: #d2992277; background: #d299221c; }
+.rf-field-handle { right: 8px !important; width: 10px !important; height: 10px !important; border: 2px solid #0d1117 !important; background: #a371f7 !important; }
+.rf-field-row.common .rf-field-handle { background: #3fb950 !important; }
+.rf-field-row.versioned .rf-field-handle { background: #d29922 !important; }
+
+.rf-type-card { width: 190px; min-height: 68px; position: relative; padding: 9px 10px; border-radius: 12px; border: 1px solid #30363d; background: #161b22; box-shadow: 0 10px 24px #00000030; color: #c9d1d9; font-size: 11px; }
+.rf-type-card.selected { box-shadow: 0 0 0 2px #f0f6fc, 0 12px 28px #00000055; }
+.rf-type-card strong { display: block; margin-top: 5px; color: #f0f6fc; font-size: 13px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-type-card.kind-namedType { border-color: #23863699; background: linear-gradient(135deg, #23863633, #161b22 54%); }
+.rf-type-card.kind-shape { border-color: #d2992299; background: linear-gradient(135deg, #d2992230, #161b22 54%); }
+.rf-type-card.kind-nativeType { border-color: #8b949e77; background: linear-gradient(135deg, #8b949e24, #161b22 54%); }
+.rf-type-target { left: -6px !important; width: 10px !important; height: 10px !important; border: 2px solid #0d1117 !important; background: #58a6ff !important; }
+
+.react-flow__edge.rf-edge path { stroke: #58a6ff99; stroke-width: 1.6; }
+.react-flow__edge.edge-usesType path { stroke: #58a6ff99; }
+.react-flow__edge.edge-containsShape path { stroke: #d29922aa; stroke-dasharray: 5 4; }
+.react-flow__edge.edge-versioned path { stroke: #d29922cc; }
+.react-flow__edge.edge-common path { stroke: #3fb950cc; }
+.react-flow__edge-textbg { fill: #0d1117; opacity: .92; }
+.react-flow__edge-text { fill: #c9d1d9; font-size: 9px; font-weight: 800; }
+
+.graph-action { padding: 7px 10px; border-radius: 999px; background: #1f6feb22; border: 1px solid #1f6feb66; color: #79c0ff; font-size: 11px; font-weight: 800; }
+.graph-action:hover { background: #1f6feb3a; border-color: #58a6ff; color: #c9d1d9; }
+.graph-legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.lg { display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 999px; border: 1px solid #30363d; font-size: 10px; font-weight: 800; }
+.lg.packet { color: #79c0ff; border-color: #58a6ff77; background: #1f6feb22; }
+.lg.field.common { color: #3fb950; border-color: #3fb95077; background: #23863622; }
+.lg.field.versioned { color: #d29922; border-color: #d2992277; background: #d2992222; }
+.lg.type { color: #3fb950; border-color: #3fb95077; }
+.lg.shape { color: #d29922; border-color: #d2992277; }
+.lg.native { color: #8b949e; border-color: #8b949e77; }
+
+/* ── Graph readability fixes ── */
+.rf-field-row { min-height: 38px; align-items: start; padding-top: 5px; padding-bottom: 5px; }
+.rf-field-ranges { color: #6e7681; font-size: 9px; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-field-row.versioned .rf-field-ranges { color: #e3b341; }
+.rf-field-row.common .rf-field-ranges { color: #56d364; }
+.react-flow__edge.edge-common path { stroke: #3fb950cc; stroke-width: 1.8; }
+.react-flow__edge.edge-versioned path { stroke: #d29922cc; stroke-width: 1.8; stroke-dasharray: 6 4; }
+.react-flow__edge.edge-usesType path, .react-flow__edge.edge-containsShape path { filter: drop-shadow(0 0 2px rgba(0,0,0,.75)); }

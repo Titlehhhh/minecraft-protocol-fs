@@ -10,6 +10,9 @@ import { useUIStore } from './store/uiStore'
 import { fetchProtocolTypesByKind, fetchNativeTypes } from './api/packets'
 
 export function App() {
+  const mainView = useUIStore(state => state.mainView)
+  const setMainView = useUIStore(state => state.setMainView)
+
   const { size: sidebarWidth, isDragging, onMouseDown } = useResize({
     direction: 'col',
     min: 200,
@@ -50,6 +53,22 @@ export function App() {
       <header>
         <h1>⚡ McProtoNet Generator</h1>
         <span>PacketGenerator MCP Server</span>
+        <nav className="header-nav" aria-label="Main view">
+          <button
+            type="button"
+            className={`header-nav-btn ${mainView === 'generator' ? 'active' : ''}`}
+            onClick={() => setMainView('generator')}
+          >
+            ⚙ Генерация
+          </button>
+          <button
+            type="button"
+            className={`header-nav-btn ${mainView === 'graph' ? 'active' : ''}`}
+            onClick={() => setMainView('graph')}
+          >
+            🕸 Граф
+          </button>
+        </nav>
         <div className="header-status">
           <SaveIndicator />
         </div>

@@ -42,6 +42,7 @@ app.MapGet("/", (HttpContext http) =>
 app.MapConfigApi();
 app.MapArtifactApi();
 app.MapPacketApi();
+app.MapGraphApi();
 app.MapGenerateApi();
 app.MapMcp("/mcp");
 

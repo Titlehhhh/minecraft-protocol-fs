@@ -98,3 +98,57 @@ export interface AssessResponse {
 export type BatchEvent =
   | { type: 'packet'; id: string; success: boolean; model?: string; elapsedMs?: number; savedTo?: string; error?: string }
   | { type: 'done'; total: number; ok: number; err: number }
+
+
+export type ProtocolGraphNodeKind = 'packet' | 'namedType' | 'nativeType' | 'shape'
+export type ProtocolGraphEdgeKind = 'usesType' | 'containsShape'
+
+export interface ProtocolGraphNode {
+  id: string
+  label: string
+  kind: ProtocolGraphNodeKind
+  protocol?: string
+  namespace?: string
+  direction?: string
+  tier?: Tier
+  complexityScore?: number
+  reuseCount: number
+  versionRanges: string[]
+}
+
+export interface ProtocolGraphEdge {
+  id: string
+  from: string
+  to: string
+  kind: ProtocolGraphEdgeKind
+  fieldPath?: string
+  versionRange?: string
+  case?: string
+}
+
+export interface ProtocolGraphCount {
+  id: string
+  label: string
+  count: number
+}
+
+export interface ProtocolGraphStats {
+  packetCount: number
+  namedTypeCount: number
+  nativeTypeCount: number
+  shapeCount: number
+  edgeCount: number
+  topNamedTypes: ProtocolGraphCount[]
+  topNativeTypes: ProtocolGraphCount[]
+  topShapes: ProtocolGraphCount[]
+  packetsByTier: Record<string, number>
+}
+
+export interface ProtocolGraphResponse {
+  protocol: string
+  namespace?: string
+  direction?: string
+  nodes: ProtocolGraphNode[]
+  edges: ProtocolGraphEdge[]
+  stats: ProtocolGraphStats
+}
