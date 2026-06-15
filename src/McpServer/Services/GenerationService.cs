@@ -7,8 +7,9 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using McpServer.Models;
-using McpServer.Repositories;
 using Microsoft.Extensions.Logging;
+using PacketGenerator.Protocol.Complexity;
+using PacketGenerator.Protocol.Repository;
 
 namespace McpServer.Services;
 
@@ -58,6 +59,13 @@ public sealed class GenerationService : IDisposable
     public async Task<GenerationResult> GenerateAsync(string id, CancellationToken ct)
     {
         var tier = ClassifyTier(id);
+        var (model, _, returnToCaller, endpoint) = _modelConfig.PickModel(tier);
+        if (!returnToCaller && !_modelConfig.HasCredentialsForEndpoint(endpoint))
+            return GenerationResult.Fail(id, new GenerationError(
+                GenerationErrorKind.Configuration,
+                "Generation requires OpenRouter:ApiKey, OPENROUTER_API_KEY, or a local endpoint override.",
+                $"Selected tier={tier}, model={model}, endpoint={(string.IsNullOrWhiteSpace(endpoint) ? "OpenRouter" : endpoint)}"));
+
         var sem  = _semaphores[tier];
 
         _logger.LogDebug("[{Id}] Waiting for semaphore (tier={Tier})", id, tier);
@@ -136,6 +144,11 @@ public sealed class GenerationService : IDisposable
                 var err = MapHttpError(ex);
                 _logger.LogError("[{Id}] HTTP {Status} [{Kind}]: {Message}", id, ex.Status, err.Kind, err.Message);
                 return GenerationResult.Fail(id, err);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "[{Id}] Configuration error after {Ms}ms", id, sw.ElapsedMilliseconds);
+                return GenerationResult.Fail(id, new GenerationError(GenerationErrorKind.Configuration, ex.Message));
             }
             catch (Exception ex)
             {

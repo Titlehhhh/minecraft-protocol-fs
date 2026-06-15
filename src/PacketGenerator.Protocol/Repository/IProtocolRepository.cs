@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace McpServer.Repositories;
+namespace PacketGenerator.Protocol.Repository;
 
 public interface IProtocolRepository
 {

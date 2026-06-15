@@ -7,9 +7,11 @@
     <File Path="Directory.Build.props" />
     <File Path="Directory.Build.targets" />
   </Folder>
+  <Project Path="src\PacketGenerator.Protocol\PacketGenerator.Protocol.csproj" />
+  <Project Path="src\PacketGenerator.Cli\PacketGenerator.Cli.csproj" />
+  <Project Path="src\PacketGenerator.McpStdio\PacketGenerator.McpStdio.csproj" />
   <Project Path="src/McpServer/McpServer.csproj" />
   <Project Path="src/ProtoCore/ProtoCore.csproj" />
   <Project Path="src\MinecraftData\MinecraftData.csproj" />
   <Project Path="src\Protodef\Protodef.csproj" />
-  <Project Path="toon-dotnet/src/ToonFormat/ToonFormat.csproj" />
 </Solution>

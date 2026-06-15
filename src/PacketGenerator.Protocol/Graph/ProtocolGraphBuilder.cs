@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using McpServer.Models;
-using McpServer.Repositories;
-using McpServer.Services;
+using PacketGenerator.Protocol.Complexity;
+using PacketGenerator.Protocol.Repository;
+
 using ProtoCore;
 using Protodef;
 using Protodef.Enumerable;
 
-namespace McpServer.Graph;
+namespace PacketGenerator.Protocol.Graph;
 
 public sealed class ProtocolGraphBuilder
 {
@@ -37,7 +37,7 @@ public sealed class ProtocolGraphBuilder
     };
 
     private readonly IProtocolRepository _repository;
-    private readonly ModelConfigService _modelConfig;
+    private readonly ComplexityThresholds _thresholds;
     private readonly HashSet<string> _nativeTypes;
     private readonly HashSet<string> _knownTypes;
     private readonly Dictionary<string, string> _knownTypeAliases;
@@ -48,10 +48,10 @@ public sealed class ProtocolGraphBuilder
     private readonly Dictionary<string, int> _packetsByTier = new(StringComparer.Ordinal);
     private readonly Dictionary<string, HashSet<string>> _nodeRanges = new(StringComparer.Ordinal);
 
-    public ProtocolGraphBuilder(IProtocolRepository repository, ModelConfigService modelConfig)
+    public ProtocolGraphBuilder(IProtocolRepository repository, ComplexityThresholds? thresholds = null)
     {
         _repository = repository;
-        _modelConfig = modelConfig;
+        _thresholds = thresholds ?? new ComplexityThresholds();
         _nativeTypes = repository.GetNativeTypes().ToHashSet(StringComparer.Ordinal);
         _knownTypes = repository.GetTypes().ToHashSet(StringComparer.Ordinal);
         _knownTypeAliases = _knownTypes
@@ -121,7 +121,7 @@ public sealed class ProtocolGraphBuilder
     {
         var id = PacketId(packetNamespace, packetName);
         var score = PacketComplexityScorer.Compute(packet.History);
-        var tier = _modelConfig.ClassifyTier(score).ToLabel();
+        var tier = _thresholds.Classify(score).ToLabel();
         Increment(_packetsByTier, tier);
 
         var parts = packetNamespace.Split('.', 2);
@@ -150,7 +150,7 @@ public sealed class ProtocolGraphBuilder
         catch { return; }
 
         var score = PacketComplexityScorer.Compute(history.History);
-        var tier = _modelConfig.ClassifyTier(score).ToLabel();
+        var tier = _thresholds.Classify(score).ToLabel();
         var nodeId = NamedTypeId(typeId);
         AddNode(new ProtocolGraphNode(
             Id: nodeId,
@@ -297,3 +297,4 @@ public sealed class ProtocolGraphBuilder
     private static int KindOrder(string kind) => kind switch { "packet" => 0, "namedType" => 1, "shape" => 2, "nativeType" => 3, _ => 9 };
     private static string RangeLabel(ProtocolRange range) => range.From == range.To ? range.From.ToString() : $"{range.From}-{range.To}";
 }
+

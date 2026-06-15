@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace McpServer.Graph;
+namespace PacketGenerator.Protocol.Graph;
 
 public sealed record ProtocolGraph(
     IReadOnlyCollection<ProtocolGraphNode> Nodes,
@@ -39,3 +39,4 @@ public sealed record ProtocolGraphStats(
     IReadOnlyDictionary<string, int> PacketsByTier);
 
 public sealed record ProtocolGraphRank(string Id, string Label, int Count);
+

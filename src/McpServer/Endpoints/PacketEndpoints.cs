@@ -4,10 +4,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using McpServer.Models;
-using McpServer.Repositories;
 using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using PacketGenerator.Protocol.Complexity;
+using PacketGenerator.Protocol.Queries;
+using PacketGenerator.Protocol.Repository;
+using PacketGenerator.Protocol.Serialization;
 using ProtoCore;
 using Protodef;
 using Protodef.Primitive;
@@ -48,47 +51,30 @@ public static class PacketEndpoints
             return Results.Ok(result);
         });
 
-        app.MapGet("/api/stats", (IProtocolRepository repo, ModelConfigService mcs) =>
+        app.MapGet("/api/stats", (ProtocolQueryService query) =>
         {
-            int total = 0, tiny = 0, easy = 0, medium = 0, heavy = 0;
-            var byNs      = new SortedDictionary<string, (int Total, int Tiny, int Easy, int Medium, int Heavy)>();
-            var perPacket = new List<object>();
-
-            foreach (var (ns, packets) in repo.GetPackets())
-            {
-                int nsTotal = 0, nsTiny = 0, nsEasy = 0, nsMedium = 0, nsHeavy = 0;
-                foreach (var (name, def) in packets)
-                {
-                    var score     = PacketComplexityScorer.Compute(def.History);
-                    var tierEnum  = mcs.ClassifyTier(score);
-                    var tierLabel = tierEnum.ToLabel();
-                    total++; nsTotal++;
-                    switch (tierEnum)
-                    {
-                        case ComplexityTier.Tiny:   tiny++;   nsTiny++;   break;
-                        case ComplexityTier.Easy:   easy++;   nsEasy++;   break;
-                        case ComplexityTier.Medium: medium++; nsMedium++; break;
-                        default:                    heavy++;  nsHeavy++;  break;
-                    }
-                    perPacket.Add(new { id = $"{ns}.{name}", score, tier = tierLabel });
-                }
-                byNs[ns] = (nsTotal, nsTiny, nsEasy, nsMedium, nsHeavy);
-            }
+            var stats = query.GetStats();
 
             return Results.Ok(new
             {
-                total,
-                tiers = new { tiny, easy, medium, heavy },
-                byNamespace = byNs.Select(kv => new
+                total = stats.Total,
+                tiers = new
                 {
-                    ns     = kv.Key,
-                    total  = kv.Value.Total,
-                    tiny   = kv.Value.Tiny,
-                    easy   = kv.Value.Easy,
-                    medium = kv.Value.Medium,
-                    heavy  = kv.Value.Heavy
+                    tiny = stats.Tiers.Tiny,
+                    easy = stats.Tiers.Easy,
+                    medium = stats.Tiers.Medium,
+                    heavy = stats.Tiers.Heavy
+                },
+                byNamespace = stats.ByNamespace.Select(ns => new
+                {
+                    ns = ns.Ns,
+                    total = ns.Total,
+                    tiny = ns.Tiny,
+                    easy = ns.Easy,
+                    medium = ns.Medium,
+                    heavy = ns.Heavy
                 }).ToArray(),
-                packets = perPacket
+                packets = stats.Packets.Select(packet => new { id = packet.Id, score = packet.Score, tier = packet.Tier }).ToArray()
             });
         });
 
@@ -224,7 +210,7 @@ public static class PacketEndpoints
 
                 var jsonStr = System.Text.Json.JsonSerializer.Serialize(json,
                     new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                var toonStr = Toon.Format.ToonEncoder.EncodeNode(json, new Toon.Format.ToonEncodeOptions());
+                var toonStr = ToonSerializer.Encode(json);
 
                 var score = PacketComplexityScorer.Compute(packet.History);
                 var tier  = mcs.ClassifyTier(score).ToLabel();
@@ -251,7 +237,7 @@ public static class PacketEndpoints
 
                 var jsonStr = System.Text.Json.JsonSerializer.Serialize(json,
                     new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                var toonStr = Toon.Format.ToonEncoder.EncodeNode(json, new Toon.Format.ToonEncodeOptions());
+                var toonStr = ToonSerializer.Encode(json);
 
                 var score = PacketComplexityScorer.Compute(type.History);
                 var tier  = mcs.ClassifyTier(score).ToLabel();

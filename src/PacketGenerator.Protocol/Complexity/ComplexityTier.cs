@@ -1,4 +1,4 @@
-namespace McpServer.Models;
+namespace PacketGenerator.Protocol.Complexity;
 
 public enum ComplexityTier { Tiny, Easy, Medium, Heavy }
 
@@ -13,3 +13,4 @@ public static class ComplexityTierExtensions
         _                     => "unknown",
     };
 }
+

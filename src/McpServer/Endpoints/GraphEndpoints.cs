@@ -1,9 +1,9 @@
 using System;
-using McpServer.Graph;
-using McpServer.Repositories;
 using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using PacketGenerator.Protocol.Graph;
+using PacketGenerator.Protocol.Repository;
 
 namespace McpServer.Endpoints;
 
@@ -20,7 +20,7 @@ public static class GraphEndpoints
         {
             try
             {
-                var graph = new ProtocolGraphBuilder(repo, modelConfig)
+                var graph = new ProtocolGraphBuilder(repo, modelConfig.GetComplexityThresholds())
                     .Build(ns, direction, includeTypes ?? true);
                 return Results.Ok(graph);
             }

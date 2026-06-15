@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using McpServer.Models;
 using Microsoft.Extensions.AI;
+using PacketGenerator.Protocol.Complexity;
+using PacketGenerator.Protocol.Repository;
 using Protodef;
 using System.ClientModel.Primitives;
 using OaiChat = OpenAI.Chat;
@@ -73,6 +75,8 @@ public sealed class LlmComplexityAssessor : IComplexityAssessor
     {
         var cfg = _config.Config.Assessor;
         if (!cfg.Enabled || string.IsNullOrEmpty(cfg.Model))
+            return await _fallback.AssessAsync(history, ct);
+        if (!_config.HasCredentialsForEndpoint(cfg.Endpoint))
             return await _fallback.AssessAsync(history, ct);
 
         try

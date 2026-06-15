@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,7 +7,7 @@ using Humanizer;
 using ProtoCore;
 using Protodef;
 
-namespace McpServer;
+namespace PacketGenerator.Protocol.Repository;
 
 public static class HistoryBuilder
 {
@@ -167,7 +167,7 @@ public static class HistoryBuilder
         return map.Protocols.Values
             .Select(x =>
                 x.Protocol!.EnumerateTypes()
-                    .RemoveNative()
+                    .Where(y => !y.Value.IsCustom("native"))
                     .Select(y => y.Value.Path))
             .SelectMany(x => x)
             .ToHashSet()

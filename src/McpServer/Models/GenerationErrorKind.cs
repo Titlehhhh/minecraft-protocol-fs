@@ -4,6 +4,7 @@ public enum GenerationErrorKind
 {
     RateLimited,
     ContextTooLarge,
+    Configuration,
     ApiError,
     Cancelled,
     Unknown,

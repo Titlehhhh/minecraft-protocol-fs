@@ -2,31 +2,27 @@ using System;
 using System.Threading.Tasks;
 using McpServer;
 using McpServer.Endpoints;
-using McpServer.Repositories;
 using McpServer.Startup;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using ProtoCore;
+using PacketGenerator.Protocol.Loading;
 
 var start = 735;
-var end   = 772;
+var end = 772;
 
-Console.WriteLine($"[McpServer] Loading protocols {start}–{end}...");
-var protocols = await ProtocolLoader.LoadProtocolsAsync(start, end);
-Console.WriteLine($"[McpServer] Loaded {protocols.VersionToProtocol.Count} protocol versions.");
-
-var dict = HistoryBuilder.Build(protocols);
-Console.WriteLine($"[McpServer] History built: {dict.Count} packet/type entries.");
-
-var repository = new ProtocolRepository(new ProtocolRange(start, end), protocols, dict);
+Console.WriteLine($"[McpServer] Loading protocols {start}-{end}...");
+var repository = await ProtocolDataLoader.LoadRepositoryAsync(new ProtocolDataOptions(start, end));
+Console.WriteLine($"[McpServer] Loaded repository for {repository.GetSupportedProtocols()}.");
 
 var builder = WebApplication.CreateBuilder(args);
+var port = GetPort(builder.Configuration);
 
 // Logging + Kestrel stay here (builder.WebHost extension not visible outside top-level)
 builder.Logging.AddConsole(o => { o.LogToStandardErrorThreshold = LogLevel.Trace; });
-builder.WebHost.ConfigureKestrel(o => { o.ListenAnyIP(5000); });
+builder.WebHost.ConfigureKestrel(o => { o.ListenAnyIP(port); });
 
 builder.AddAppServices(repository);
 
@@ -47,7 +43,20 @@ app.MapGenerateApi();
 app.MapMcp("/mcp");
 
 Console.WriteLine("[McpServer] Ready.");
-Console.WriteLine("[McpServer]   MCP:  http://0.0.0.0:5000/mcp");
-Console.WriteLine("[McpServer]   UI:   http://localhost:5000/");
+Console.WriteLine($"[McpServer]   MCP:  http://0.0.0.0:{port}/mcp");
+Console.WriteLine($"[McpServer]   UI:   http://localhost:{port}/");
 
 await app.RunAsync();
+
+static int GetPort(IConfiguration configuration)
+{
+    var raw = configuration["Port"]
+              ?? configuration["PORT"]
+              ?? Environment.GetEnvironmentVariable("MCP_SERVER_PORT")
+              ?? "5000";
+
+    if (int.TryParse(raw, out var port) && port is > 0 and <= 65535)
+        return port;
+
+    throw new InvalidOperationException($"Invalid port value '{raw}'. Use --port <1-65535> or MCP_SERVER_PORT.");
+}

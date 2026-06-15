@@ -1,9 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
+using PacketGenerator.Protocol.Repository;
 using Protodef;
 using Protodef.Enumerable;
 
-namespace McpServer;
+namespace PacketGenerator.Protocol.Complexity;
 
 /// <summary>
 /// Computes a structural complexity score for a packet based on its version history.
@@ -138,3 +139,4 @@ public static class PacketComplexityScorer
         // Array, primitives и прочие типы — именованных полей не содержат
     }
 }
+

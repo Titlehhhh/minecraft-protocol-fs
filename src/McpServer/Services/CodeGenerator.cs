@@ -10,10 +10,12 @@ using Humanizer;
 using McpServer.Models;
 using McpServer.Repositories;
 using Microsoft.Extensions.AI;
+using PacketGenerator.Protocol.Complexity;
+using PacketGenerator.Protocol.Repository;
+using PacketGenerator.Protocol.Serialization;
 using Protodef;
 using Scriban;
 using System.Text.Json;
-using Toon.Format;
 
 namespace McpServer.Services;
 
@@ -181,7 +183,7 @@ public class CodeGenerator
         }
         else
         {
-            schema = ToonEncoder.EncodeNode(json, new ToonEncodeOptions());
+            schema = ToonSerializer.Encode(json);
             formatHeader =
                 "Toon format — version history of this packet\n\n" +
                 "> **IMPORTANT:** Lines starting with `- container` are **TYPE SPECIFIERS**, NOT field names.\n" +

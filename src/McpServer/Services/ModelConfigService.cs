@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using McpServer.Models;
 using Microsoft.Extensions.AI;
 using OpenAI;
+using PacketGenerator.Protocol.Complexity;
 
 namespace McpServer.Services;
 
@@ -24,18 +25,23 @@ public class ModelConfigService
         PropertyNameCaseInsensitive = true,
     };
 
-    private readonly string _apiKey;
+    private readonly string? _apiKey;
     private readonly string _configFilePath;
     private volatile ModelConfig _config;
 
-    public ModelConfigService(string apiKey, string configFilePath, ModelConfig initial)
+    public ModelConfigService(string? apiKey, string configFilePath, ModelConfig initial)
     {
-        _apiKey = apiKey;
+        _apiKey = string.IsNullOrWhiteSpace(apiKey) ? null : apiKey;
         _configFilePath = configFilePath;
         _config = initial;
     }
 
     public ModelConfig Config => _config;
+
+    public bool HasOpenRouterKey => !string.IsNullOrWhiteSpace(_apiKey);
+
+    public bool HasCredentialsForEndpoint(string endpoint) =>
+        !string.IsNullOrWhiteSpace(endpoint) || HasOpenRouterKey;
 
     public async Task UpdateAsync(ModelConfig config, CancellationToken ct = default)
     {
@@ -71,10 +77,15 @@ public class ModelConfigService
 
     public IChatClient CreateClient(string model, string endpoint = "")
     {
-        var uri    = string.IsNullOrEmpty(endpoint)
+        var uri    = string.IsNullOrWhiteSpace(endpoint)
             ? new Uri("https://openrouter.ai/api/v1/")
             : new Uri(endpoint.TrimEnd('/') + "/");
-        var apiKey = string.IsNullOrEmpty(endpoint) ? _apiKey : "lm-studio";
+        var apiKey = string.IsNullOrWhiteSpace(endpoint) ? _apiKey : "lm-studio";
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException(
+                "OpenRouter API key is not configured. Read-only packet APIs are available, " +
+                "but generation requires OpenRouter:ApiKey, OPENROUTER_API_KEY, or a local endpoint override.");
+
         return new OpenAIClient(
             new ApiKeyCredential(apiKey),
             new OpenAIClientOptions { Endpoint = uri }
@@ -87,6 +98,15 @@ public class ModelConfigService
     /// </summary>
     public (string Model, string ReasoningEffort, bool ReturnToClaude, string Endpoint) PickModel(int complexityScore)
         => PickModel(ClassifyTier(complexityScore));
+
+    public ComplexityThresholds GetComplexityThresholds()
+    {
+        var cfg = _config;
+        return new ComplexityThresholds(
+            cfg.TinyComplexityThreshold,
+            cfg.EasyComplexityThreshold,
+            cfg.HeavyComplexityThreshold);
+    }
 
     /// <summary>
     /// Returns (model, reasoningEffort, returnToClaude, endpoint) for the given tier.
@@ -162,11 +182,6 @@ public class ModelConfigService
     /// <summary>Classifies a structural complexity score into a ComplexityTier.</summary>
     public ComplexityTier ClassifyTier(int complexityScore)
     {
-        var cfg = _config;
-        if (cfg.TinyComplexityThreshold > 0 && complexityScore <= cfg.TinyComplexityThreshold)
-            return ComplexityTier.Tiny;
-        if (complexityScore <= cfg.EasyComplexityThreshold) return ComplexityTier.Easy;
-        if (complexityScore <= cfg.HeavyComplexityThreshold) return ComplexityTier.Medium;
-        return ComplexityTier.Heavy;
+        return GetComplexityThresholds().Classify(complexityScore);
     }
 }

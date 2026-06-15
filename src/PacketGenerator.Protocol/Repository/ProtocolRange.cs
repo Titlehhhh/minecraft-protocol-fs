@@ -1,8 +1,8 @@
 using System;
 using System.Text.Json.Serialization;
-using McpServer.Converters;
+using PacketGenerator.Protocol.Converters;
 
-namespace McpServer;
+namespace PacketGenerator.Protocol.Repository;
 
 [JsonConverter(typeof(ProtocolRangeJsonConverter))]
 public readonly record struct ProtocolRange
@@ -29,3 +29,4 @@ public readonly record struct ProtocolRange
         return version >= From && version <= To;
     }
 }
+

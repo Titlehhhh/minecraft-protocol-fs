@@ -6,10 +6,11 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using McpServer.Models;
 using McpServer.Services;
-using McpServer.Repositories;
 using ModelContextProtocol.Server;
+using PacketGenerator.Protocol.Complexity;
+using PacketGenerator.Protocol.Repository;
+using PacketGenerator.Protocol.Serialization;
 using Protodef;
-using Toon.Format;
 
 namespace McpServer.Tools;
 
@@ -145,7 +146,7 @@ public static class DataTool
 
         var json = JsonSerializer.SerializeToNode(hist, ProtodefType.DefaultJsonOptions);
 
-        if (format == "toon") return ToonEncoder.EncodeNode(json, new ToonEncodeOptions());
+        if (format == "toon") return ToonSerializer.Encode(json);
 
         return json.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
@@ -171,7 +172,7 @@ public static class DataTool
 
         var json = JsonSerializer.SerializeToNode(hist, ProtodefType.DefaultJsonOptions);
 
-        if (format == "toon") return ToonEncoder.EncodeNode(json, new ToonEncodeOptions());
+        if (format == "toon") return ToonSerializer.Encode(json);
 
         return json.ToJsonString(new JsonSerializerOptions
         {

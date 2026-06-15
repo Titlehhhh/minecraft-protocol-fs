@@ -6,6 +6,8 @@ using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
+using PacketGenerator.Protocol.Queries;
+using PacketGenerator.Protocol.Repository;
 
 namespace McpServer.Startup;
 
@@ -15,13 +17,11 @@ public static class ServiceRegistration
     {
         var configKey     = builder.Configuration["OpenRouter:ApiKey"];
         var envKey        = Environment.GetEnvironmentVariable("OPENROUTER_API_KEY");
-        var openRouterKey = configKey
-                            ?? envKey
-                            ?? throw new InvalidOperationException(
-                                "OpenRouter API key not configured. " +
-                                "Set OpenRouter:ApiKey in user secrets or OPENROUTER_API_KEY env var.");
+        var openRouterKey = configKey ?? envKey;
 
-        Console.WriteLine($"[McpServer] OpenRouter key source: {(configKey != null ? "user secrets" : "env OPENROUTER_API_KEY")}");
+        Console.WriteLine(openRouterKey is null
+            ? "[McpServer] OpenRouter key not configured; read-only APIs are enabled, generation requires a key or local endpoint."
+            : $"[McpServer] OpenRouter key source: {(configKey != null ? "user secrets" : "env OPENROUTER_API_KEY")}");
 
         var modelConfigFilePath = Path.Combine(AppContext.BaseDirectory, "model-config.json");
         var savedConfig         = ModelConfigService.TryLoadFromFile(modelConfigFilePath);
@@ -38,6 +38,9 @@ public static class ServiceRegistration
             }));
         builder.Services.AddSingleton<IProtocolRepository>(repository);
         builder.Services.AddSingleton(modelConfigService);
+        builder.Services.AddSingleton(sp => new ProtocolQueryService(
+            sp.GetRequiredService<IProtocolRepository>(),
+            sp.GetRequiredService<ModelConfigService>().GetComplexityThresholds()));
         builder.Services.AddSingleton<StructuralComplexityAssessor>();
         builder.Services.AddSingleton<LlmComplexityAssessor>();
         builder.Services.AddSingleton<IComplexityAssessor>(sp => sp.GetRequiredService<LlmComplexityAssessor>());

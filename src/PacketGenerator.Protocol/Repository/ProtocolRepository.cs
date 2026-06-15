@@ -7,7 +7,7 @@ using Protodef;
 using Protodef.Enumerable;
 using Protodef.Primitive;
 
-namespace McpServer.Repositories;
+namespace PacketGenerator.Protocol.Repository;
 
 public record PacketIdEntry(ProtocolRange Range, int Id);
 

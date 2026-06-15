@@ -1,7 +1,7 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Protodef;
 
-namespace McpServer;
+namespace PacketGenerator.Protocol.Repository;
 
 public class TypeHistory
 {
