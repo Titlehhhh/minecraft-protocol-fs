@@ -195,3 +195,58 @@ export interface DependencyResult {
   path: string
   dependencies: DependencySummary[]
 }
+
+export type ChunkKind = 'all' | 'packet' | 'type'
+
+export interface ProtocolRagChunk {
+  id: string
+  ownerKind: 'packet' | 'type' | string
+  ownerId: string
+  chunkKind: string
+  path: string
+  versionRange: string
+  text: string
+  fields: string[]
+  kinds: string[]
+  categories: string[]
+  semanticHints: string[]
+  rawPath: string
+  textCharCount: number
+  estimatedTokenCount: number
+  contentHash: string
+}
+
+export interface ProtocolRagChunkSet {
+  chunks: ProtocolRagChunk[]
+}
+
+export interface ChunkStatus {
+  enabled: boolean
+  embeddingConfigured: boolean
+  qdrantConfigured: boolean
+  collection: string
+  missing: string[]
+}
+
+export interface ChunkIndexResponse {
+  chunks: number
+  vectors: number
+  vectorSize: number
+}
+
+export interface ChunkSearchHit extends ProtocolRagChunk {
+  score: number
+}
+
+export interface ChunkSearchOwner {
+  owner: string
+  ownerKind: string
+  ownerId: string
+  score: number
+  chunks: ChunkSearchHit[]
+}
+
+export interface ChunkSearchResponse {
+  query: string
+  owners: ChunkSearchOwner[]
+}

@@ -19,3 +19,14 @@ src/McpServer/ClientApp/node_modules/
 src/McpServer/ClientApp/dist/
 *.tsbuildinfo
 wwwroot/
+
+# Local configuration and RAG/vector-store data
+.env
+.env.*
+!.env.example
+qdrant_storage/
+.qdrant/
+rag-data/
+src/McpServer/qdrant_storage/
+src/McpServer/.qdrant/
+src/McpServer/rag-data/

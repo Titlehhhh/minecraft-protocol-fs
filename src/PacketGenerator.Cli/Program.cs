@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using PacketGenerator.Protocol.Graph;
 using PacketGenerator.Protocol.Loading;
 using PacketGenerator.Protocol.Queries;
+using PacketGenerator.Protocol.Rag;
 using PacketGenerator.Protocol.Serialization;
 
 const int Ok = 0;
@@ -76,6 +77,16 @@ static async Task<int> RunAsync(string[] args)
 
             case "composition":
                 return WriteById(args, id => query.GetPacketComposition(id), format);
+
+            case "chunks":
+            {
+                var maxChars = ReadIntOption(args, "--max-chars") ?? 900;
+                var chunker = new ProtocolRagChunker(
+                    repository,
+                    options: new ProtocolRagChunkOptions(MaxTextChars: maxChars));
+                Write(chunker.BuildChunks(ReadOption(args, "--kind") ?? "all", ReadOption(args, "--filter")), format);
+                return Ok;
+            }
 
             case "stats":
                 Write(query.GetStats(), format);
@@ -217,6 +228,7 @@ packetgen commands:
   packet <packet-id> [--format json|toon]
   type <type-id> [--format json|toon]
   composition <packet-id> [--format json|toon]
+  chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
   stats [--format json|toon]
   graph [--ns play] [--direction toClient] [--include-types false] [--format json|toon]
 

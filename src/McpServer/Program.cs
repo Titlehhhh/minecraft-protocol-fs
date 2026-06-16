@@ -39,6 +39,7 @@ app.MapConfigApi();
 app.MapArtifactApi();
 app.MapPacketApi();
 app.MapGraphApi();
+app.MapChunkApi();
 app.MapGenerateApi();
 app.MapMcp("/mcp");
 

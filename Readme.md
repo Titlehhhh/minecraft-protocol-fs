@@ -35,6 +35,7 @@ tools\packetgen.cmd packet play.toClient.keep_alive --format toon
 tools\packetgen.cmd type ArmorTrimMaterial --format json
 tools\packetgen.cmd composition play.toClient.keep_alive --format json
 tools\packetgen.cmd graph --ns play --direction toClient --format json
+tools\packetgen.cmd chunks --kind type --filter command_node --format json
 ```
 
 Run the stdio MCP server:
@@ -87,6 +88,7 @@ types-by-kind [--format json|toon]
 packet <packet-id> [--format json|toon]
 type <type-id> [--format json|toon]
 composition <packet-id> [--format json|toon]
+chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
 stats [--format json|toon]
 graph [--ns play] [--direction toClient] [--include-types false] [--format json|toon]
 ```
@@ -133,9 +135,25 @@ GET  /api/composition/{id}
 GET  /api/schema/{id}
 GET  /api/type/{id}
 GET  /api/graph
+GET  /api/chunks/status
+GET  /api/chunks?kind=all|packet|type&filter=text&maxChars=900
+GET  /api/chunks/{id}?kind=packet|type&maxChars=900
+POST /api/chunks/index
+POST /api/chunks/search
 POST /api/prompt
 POST /api/generate
 POST /api/generate/batch
+```
+
+The Web UI has a `Chunks` view for inspecting deterministic protocol chunks. The chunk
+viewer is always available. Vector indexing and semantic search are enabled only when these
+variables are configured:
+
+```powershell
+$env:RAG_EMBEDDING_BASE_URL="http://127.0.0.1:1234/v1"
+$env:RAG_EMBEDDING_MODEL="text-embedding-mxbai-embed-large-v1"
+$env:RAG_QDRANT_URL="http://127.0.0.1:6333"
+$env:RAG_QDRANT_COLLECTION="mcprotonet_protocol_chunks"
 ```
 
 HTTP MCP is available at:

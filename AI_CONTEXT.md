@@ -32,6 +32,7 @@ mappers, arrays, options, buffers, bitfields, and primitive/custom types.
 - `ProtocolQueryService` exposes packet/type/schema/composition/stats queries.
 - `ProtocolGraphBuilder` builds graph nodes and edges over packets, named types, native types,
   and ProtoDef shape nodes.
+- `ProtocolRagChunker` emits deterministic structural chunks for embedding/search ingestion.
 - `ProtocolSchemaSerializer` emits JSON or TOON.
 
 ## Packet And Type Separation
@@ -59,6 +60,7 @@ tools\packetgen.cmd packet play.toClient.keep_alive --format toon
 tools\packetgen.cmd type ArmorTrimMaterial --format json
 tools\packetgen.cmd composition play.toClient.keep_alive --format json
 tools\packetgen.cmd graph --ns play --direction toClient --format json
+tools\packetgen.cmd chunks --kind type --filter command_node --format json
 ```
 
 For local MCP clients, use:
@@ -81,6 +83,7 @@ types-by-kind [--format json|toon]
 packet <packet-id> [--format json|toon]
 type <type-id> [--format json|toon]
 composition <packet-id> [--format json|toon]
+chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
 stats [--format json|toon]
 graph [--ns play] [--direction toClient] [--include-types false] [--format json|toon]
 ```
@@ -127,8 +130,23 @@ GET /api/composition/{id}
 GET /api/schema/{id}
 GET /api/type/{id}
 GET /api/graph
+GET /api/chunks/status
+GET /api/chunks?kind=all|packet|type&filter=text&maxChars=900
+GET /api/chunks/{id}?kind=packet|type&maxChars=900
+POST /api/chunks/index
+POST /api/chunks/search
 POST /api/prompt
 POST /api/generate
+```
+
+Chunk viewing works without external services. Vector indexing and semantic search are enabled
+only when all RAG variables are configured:
+
+```text
+RAG_EMBEDDING_BASE_URL=http://127.0.0.1:1234/v1
+RAG_EMBEDDING_MODEL=text-embedding-mxbai-embed-large-v1
+RAG_QDRANT_URL=http://127.0.0.1:6333
+RAG_QDRANT_COLLECTION=mcprotonet_protocol_chunks
 ```
 
 ## Known Design Boundaries

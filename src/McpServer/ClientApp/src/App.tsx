@@ -75,6 +75,13 @@ export function App() {
           >
             Usage
           </button>
+          <button
+            type="button"
+            className={`header-nav-btn ${mainView === 'chunks' ? 'active' : ''}`}
+            onClick={() => setMainView('chunks')}
+          >
+            Chunks
+          </button>
         </nav>
         <div className="header-status">
           <SaveIndicator />

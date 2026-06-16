@@ -48,6 +48,9 @@ public static class ServiceRegistration
         builder.Services.AddSingleton<CodeGenerator>();
         builder.Services.AddSingleton<GenerationService>();
         builder.Services.AddSingleton<IPacketFileService, PacketFileService>();
+        builder.Services.AddSingleton(RagOptions.FromConfiguration(builder.Configuration));
+        builder.Services.AddHttpClient<RagEmbeddingClient>();
+        builder.Services.AddHttpClient<QdrantChunkStore>();
 
         builder.Services
             .AddMcpServer(options =>

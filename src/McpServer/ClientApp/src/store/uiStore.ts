@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 type MainTab = 'code' | 'prompt'
-type MainView = 'generator' | 'usage' | 'graph'
+type MainView = 'generator' | 'usage' | 'graph' | 'chunks'
 type SidebarTab = 'packets' | 'types' | 'native' | 'config'
 
 interface UIStore {
