@@ -8,6 +8,7 @@ using McpServer.Models;
 using McpServer.Services;
 using ModelContextProtocol.Server;
 using PacketGenerator.Protocol.Complexity;
+using PacketGenerator.Protocol.Queries;
 using PacketGenerator.Protocol.Repository;
 using PacketGenerator.Protocol.Serialization;
 using Protodef;
@@ -178,6 +179,52 @@ public static class DataTool
         {
             WriteIndented = true
         });
+    }
+
+    [McpServerTool(UseStructuredContent = false)]
+    [Description(
+        "Returns compact usage statistics for protocol packets, named types, native types, and protodef shapes. " +
+        "Use kind='packet', 'type', 'native', or 'shape' to filter; use top to keep output small."
+    )]
+    public static string GetProtocolUsage(
+        ProtocolUsageQueries usage,
+        int? top = 25,
+        string? kind = null,
+        string format = "json")
+    {
+        return SerializeUsage(usage.GetUsage(top, kind), format);
+    }
+
+    [McpServerTool(UseStructuredContent = false)]
+    [Description(
+        "Returns where a packet, type, native type, or protodef shape is used. " +
+        "Accepts ids like play.toServer.window_click, HashedSlot, type:HashedSlot, native:varint, or shape:container."
+    )]
+    public static string GetProtocolUsers(
+        ProtocolUsageQueries usage,
+        string id,
+        string format = "toon")
+    {
+        return SerializeUsage(usage.GetUsers(id), format);
+    }
+
+    [McpServerTool(UseStructuredContent = false)]
+    [Description(
+        "Returns compact dependencies used by a packet or protocol type, including target path, version ranges, and field paths."
+    )]
+    public static string GetProtocolDependencies(
+        ProtocolUsageQueries usage,
+        string id,
+        string format = "toon")
+    {
+        return SerializeUsage(usage.GetDependencies(id), format);
+    }
+
+    private static string SerializeUsage<T>(T value, string format)
+    {
+        var json = JsonSerializer.SerializeToNode(value, ProtodefType.DefaultJsonOptions);
+        if (format == "toon") return ToonSerializer.Encode(json);
+        return json.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
 }
 

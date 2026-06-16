@@ -68,6 +68,13 @@ export function App() {
           >
             🕸 Граф
           </button>
+          <button
+            type="button"
+            className={`header-nav-btn ${mainView === 'usage' ? 'active' : ''}`}
+            onClick={() => setMainView('usage')}
+          >
+            Usage
+          </button>
         </nav>
         <div className="header-status">
           <SaveIndicator />

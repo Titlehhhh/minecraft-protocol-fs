@@ -152,3 +152,46 @@ export interface ProtocolGraphResponse {
   edges: ProtocolGraphEdge[]
   stats: ProtocolGraphStats
 }
+
+export type UsageTargetKind = 'packet' | 'type' | 'shape' | 'native'
+
+export interface UsageSummary {
+  targetId: string
+  targetKind: UsageTargetKind
+  label: string
+  path: string
+  usageCount: number
+  ownerCount: number
+  versionRanges: string[]
+}
+
+export interface UsageRecord {
+  ownerId: string
+  ownerKind: string
+  ownerPath: string
+  sourcePath: string
+  targetId: string
+  targetKind: UsageTargetKind
+  targetPath: string
+  targetLabel: string
+  versionRange: string
+  fieldPath?: string | null
+  case?: string | null
+}
+
+export interface DependencySummary {
+  targetId: string
+  targetKind: UsageTargetKind
+  label: string
+  path: string
+  usageCount: number
+  versionRanges: string[]
+  fieldPaths: string[]
+}
+
+export interface DependencyResult {
+  id: string
+  kind: 'packet' | 'type'
+  path: string
+  dependencies: DependencySummary[]
+}

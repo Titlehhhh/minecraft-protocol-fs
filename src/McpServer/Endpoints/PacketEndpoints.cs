@@ -150,6 +150,42 @@ public static class PacketEndpoints
             return Results.Ok(result);
         });
 
+        app.MapGet("/api/usage", (ProtocolUsageQueries usage, int? top, string? kind) =>
+        {
+            try
+            {
+                return Results.Ok(usage.GetUsage(top, kind));
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = $"{ex.GetType().Name}: {ex.Message}" });
+            }
+        });
+
+        app.MapGet("/api/users/{**id}", (string id, ProtocolUsageQueries usage) =>
+        {
+            try
+            {
+                return Results.Ok(usage.GetUsers(id));
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = $"{ex.GetType().Name}: {ex.Message}" });
+            }
+        });
+
+        app.MapGet("/api/deps/{**id}", (string id, ProtocolUsageQueries usage) =>
+        {
+            try
+            {
+                return Results.Ok(usage.GetDependencies(id));
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = $"{ex.GetType().Name}: {ex.Message}" });
+            }
+        });
+
         app.MapGet("/api/composition/{**id}", (string id, IProtocolRepository repo) =>
         {
             try

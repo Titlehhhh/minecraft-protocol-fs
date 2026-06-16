@@ -26,6 +26,7 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
 builder.Services.AddSingleton<IProtocolRepository>(repository);
 builder.Services.AddSingleton(new ProtocolQueryService(repository));
+builder.Services.AddSingleton(new ProtocolUsageQueries(repository));
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()
@@ -70,6 +71,21 @@ public static class PacketGeneratorMcpTools
     [Description("Returns the set of protodef/native type kinds used by a packet.")]
     public static string GetPacketComposition(ProtocolQueryService query, string id, string format = "json") =>
         Serialize(query.GetPacketComposition(id), format);
+
+    [McpServerTool(Name = "get_protocol_usage")]
+    [Description("Returns compact usage statistics for packet/type/native/shape targets. Use top to limit output and kind to filter: packet, type, native, or shape.")]
+    public static string GetProtocolUsage(ProtocolUsageQueries usage, int? top = 25, string? kind = null, string format = "json") =>
+        Serialize(usage.GetUsage(top, kind), format);
+
+    [McpServerTool(Name = "get_protocol_users")]
+    [Description("Returns where a packet, type, native type, or shape is used. Accepts ids like play.toServer.window_click, HashedSlot, type:HashedSlot, native:varint, or shape:container.")]
+    public static string GetProtocolUsers(ProtocolUsageQueries usage, string id, string format = "toon") =>
+        Serialize(usage.GetUsers(id), format);
+
+    [McpServerTool(Name = "get_protocol_dependencies")]
+    [Description("Returns compact dependencies used by a packet or protocol type, including target path, version ranges, and field paths.")]
+    public static string GetProtocolDependencies(ProtocolUsageQueries usage, string id, string format = "toon") =>
+        Serialize(usage.GetDependencies(id), format);
 
     [McpServerTool(Name = "get_protocol_stats")]
     [Description("Returns packet counts and structural complexity tier stats.")]

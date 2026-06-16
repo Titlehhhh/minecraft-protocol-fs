@@ -4,6 +4,7 @@ import { StatusBar } from './StatusBar'
 import { SchemaPanel } from './SchemaPanel'
 import { OutputTabs } from './OutputTabs'
 import { GraphPanel } from './GraphPanel'
+import { UsagePanel } from './UsagePanel'
 
 export function Main() {
   const mainView = useUIStore(state => state.mainView)
@@ -12,6 +13,14 @@ export function Main() {
     return (
       <div className="main">
         <GraphPanel />
+      </div>
+    )
+  }
+
+  if (mainView === 'usage') {
+    return (
+      <div className="main">
+        <UsagePanel />
       </div>
     )
   }

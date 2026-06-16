@@ -323,3 +323,41 @@ pre code.hljs { background: transparent; padding: 0; border-radius: 0; font-size
 .react-flow__edge.edge-common path { stroke: #3fb950cc; stroke-width: 1.8; }
 .react-flow__edge.edge-versioned path { stroke: #d29922cc; stroke-width: 1.8; stroke-dasharray: 6 4; }
 .react-flow__edge.edge-usesType path, .react-flow__edge.edge-containsShape path { filter: drop-shadow(0 0 2px rgba(0,0,0,.75)); }
+
+/* Usage view */
+.usage-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: #0d1117; }
+.usage-toolbar { min-height: 58px; padding: 10px 14px; border-bottom: 1px solid #21262d; display: flex; align-items: center; gap: 10px; flex-shrink: 0; background: #161b22cc; }
+.usage-title-block { min-width: 260px; margin-right: auto; }
+.usage-title-block h2 { margin-bottom: 3px; color: #58a6ff; }
+.usage-subtitle { font-size: 11px; color: #8b949e; }
+.usage-toolbar select, .usage-toolbar input[type=number] { width: auto; min-height: 32px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 999px; padding: 6px 10px; font-size: 12px; }
+.usage-toolbar input[type=number] { width: 82px; }
+.usage-loading { color: #8b949e; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+.usage-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; overflow: hidden; }
+.usage-list { overflow: auto; min-width: 0; }
+.usage-list table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.usage-list th { position: sticky; top: 0; z-index: 1; text-align: left; padding: 9px 12px; background: #161b22; border-bottom: 1px solid #30363d; color: #8b949e; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+.usage-list td { padding: 8px 12px; border-bottom: 1px solid #21262d; vertical-align: top; }
+.usage-list tr { cursor: pointer; }
+.usage-list tr:hover, .usage-list tr.active { background: #1f6feb12; }
+.usage-list td:first-child { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; align-items: center; }
+.usage-list strong { color: #f0f6fc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-list code { grid-column: 2; color: #8b949e; font-family: 'Cascadia Code', Consolas, monospace; font-size: 11px; word-break: break-all; }
+.usage-kind { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; padding: 2px 6px; border-radius: 999px; font-size: 10px; font-weight: 800; border: 1px solid #30363d; color: #8b949e; }
+.usage-kind.kind-packet { color: #79c0ff; border-color: #1f6feb66; background: #1f6feb22; }
+.usage-kind.kind-type { color: #7ee787; border-color: #23863677; background: #23863622; }
+.usage-kind.kind-shape { color: #e3b341; border-color: #d2992277; background: #d2992222; }
+.usage-kind.kind-native { color: #c9d1d9; border-color: #8b949e66; background: #8b949e1f; }
+.usage-side { border-left: 1px solid #21262d; background: #0d1117dd; overflow: auto; padding: 12px; }
+.usage-card { border: 1px solid #21262d; border-radius: 8px; background: #161b22d9; padding: 12px; margin-bottom: 10px; }
+.usage-lookup { display: flex; gap: 8px; }
+.usage-lookup input { min-width: 0; }
+.usage-muted { color: #8b949e; font-size: 12px; line-height: 1.5; }
+.usage-error { margin: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid #f8514955; background: #da363622; color: #f85149; font-size: 12px; }
+.usage-records { display: flex; flex-direction: column; gap: 8px; }
+.usage-record { padding: 8px; border: 1px solid #21262d; border-radius: 8px; background: #0d1117; font-size: 12px; }
+.usage-record div { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.usage-record strong { color: #f0f6fc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-record em { margin-left: auto; color: #8b949e; font-style: normal; font-weight: 800; }
+.usage-record code { display: block; margin-top: 5px; color: #79c0ff; font-family: 'Cascadia Code', Consolas, monospace; font-size: 11px; word-break: break-all; }
+.usage-record p { margin-top: 5px; color: #8b949e; font-size: 11px; line-height: 1.45; word-break: break-word; }

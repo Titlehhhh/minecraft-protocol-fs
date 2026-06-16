@@ -37,6 +37,7 @@ static async Task<int> RunAsync(string[] args)
     {
         var repository = await ProtocolDataLoader.LoadRepositoryAsync(new ProtocolDataOptions());
         var query = new ProtocolQueryService(repository);
+        var usage = new ProtocolUsageQueries(repository);
         var command = args[0].ToLowerInvariant();
 
         switch (command)
@@ -56,6 +57,16 @@ static async Task<int> RunAsync(string[] args)
             case "types-by-kind":
                 Write(query.GetTypesByKind(), format);
                 return Ok;
+
+            case "usage":
+                Write(usage.GetUsage(ReadIntOption(args, "--top"), ReadOption(args, "--kind")), format);
+                return Ok;
+
+            case "users":
+                return WriteById(args, id => usage.GetUsers(id), format);
+
+            case "deps":
+                return WriteById(args, id => usage.GetDependencies(id), format);
 
             case "packet":
                 return WriteSchema(args, id => query.GetPacketSchema(id, format), format);
@@ -182,6 +193,13 @@ static string? ReadOption(string[] args, string name)
     return null;
 }
 
+static int? ReadIntOption(string[] args, string name)
+{
+    var value = ReadOption(args, name);
+    if (string.IsNullOrWhiteSpace(value)) return null;
+    return int.TryParse(value, out var parsed) ? parsed : null;
+}
+
 static bool IsHelp(string value) =>
     value is "-h" or "--help" or "help";
 
@@ -193,6 +211,9 @@ packetgen commands:
   types [--filter text] [--format json|toon]
   native-types [--format json|toon]
   types-by-kind [--format json|toon]
+  usage [--top N] [--kind packet|type|shape|native] [--format json|toon]
+  users <packet|type|native|shape-id> [--format json|toon]
+  deps <packet|type-id> [--format json|toon]
   packet <packet-id> [--format json|toon]
   type <type-id> [--format json|toon]
   composition <packet-id> [--format json|toon]

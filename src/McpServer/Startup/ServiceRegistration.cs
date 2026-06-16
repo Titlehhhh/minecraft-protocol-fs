@@ -41,6 +41,7 @@ public static class ServiceRegistration
         builder.Services.AddSingleton(sp => new ProtocolQueryService(
             sp.GetRequiredService<IProtocolRepository>(),
             sp.GetRequiredService<ModelConfigService>().GetComplexityThresholds()));
+        builder.Services.AddSingleton(sp => new ProtocolUsageQueries(sp.GetRequiredService<IProtocolRepository>()));
         builder.Services.AddSingleton<StructuralComplexityAssessor>();
         builder.Services.AddSingleton<LlmComplexityAssessor>();
         builder.Services.AddSingleton<IComplexityAssessor>(sp => sp.GetRequiredService<LlmComplexityAssessor>());
