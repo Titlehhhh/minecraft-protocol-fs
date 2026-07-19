@@ -1,0 +1,10 @@
+{
+  "editor.formatOnSave": true,
+  "[fsharp]": {
+    "editor.defaultFormatter": "ionide.ionide-fsharp"
+  },
+  "FSharp.inlayHints.enabled": true,
+  "FSharp.inlayHints.typeAnnotations": true,
+  "FSharp.showExplorerOnStartup": false,
+  "dotnet.defaultSolution": "minecraft-protocol-fs.slnx"
+}

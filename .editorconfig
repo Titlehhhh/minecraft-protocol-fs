@@ -1,0 +1,24 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{fs,fsi,fsx}]
+indent_size = 4
+# Fantomas
+fsharp_max_line_length = 120
+fsharp_multiline_bracket_style = aligned
+fsharp_align_function_signature_to_indentation = true
+
+[*.cs]
+indent_size = 4
+
+[*.{json,yml,yaml}]
+indent_size = 2
+
+[*.{cmd,bat}]
+end_of_line = crlf

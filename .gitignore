@@ -1,0 +1,19 @@
+# .NET build output
+bin/
+obj/
+artifacts/
+
+# Rider
+.idea/
+*.sln.DotSettings.user
+
+# Visual Studio
+.vs/
+*.user
+
+# generated C# (uncomment if generated output should not be versioned)
+# generated-csharp/
+
+# OS
+Thumbs.db
+.DS_Store
