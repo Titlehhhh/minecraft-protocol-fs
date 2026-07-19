@@ -16,8 +16,11 @@ This is how we work here. Follow it for every new type/packet:
 
 1. **Pick** one protodef type or packet to model (e.g. `entityMetadata`), simplest first.
 2. **Fetch the real facts** from PacketGenerator — see next section. Never guess the shape.
-3. **Express it** in the DSL in [Program.fs](minecraft-protoccol-fs/Program.fs): `model` (`api [...]`)
+3. **Express it** in the DSL as a new file under [Spec/](minecraft-protoccol-fs/Spec): `model` (`api [...]`)
    plus one `wire` layout per version range, using `read` / `discard` / `readBlock` / `readUnion` / etc.
+   Then wire it up: add the binding to [Spec/Protocol.fs](minecraft-protoccol-fs/Spec/Protocol.fs) and
+   the `<Compile Include>` line to [the fsproj](minecraft-protoccol-fs/minecraft-protoccol-fs.fsproj)
+   (order matters in F# — the file must precede `Protocol.fs`).
 4. **Validate**: `dotnet run` prints the whole protocol so you can eyeball the model + wire.
 5. **Generate C#** locally into this repo (the codegen target — see "Codegen" below).
 
@@ -75,9 +78,22 @@ The DSL keys `wire` layouts on **protocol numbers**, not Minecraft version strin
 surface already reports the version ranges where each field/shape is present — read them from
 there, do not re-derive them from raw json. (Quick sanity anchors: `764 = 1.20.2`, `770 = 1.21.5`.)
 
+## Project layout
+
+The DSL and the concrete specs are separated:
+
+```text
+Dsl/    Ast.fs · Builders.fs · Helpers.fs · Printer.fs   — the generic algebra (namespace McProtocol.Dsl)
+Spec/   WireAliases.fs · Types/ · Unions/ · Packets/ · Protocol.fs  — described content (namespace McProtocol.Spec)
+Program.fs                                                — entry point, just prints the protocol
+```
+
+One type / union / packet per file; each is an `[<AutoOpen>]` module so `Protocol.fs` sees the
+bindings by name. DSL files never reference concrete protocol content; specs `open McProtocol.Dsl`.
+
 ## DSL cheat-sheet
 
-All in [Program.fs](minecraft-protoccol-fs/Program.fs) today (types → builders → helpers → specs → printer).
+Types/builders/helpers/printer live under [Dsl/](minecraft-protoccol-fs/Dsl); specs under [Spec/](minecraft-protoccol-fs/Spec).
 
 **Builders** (F# computation expressions):
 
@@ -124,9 +140,9 @@ SDK is pinned by [global.json](global.json) (net10.0). Format F# with Fantomas b
 ## Codegen (the target)
 
 Goal: a renderer that emits **C# locally into this repo** from the specs (review artifacts first;
-McProtoNet-shaped later). Not built yet — `Program.fs` currently only pretty-prints. When adding
-it, write output to a dedicated folder (e.g. `generated-csharp/`) and keep the renderer separate
-from the DSL definitions.
+McProtoNet-shaped later). Not built yet — [Dsl/Printer.fs](minecraft-protoccol-fs/Dsl/Printer.fs)
+currently only pretty-prints. When adding it, write output to a dedicated folder (e.g.
+`generated-csharp/`) and keep the renderer separate from the DSL definitions.
 
 ## Guardrails
 

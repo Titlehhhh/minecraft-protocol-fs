@@ -1,0 +1,50 @@
+{
+  // Tasks for this F# protocol DSL. Run via Terminal -> Run Task, or use the
+  // status-bar buttons provided by the "vscode-task-buttons" extension
+  // (configured in settings.json; recommended in extensions.json).
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Build + run the DSL: prints the whole protocol (model + wire) to the terminal.
+      "label": "app: run",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "minecraft-protoccol-fs/minecraft-protoccol-fs.fsproj"
+      ],
+      "problemMatcher": "$msCompile",
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      // Compile the whole solution — expect 0 warnings.
+      "label": "build",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "minecraft-protocol-fs.slnx"],
+      "problemMatcher": "$msCompile",
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    },
+    {
+      // Start PacketGenerator's McpServer WITH the web UI in its own window.
+      // UI: http://localhost:5000/  (close that window to stop the server).
+      "label": "facts: serve + UI",
+      "type": "process",
+      "command": "cmd",
+      "args": ["/c", "scripts\\serve-facts.cmd", "-Ui"],
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    },
+    {
+      // Open the running facts UI in the default browser.
+      "label": "facts: open UI",
+      "type": "process",
+      "command": "cmd",
+      "args": ["/c", "start", "", "http://localhost:5000/"],
+      "problemMatcher": [],
+      "presentation": { "reveal": "never" }
+    }
+  ]
+}

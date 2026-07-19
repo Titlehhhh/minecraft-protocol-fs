@@ -6,5 +6,15 @@
   "FSharp.inlayHints.enabled": true,
   "FSharp.inlayHints.typeAnnotations": true,
   "FSharp.showExplorerOnStartup": false,
-  "dotnet.defaultSolution": "minecraft-protocol-fs.slnx"
+  "dotnet.defaultSolution": "minecraft-protocol-fs.slnx",
+
+  // Status-bar buttons (requires the "spencerwmiles.vscode-task-buttons" extension).
+  // Each button runs a task from tasks.json. Labels use VS Code codicons: $(name).
+  "VsCodeTaskButtons.showCounter": false,
+  "VsCodeTaskButtons.tasks": [
+    { "label": "$(play) Run", "task": "app: run", "tooltip": "dotnet run — print the protocol" },
+    { "label": "$(tools) Build", "task": "build", "tooltip": "dotnet build the solution" },
+    { "label": "$(globe) Facts UI", "task": "facts: serve + UI", "tooltip": "Start McpServer + web UI (own window)" },
+    { "label": "$(link-external) Open UI", "task": "facts: open UI", "tooltip": "Open http://localhost:5000/" }
+  ]
 }

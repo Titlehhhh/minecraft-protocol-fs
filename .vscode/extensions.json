@@ -2,8 +2,9 @@
   // Recommended extensions for working on this F# protocol DSL in VS Code.
   // VS Code will offer to install these when the folder is opened.
   "recommendations": [
-    "ionide.ionide-fsharp",        // F# language support (FSAC LSP, IntelliSense, FSI, Fantomas)
-    "editorconfig.editorconfig",   // honour .editorconfig
-    "ms-dotnettools.csharp"        // read/inspect the generated C# output
+    "ionide.ionide-fsharp",             // F# language support (FSAC LSP, IntelliSense, FSI, Fantomas)
+    "editorconfig.editorconfig",        // honour .editorconfig
+    "ms-dotnettools.csharp",            // read/inspect the generated C# output
+    "spencerwmiles.vscode-task-buttons" // status-bar buttons for tasks.json (see settings.json)
   ]
 }

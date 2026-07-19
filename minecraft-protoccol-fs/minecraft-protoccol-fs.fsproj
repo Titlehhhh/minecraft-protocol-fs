@@ -7,6 +7,28 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!-- DSL: generic algebra, builders, helpers, printer -->
+        <Compile Include="Dsl\Ast.fs"/>
+        <Compile Include="Dsl\Builders.fs"/>
+        <Compile Include="Dsl\Helpers.fs"/>
+        <Compile Include="Dsl\Printer.fs"/>
+
+        <!-- Spec: concrete described types, unions and packets -->
+        <Compile Include="Spec\WireAliases.fs"/>
+        <Compile Include="Spec\Types\MapColorData.fs"/>
+        <Compile Include="Spec\Types\Rotations.fs"/>
+        <Compile Include="Spec\Types\VillagerData.fs"/>
+        <Compile Include="Spec\Types\EntityMetadataEntry.fs"/>
+        <Compile Include="Spec\Unions\TeamAction.fs"/>
+        <Compile Include="Spec\Unions\EntityMetadataValue.fs"/>
+        <Compile Include="Spec\Packets\UnloadChunk.fs"/>
+        <Compile Include="Spec\Packets\Map.fs"/>
+        <Compile Include="Spec\Packets\Teams.fs"/>
+        <Compile Include="Spec\Packets\EntityMetadata.fs"/>
+        <Compile Include="Spec\Packets\WindowClick.fs"/>
+        <Compile Include="Spec\Protocol.fs"/>
+
+        <!-- Entry point -->
         <Compile Include="Program.fs"/>
     </ItemGroup>
 
