@@ -11,5 +11,13 @@ $ErrorActionPreference = 'Stop'
 $pg = & (Join-Path $PSScriptRoot '_resolve-packetgen.ps1')
 $packetgen = Join-Path $pg 'tools\packetgen.cmd'
 
-& $packetgen @args
-exit $LASTEXITCODE
+# Run from the PacketGenerator root so its global.json (SDK) applies, not this repo's.
+Push-Location $pg
+try {
+    & $packetgen @args
+    $code = $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}
+exit $code

@@ -14,7 +14,7 @@ type/packet at a time, and eventually **generate C# locally** from the specs.
 
 This is how we work here. Follow it for every new type/packet:
 
-1. **Pick** one protodef type or packet to model (e.g. `entity_metadata`), simplest first.
+1. **Pick** one protodef type or packet to model (e.g. `entityMetadata`), simplest first.
 2. **Fetch the real facts** from PacketGenerator — see next section. Never guess the shape.
 3. **Express it** in the DSL in [Program.fs](minecraft-protoccol-fs/Program.fs): `model` (`api [...]`)
    plus one `wire` layout per version range, using `read` / `discard` / `readBlock` / `readUnion` / etc.
@@ -40,12 +40,16 @@ set `PACKETGEN_ROOT`.
 Wraps PacketGenerator's CLI; args pass straight through.
 
 ```powershell
-scripts\facts.cmd type entity_metadata --format toon
+scripts\facts.cmd type entityMetadata --format toon
 scripts\facts.cmd packet play.toClient.teams --format toon
 scripts\facts.cmd composition play.toClient.map --format json
 scripts\facts.cmd packets --filter metadata --format json
 scripts\facts.cmd stats --format json
 ```
+
+Type ids are protodef **camelCase** names (`entityMetadata`, not `entity_metadata`). Packet ids
+are `{state}.{direction}.{snake_name}` (`play.toClient.teams`). If unsure of an id, discover it:
+`scripts\facts.cmd types --filter metadata` / `scripts\facts.cmd packets --filter team`.
 
 ### Many lookups in a session → `scripts\serve-facts.cmd`
 
