@@ -8,7 +8,13 @@ generated locally from the specs.
 ## Layout
 
 ```text
-minecraft-protocol-fs/Program.fs   the DSL (types, builders, helpers) + sample specs + a printer
+minecraft-protocol-fs/              the F# project
+  Dsl/                              the generic algebra (types, builders, helpers, printer)
+  Codegen/                          DSL -> C# renderer (Roslyn-backed)
+  Spec/                             protocol content — one type/packet per file
+  Program.fs                        entry point: `dotnet run` prints, `-- gen` generates
+generated-csharp/                   codegen output (C# mirrored from Spec/)
+sandbox/                            minimal McProtoNet-shaped runtime that compiles & round-trips the generated C#
 scripts/facts.cmd                   one-shot protocol fact lookup (PacketGenerator CLI)
 scripts/serve-facts.cmd             start the facts server in its own window (REST + HTTP MCP)
 AGENTS.md                           how to work in this repo (read this)
@@ -27,7 +33,7 @@ json. Point `PACKETGEN_ROOT` at a PacketGenerator checkout (or keep it beside
 `mcprotonet-workspace`), then:
 
 ```powershell
-scripts\facts.cmd type entity_metadata --format toon     # one lookup
+scripts\facts.cmd type entityMetadata --format toon      # one lookup
 scripts\serve-facts.cmd                                   # many lookups (REST/MCP on :5000)
 ```
 

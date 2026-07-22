@@ -104,9 +104,8 @@ Program.fs                                                — entry point: `dotn
 sandbox/ McProtoNet.Sandbox (lib) · McProtoNet.Sandbox.Console  — compile & poke the generated C#
 ```
 
-One type / union / bitflags / packet per file; each is an `[<AutoOpen>]` module. `Protocol.fs`
-collects every spec by **reflection** (not by name), so files are independent and order-free. DSL
-files never reference concrete protocol content; specs `open McProtocol.Dsl`.
+One spec per file, each an `[<AutoOpen>]` module (indexing mechanics — step 3 of the working
+loop); DSL files never reference concrete protocol content; specs `open McProtocol.Dsl`.
 
 Spec folders mirror **MCProtocolLib**'s package layout (GeyserMC/MCProtocolLib —
 `packet/ingame/{clientbound,serverbound}/{entity[/player],level[/border],inventory,scoreboard,title,…}`
@@ -124,8 +123,8 @@ Bitflags/<Category…>/                      Entity/Player/PositionUpdateRelativ
 
 New states get sibling folders (`Packets/Login/…`, `Packets/Configuration/…`, `Packets/Status/…`);
 `Types/Math/` is ours (MCProtocolLib delegates vectors to an external math lib). Folders are purely
-organisational (the fsproj globs `Spec/**`, reflection indexes by value type) — a packet's folder
-must simply agree with the spec's own `State`/`Direction` arguments.
+organisational — a packet's folder must simply agree with the spec's own `State`/`Direction`
+arguments.
 
 ## DSL cheat-sheet
 
