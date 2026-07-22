@@ -17,3 +17,6 @@ artifacts/
 # OS
 Thumbs.db
 .DS_Store
+
+# BenchmarkDotNet output
+BenchmarkDotNet.Artifacts/

@@ -8,34 +8,36 @@
 
     <ItemGroup>
         <!-- DSL: generic algebra, builders, helpers, printer -->
-        <Compile Include="Dsl\Ast.fs"/>
-        <Compile Include="Dsl\Builders.fs"/>
-        <Compile Include="Dsl\Helpers.fs"/>
-        <Compile Include="Dsl\Printer.fs"/>
+        <Compile Include="Dsl\Ast.fs" />
+        <Compile Include="Dsl\Builders.fs" />
+        <Compile Include="Dsl\Helpers.fs" />
+        <Compile Include="Dsl\Printer.fs" />
 
         <!-- Codegen: abstract language target + backends (depends only on the DSL) -->
-        <Compile Include="Codegen\Target.fs"/>
-        <Compile Include="Codegen\Generator.fs"/>
-        <Compile Include="Codegen\CSharp.fs"/>
+        <Compile Include="Codegen\Target.fs" />
+        <Compile Include="Codegen\Generator.fs" />
+        <Compile Include="Codegen\CSharpSurface.fs" />
+        <Compile Include="Codegen\CSharp.fs" />
 
         <!-- Spec: WireAliases first (shared helper bindings), then every spec file auto-globbed.
              Protocol.fs indexes all specs by reflection, so a new type/union/packet needs no edit
              here or there — just drop a file under Spec/. (Specs reference each other only by
              string name, so compile order among them does not matter.) -->
-        <Compile Include="Spec\WireAliases.fs"/>
-        <Compile Include="Spec\**\*.fs" Exclude="Spec\WireAliases.fs;Spec\Protocol.fs"/>
-        <Compile Include="Spec\Protocol.fs"/>
+        <Compile Include="Spec\WireAliases.fs" />
+        <Compile Include="Spec\**\*.fs" Exclude="Spec\WireAliases.fs;Spec\Protocol.fs" />
+        <Compile Include="Spec\Protocol.fs" />
 
         <!-- Entry point -->
-        <Compile Include="Program.fs"/>
+        <Compile Include="Program.fs" />
     </ItemGroup>
 
     <!-- Show the generated C# output in the IDE (not compiled by this F# project).
          The `gen` run writes these into ..\generated-csharp\. -->
     <ItemGroup>
-        <None Include="..\generated-csharp\**\*.cs"
-              Link="generated-csharp\%(RecursiveDir)%(Filename)%(Extension)"
-              Visible="true"/>
+        <None Include="..\generated-csharp\**\*.cs" Link="generated-csharp\%(RecursiveDir)%(Filename)%(Extension)" Visible="true" />
+    </ItemGroup>
+    <ItemGroup>
+      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
     </ItemGroup>
 
 </Project>

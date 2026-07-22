@@ -9,8 +9,8 @@ module Ast =
 
     type VersionRange =
         | All
-        | Since   of Ver
-        | Until   of Ver
+        | Since of Ver
+        | Until of Ver
         | Between of Ver * Ver
 
     type WireType =
@@ -19,11 +19,16 @@ module Ast =
         // numbers / primitives
         | VarInt
         | VarLong
-        | I8 | U8
-        | I16 | U16
-        | I32 | U32
-        | I64 | U64
-        | F32 | F64
+        | I8
+        | U8
+        | I16
+        | U16
+        | I32
+        | U32
+        | I64
+        | U64
+        | F32
+        | F64
         | Bool
 
         // minecraft primitives
@@ -33,6 +38,8 @@ module Ast =
         | AnonNbt
         | ByteArray
         | FixedBytes of int
+        // remaining bytes of the packet, no length prefix (protodef restBuffer)
+        | RestBytes
 
         // wrappers
         | Array of WireType * ArrayCount
@@ -51,11 +58,10 @@ module Ast =
     and ArrayCount =
         | VarIntCount
         | FixedCount of int
+        // length prefix encoded as an arbitrary integer wire type (e.g. i32 in old packets)
+        | TypedCount of WireType
 
-    and SwitchCase = {
-        On   : SwitchKey list
-        Type : WireType
-    }
+    and SwitchCase = { On: SwitchKey list; Type: WireType }
 
     and SwitchKey =
         | IntKey of int
@@ -64,7 +70,7 @@ module Ast =
 
 
     type WireEntry =
-        | Read    of wire: string * WireType * api: string
+        | Read of wire: string * WireType * api: string
         | Discard of wire: string * WireType
 
         // block is read only if field != 0
@@ -82,11 +88,12 @@ module Ast =
         // fallback for small local unions
         | InlineUnion of disc: string * UnionArm list
 
-    and UnionArm = {
-        Keys    : int list
-        Name    : string
-        Entries : WireEntry list
-    }
+    and UnionArm =
+        {
+            Keys: int list
+            Name: string
+            Entries: WireEntry list
+        }
 
 
     type ApiType =
@@ -99,52 +106,61 @@ module Ast =
         | TUuid
         | TNbt
         | TBytes
-        | TArray  of ApiType
+        | TArray of ApiType
         | TOption of ApiType
-        | TNamed  of string
-        | TUnion  of string
+        | TNamed of string
+        | TUnion of string
 
-    type ApiField = {
-        Name    : string
-        Type    : ApiType
-        Present : VersionRange
-    }
+    type ApiField =
+        {
+            Name: string
+            Type: ApiType
+            Present: VersionRange
+        }
 
-    type WireLayout = {
-        Range   : VersionRange
-        Entries : WireEntry list
-    }
+    type WireLayout =
+        {
+            Range: VersionRange
+            Entries: WireEntry list
+        }
 
-    type NamedTypeSpec = {
-        Name      : string
-        ApiFields : ApiField list
-        Layouts   : WireLayout list
-    }
+    type NamedTypeSpec =
+        {
+            Name: string
+            ApiFields: ApiField list
+            Layouts: WireLayout list
+        }
 
-    type UnionLayout = {
-        Range : VersionRange
-        Arms  : UnionArm list
-    }
+    type UnionLayout =
+        {
+            Range: VersionRange
+            Arms: UnionArm list
+        }
 
-    type UnionTypeSpec = {
-        Name    : string
-        Layouts : UnionLayout list
-    }
+    type UnionTypeSpec =
+        {
+            Name: string
+            Layouts: UnionLayout list
+        }
 
     // A backing integer whose named bits map to boolean api fields. `Flags` are the wire flag
     // names in bit order (bit i = 1 <<< i); the api is the union of all layouts' flags as bools.
-    type BitflagsLayout = {
-        Range   : VersionRange
-        Backing : WireType
-        Flags   : string list
-    }
+    type BitflagsLayout =
+        {
+            Range: VersionRange
+            Backing: WireType
+            Flags: string list
+        }
 
-    type BitflagsSpec = {
-        Name    : string
-        Layouts : BitflagsLayout list
-    }
+    type BitflagsSpec =
+        {
+            Name: string
+            Layouts: BitflagsLayout list
+        }
 
     type ProtocolState =
+        | Handshaking
+        | Status
         | Login
         | Play
         | Configuration
@@ -153,18 +169,20 @@ module Ast =
         | Clientbound
         | Serverbound
 
-    type PacketSpec = {
-        ClassName : string
-        State     : ProtocolState
-        Direction : Direction
-        Since     : VersionRange
-        ApiFields : ApiField list
-        Layouts   : WireLayout list
-    }
+    type PacketSpec =
+        {
+            ClassName: string
+            State: ProtocolState
+            Direction: Direction
+            Since: VersionRange
+            ApiFields: ApiField list
+            Layouts: WireLayout list
+        }
 
-    type ProtocolSpec = {
-        Types    : NamedTypeSpec list
-        Unions   : UnionTypeSpec list
-        Bitflags : BitflagsSpec list
-        Packets  : PacketSpec list
-    }
+    type ProtocolSpec =
+        {
+            Types: NamedTypeSpec list
+            Unions: UnionTypeSpec list
+            Bitflags: BitflagsSpec list
+            Packets: PacketSpec list
+        }

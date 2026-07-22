@@ -98,8 +98,8 @@ The DSL and the concrete specs are separated:
 
 ```text
 Dsl/     Ast.fs · Builders.fs · Helpers.fs · Printer.fs   — the generic algebra (namespace McProtocol.Dsl)
-Codegen/ Target.fs · Generator.fs · CSharp.fs             — DSL -> source renderer (namespace McProtocol.Codegen)
-Spec/    WireAliases.fs · Types/ · Unions/ · Bitflags/ · Packets/ · Protocol.fs  — content (namespace McProtocol.Spec)
+Codegen/ Target.fs · Generator.fs · CSharpSurface.fs · CSharp.fs — DSL -> source renderer (namespace McProtocol.Codegen)
+Spec/    WireAliases.fs · Types|Unions|Bitflags/<Category…>/ · Packets/<State>/<Direction>/<Category…>/ · Protocol.fs  — content (namespace McProtocol.Spec)
 Program.fs                                                — entry point: `dotnet run` prints, `-- gen` generates
 sandbox/ McProtoNet.Sandbox (lib) · McProtoNet.Sandbox.Console  — compile & poke the generated C#
 ```
@@ -107,6 +107,25 @@ sandbox/ McProtoNet.Sandbox (lib) · McProtoNet.Sandbox.Console  — compile & p
 One type / union / bitflags / packet per file; each is an `[<AutoOpen>]` module. `Protocol.fs`
 collects every spec by **reflection** (not by name), so files are independent and order-free. DSL
 files never reference concrete protocol content; specs `open McProtocol.Dsl`.
+
+Spec folders mirror **MCProtocolLib**'s package layout (GeyserMC/MCProtocolLib —
+`packet/ingame/{clientbound,serverbound}/{entity[/player],level[/border],inventory,scoreboard,title,…}`
+and `data/game/{entity[/metadata],level[/map],item,chat,…}`). When placing a new spec, put it where
+MCProtocolLib puts its counterpart:
+
+```text
+Packets/<State>/<Direction>/<Category…>/   Play/Clientbound/Entity/Player/UpdateHealth.fs
+                                           Play/Serverbound/Inventory/WindowClick.fs
+                                           (misc packets sit at the <Direction> root, like KeepAlive.fs)
+Types/<Category…>/                         Math/Vec3f.fs · Entity/Metadata/VillagerData.fs · Level/Map/MapColorData.fs
+Unions/<Category…>/                        Entity/Metadata/EntityMetadataValue.fs · Scoreboard/TeamAction.fs
+Bitflags/<Category…>/                      Entity/Player/PositionUpdateRelatives.fs
+```
+
+New states get sibling folders (`Packets/Login/…`, `Packets/Configuration/…`, `Packets/Status/…`);
+`Types/Math/` is ours (MCProtocolLib delegates vectors to an external math lib). Folders are purely
+organisational (the fsproj globs `Spec/**`, reflection indexes by value type) — a packet's folder
+must simply agree with the spec's own `State`/`Direction` arguments.
 
 ## DSL cheat-sheet
 
@@ -171,7 +190,18 @@ Codegen lives in [Codegen/](minecraft-protocol-fs/Codegen), separate from the DS
 language-neutral IR; a backend implements `ILanguageTarget` ([Target.fs](minecraft-protocol-fs/Codegen/Target.fs))
 and `Generator` drives it — one file per type. Adding a language = one new target, nothing else
 changes. Run: `dotnet run -- gen` (whole protocol) or `dotnet run -- gen Vec4f` (one type, echoed to
-stdout). Output goes to `generated-csharp/`.
+stdout). Output goes to `generated-csharp/`, mirroring the spec layout: `Types/`, `Bitflags/`,
+`Packets/<State>/<Direction>/`. Packets render exactly like named types (class/record struct +
+Read/Write); a packet whose wire uses still-unsupported entries comes out as a compiling stub with
+`// TODO(codegen)` markers and `default!` ctor args.
+
+The C# backend is built on **Roslyn**: type/method structure via `SyntaxFactory`, statement bodies
+via `ParseStatement`, `NormalizeWhitespace` for formatting, and `GetDiagnostics` as a hard gate — a
+file that does not parse as valid C# fails generation instead of being written. Every runtime name
+the output references (reader/writer types, `ThrowHelper`, `ProtocolSupport`, the per-wire-type
+method map) lives in one record, [CSharpSurface.fs](minecraft-protocol-fs/Codegen/CSharpSurface.fs)'s
+`RuntimeSurface`; `CSharp.targetFor someSurface` retargets the same renderer at a renamed or
+different runtime, `CSharp.target` is the McProtoNet default.
 
 **Target shape = McProtoNet** ([CSharp.fs](minecraft-protocol-fs/Codegen/CSharp.fs)): value types →
 `[ProtocolSupport(from,to)] public readonly partial record struct Name(...)`, reference types →
@@ -192,9 +222,17 @@ McProtoNet-shaped runtime ([Runtime.cs](sandbox/McProtoNet.Sandbox/Runtime.cs): 
 `generated-csharp/` (incomplete ones excluded in the csproj). `McProtoNet.Sandbox.Console` round-trips
 them. **Compiling the sandbox is the codegen's real test** — it caught a scope bug the printer could not.
 
-**Known codegen gaps** (emit a visible `// TODO(codegen)`, never wrong silent code): multi-version
-*named* types (bitflags multi-version works), and the `ByteArray` / `Array` / `Option` / `union` /
-`discard` wire entries. Close these before their types can enter the sandbox.
+**Multi-version works**: every wire layout becomes a `protocolVersion`-guarded branch in Read/Write
+(single-layout types stay flat; a version inside the support span but outside every layout throws
+`NotSupportedException`). `Array`/`Option`/`ByteArray`/`RestBytes`/`discard` wire entries are
+implemented; nested named types dispatch through `IProtocolType<TSelf>` (static abstract interface —
+zero reflection, AOT-safe; benchmarked ≈ direct call).
+
+**Known codegen gaps** (emit a visible `// TODO(codegen)`, never wrong silent code): unions
+(`readUnion`/`inlineUnion`), `readBlock`, `readOpt`, `ifNonZero`, `SentinelArray`, and named-type
+morph across versions (Explosion's `option vec3f` @768 → `option vec3f64` @769). Stubs still
+compile; specs whose *api* references a not-yet-modelled C# type (Particle, Slot, union types, NBT
+in the sandbox) are excluded in the sandbox csproj until those land.
 
 ## Guardrails
 

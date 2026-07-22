@@ -42,8 +42,42 @@ namespace McProtoNet.Protocol
     }
 }
 
+namespace McProtoNet.Protocol
+{
+    using McProtoNet.Serialization;
+
+    // Hand-written runtime primitive (mirrors McProtoNet): block position packed into one long
+    // (x: 26 bits, z: 26 bits, y: 12 bits). Referenced from specs as Named "Position", never generated.
+    public readonly partial record struct Position(int X, int Y, int Z) : IProtocolType<Position>
+    {
+        public static Position Read(ref MinecraftPrimitiveReader reader, int protocolVersion)
+        {
+            var v = reader.ReadSignedLong();
+            int x = (int)(v >> 38);
+            int y = (int)(v << 52 >> 52);
+            int z = (int)(v << 26 >> 38);
+            return new Position(x, y, z);
+        }
+
+        public readonly void Write(MinecraftPrimitiveWriter writer, int protocolVersion)
+        {
+            long v = ((long)(X & 0x3FFFFFF) << 38) | ((long)(Z & 0x3FFFFFF) << 12) | ((long)Y & 0xFFF);
+            writer.WriteSignedLong(v);
+        }
+    }
+}
+
 namespace McProtoNet.Serialization
 {
+    // Contract every generated protocol type implements. Static abstract members give
+    // ReadType<T>/WriteType<T> zero-reflection dispatch: `T.Read(...)` compiles to a direct
+    // (devirtualized for structs) call.
+    public interface IProtocolType<TSelf> where TSelf : IProtocolType<TSelf>
+    {
+        static abstract TSelf Read(ref MinecraftPrimitiveReader reader, int protocolVersion);
+        void Write(MinecraftPrimitiveWriter writer, int protocolVersion);
+    }
+
     // Big-endian primitive reader over a byte buffer. A struct so the generated
     // `Read(ref MinecraftPrimitiveReader reader, ...)` signature works.
     public struct MinecraftPrimitiveReader
@@ -131,6 +165,27 @@ namespace McProtoNet.Serialization
             for (int i = 0; i < 8; i++) b[8 + i] = (byte)(lo >> ((7 - i) * 8));
             return new Guid(b);
         }
+
+        public byte[] ReadByteArray()
+        {
+            int len = ReadVarInt();
+            var b = new byte[len];
+            Array.Copy(_data, _pos, b, 0, len);
+            _pos += len;
+            return b;
+        }
+
+        public byte[] ReadRestBytes()
+        {
+            var b = new byte[_data.Length - _pos];
+            Array.Copy(_data, _pos, b, 0, b.Length);
+            _pos = _data.Length;
+            return b;
+        }
+
+        // Nested named-type dispatch without reflection: static abstract interface member.
+        public T ReadType<T>(int protocolVersion) where T : IProtocolType<T>
+            => T.Read(ref this, protocolVersion);
     }
 
     // Big-endian primitive writer collecting into a growable buffer.
@@ -200,5 +255,17 @@ namespace McProtoNet.Serialization
             var b = g.ToByteArray();
             _buf.AddRange(b);
         }
+
+        public void WriteByteArray(byte[] v)
+        {
+            WriteVarInt(v.Length);
+            _buf.AddRange(v);
+        }
+
+        public void WriteRestBytes(byte[] v) => _buf.AddRange(v);
+
+        // Mirror of MinecraftPrimitiveReader.ReadType<T>: direct interface dispatch, no reflection.
+        public void WriteType<T>(T value, int protocolVersion) where T : IProtocolType<T>
+            => value.Write(this, protocolVersion);
     }
 }
