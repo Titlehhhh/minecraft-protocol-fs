@@ -85,6 +85,7 @@ type <type-id> [--format json|toon]
 composition <packet-id> [--format json|toon]
 chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
 stats [--format json|toon]
+order [--format json|toon]
 graph [--ns play] [--direction toClient] [--include-types false] [--format json|toon]
 ```
 
@@ -126,6 +127,7 @@ GET /api/stats
 GET /api/types
 GET /api/native-types
 GET /api/types-by-kind
+GET /api/build-order
 GET /api/composition/{id}
 GET /api/schema/{id}
 GET /api/type/{id}
