@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Generate C#" type="DotNetProject" factoryName=".NET Project">
+    <option name="PROJECT_PATH" value="$PROJECT_DIR$/minecraft-protocol-fs/minecraft-protocol-fs.fsproj" />
+    <option name="PROJECT_TFM" value="net10.0" />
+    <option name="PROJECT_KIND" value="DotNetCore" />
+    <option name="PROGRAM_PARAMETERS" value="gen" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="PASS_PARENT_ENVS" value="1" />
+    <option name="USE_EXTERNAL_CONSOLE" value="0" />
+    <method v="2">
+      <option name="Build" />
+    </method>
+  </configuration>
+</component>

@@ -66,7 +66,25 @@ module Builders =
         member _.Cases((), range, arms) =
             layouts <- layouts @ [{ Range = range; Arms = arms }]
 
-        member _.Run(()) = {
+        member _.Run(()) : UnionTypeSpec = {
+            Name    = name
+            Layouts = layouts
+        }
+
+
+    type BitflagsBuilder(name) =
+        let mutable layouts : BitflagsLayout list = []
+
+        member _.Yield(()) = ()
+        member _.Zero() = ()
+        member _.Delay(f) = f()
+        member _.Combine((), f) = f()
+
+        [<CustomOperation("layout")>]
+        member _.Layout((), range, backing, flags) =
+            layouts <- layouts @ [{ Range = range; Backing = backing; Flags = flags }]
+
+        member _.Run(()) : BitflagsSpec = {
             Name    = name
             Layouts = layouts
         }
@@ -82,3 +100,6 @@ module Builders =
 
     let unionType name =
         UnionTypeBuilder(name)
+
+    let bitflags name =
+        BitflagsBuilder(name)

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>latest</LangVersion>
+        <RootNamespace>McProtoNet</RootNamespace>
+    </PropertyGroup>
+
+    <!-- Generated protocol types, linked from the F# generator's output (the `gen` run).
+         Types whose codegen is still incomplete are excluded until they land. -->
+    <ItemGroup>
+        <Compile Include="..\..\generated-csharp\**\*.cs"
+                 Exclude="..\..\generated-csharp\EntityMetadataEntry.cs;..\..\generated-csharp\MapColorData.cs"
+                 Link="Generated\%(RecursiveDir)%(Filename)%(Extension)"/>
+    </ItemGroup>
+
+</Project>

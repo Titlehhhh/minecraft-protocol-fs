@@ -15,14 +15,26 @@ type/packet at a time, and eventually **generate C# locally** from the specs.
 This is how we work here. Follow it for every new type/packet:
 
 1. **Pick** one protodef type or packet to model (e.g. `entityMetadata`), simplest first.
+   To choose deterministically, ask the facts surface for the dependency-ordered build order
+   (`scripts\facts.cmd order --format toon`, or `GET /api/build-order`): types are grouped into
+   layers simple→complex, each with its `deps` and a `recursive` flag. Model the lowest-layer
+   type whose `deps` are all already done; leave the one `recursive` group (the Slot/SlotComponent
+   core) until its layer, since it needs a recursive reference. The UI mirrors this under the Types
+   panel's **"By build order"** toggle.
 2. **Fetch the real facts** from PacketGenerator — see next section. Never guess the shape.
-3. **Express it** in the DSL as a new file under [Spec/](minecraft-protoccol-fs/Spec): `model` (`api [...]`)
-   plus one `wire` layout per version range, using `read` / `discard` / `readBlock` / `readUnion` / etc.
-   Then wire it up: add the binding to [Spec/Protocol.fs](minecraft-protoccol-fs/Spec/Protocol.fs) and
-   the `<Compile Include>` line to [the fsproj](minecraft-protoccol-fs/minecraft-protoccol-fs.fsproj)
-   (order matters in F# — the file must precede `Protocol.fs`).
+3. **Express it** in the DSL as **one new file** under [Spec/](minecraft-protocol-fs/Spec). Nothing else
+   to wire up: [Spec/Protocol.fs](minecraft-protocol-fs/Spec/Protocol.fs) auto-indexes every spec by
+   reflection and the fsproj globs `Spec/**`, so you never edit a shared file (this is what makes
+   parallel authoring by subagents conflict-free — one type = one file). Only rule: a spec may
+   reference another spec's *binding* by name only if that binding is in `WireAliases.fs` (kept first);
+   otherwise reference types by string (`Named "Slot"` / `TNamed "Slot"`), which has no compile-order
+   dependency.
+   - Plain 1:1 types (wire order = api order, one range) → the **`record`/`col`** sugar; the api is
+     *derived* from the wire (`col "x" F32` → `X : TFloat`). Don't hand-write `api`+`wire` for these.
+   - Otherwise → `namedType { api [...]; wire (range) [...] }`, `unionType`, or `bitflags` as fits.
 4. **Validate**: `dotnet run` prints the whole protocol so you can eyeball the model + wire.
-5. **Generate C#** locally into this repo (the codegen target — see "Codegen" below).
+5. **Generate + poke**: `dotnet run -- gen [TypeName]` renders C# into `generated-csharp/`; the
+   `sandbox/` projects compile and round-trip it (see "Codegen & sandbox" below).
 
 Discuss trade-offs (is this a union or a conditional group? inline container or named type?)
 before expanding the DSL. Prefer adding one type over broadening the algebra speculatively.
@@ -48,6 +60,7 @@ scripts\facts.cmd packet play.toClient.teams --format toon
 scripts\facts.cmd composition play.toClient.map --format json
 scripts\facts.cmd packets --filter metadata --format json
 scripts\facts.cmd stats --format json
+scripts\facts.cmd order --format toon          # types in dependency build order, simple->complex
 ```
 
 Type ids are protodef **camelCase** names (`entityMetadata`, not `entity_metadata`). Packet ids
@@ -64,6 +77,7 @@ REST:  GET http://localhost:5000/api/type/{id}
        GET http://localhost:5000/api/schema/{id}
        GET http://localhost:5000/api/composition/{id}
        GET http://localhost:5000/api/packets
+       GET http://localhost:5000/api/build-order   (type dependency layers, simple->complex)
 MCP:   http://localhost:5000/mcp   (tools: get_type_schema, get_packet_schema, ...)
 UI:    http://localhost:5000/
 ```
@@ -83,17 +97,20 @@ there, do not re-derive them from raw json. (Quick sanity anchors: `764 = 1.20.2
 The DSL and the concrete specs are separated:
 
 ```text
-Dsl/    Ast.fs · Builders.fs · Helpers.fs · Printer.fs   — the generic algebra (namespace McProtocol.Dsl)
-Spec/   WireAliases.fs · Types/ · Unions/ · Packets/ · Protocol.fs  — described content (namespace McProtocol.Spec)
-Program.fs                                                — entry point, just prints the protocol
+Dsl/     Ast.fs · Builders.fs · Helpers.fs · Printer.fs   — the generic algebra (namespace McProtocol.Dsl)
+Codegen/ Target.fs · Generator.fs · CSharp.fs             — DSL -> source renderer (namespace McProtocol.Codegen)
+Spec/    WireAliases.fs · Types/ · Unions/ · Bitflags/ · Packets/ · Protocol.fs  — content (namespace McProtocol.Spec)
+Program.fs                                                — entry point: `dotnet run` prints, `-- gen` generates
+sandbox/ McProtoNet.Sandbox (lib) · McProtoNet.Sandbox.Console  — compile & poke the generated C#
 ```
 
-One type / union / packet per file; each is an `[<AutoOpen>]` module so `Protocol.fs` sees the
-bindings by name. DSL files never reference concrete protocol content; specs `open McProtocol.Dsl`.
+One type / union / bitflags / packet per file; each is an `[<AutoOpen>]` module. `Protocol.fs`
+collects every spec by **reflection** (not by name), so files are independent and order-free. DSL
+files never reference concrete protocol content; specs `open McProtocol.Dsl`.
 
 ## DSL cheat-sheet
 
-Types/builders/helpers/printer live under [Dsl/](minecraft-protoccol-fs/Dsl); specs under [Spec/](minecraft-protoccol-fs/Spec).
+Types/builders/helpers/printer live under [Dsl/](minecraft-protocol-fs/Dsl); specs under [Spec/](minecraft-protocol-fs/Spec).
 
 **Builders** (F# computation expressions):
 
@@ -106,6 +123,15 @@ packet "TeamsPacket" Play Clientbound All {           // model + one wire per ra
 
 namedType "Rotations" { api [...]; wire All [...] }   // reusable named model + wire
 unionType "TeamAction" { cases (Until 764) [ case1 0 "Created" [...]; ... ] }  // discriminated union
+
+// plain 1:1 type — api derived from wire, no `api` block (see Dsl/Helpers.fs: apiOf/col/record):
+record "Vec4f" (Since 762) [ col "x" F32; col "y" F32; col "z" F32; col "w" F32 ]
+
+// bitflags — named bits become bool api fields (union of all layouts); multi-version via >1 layout:
+bitflags "PositionUpdateRelatives" {
+    layout (Between(766, 767)) U8  [ "x"; "y"; "z"; "yaw"; "pitch" ]
+    layout (Since 768)         U32 [ "x"; "y"; "z"; "yaw"; "pitch"; "dx"; "dy"; "dz"; "yawDelta" ]
+}
 ```
 
 **Wire entries** (`WireEntry`):
@@ -131,18 +157,44 @@ unionType "TeamAction" { cases (Until 764) [ case1 0 "Created" [...]; ... ] }  /
 ## Build / run / verify
 
 ```powershell
-dotnet run   --project minecraft-protoccol-fs\minecraft-protoccol-fs.fsproj   # prints the protocol
-dotnet build minecraft-protocol-fs.slnx                                        # 0 warnings expected
+dotnet run   --project minecraft-protocol-fs\minecraft-protocol-fs.fsproj            # prints the protocol
+dotnet run   --project minecraft-protocol-fs\minecraft-protocol-fs.fsproj -- gen     # generate C#
+dotnet run   --project sandbox\McProtoNet.Sandbox.Console                            # round-trip the generated types
+dotnet build minecraft-protocol-fs.slnx                                              # whole solution, 0 warnings
 ```
 
 SDK is pinned by [global.json](global.json) (net10.0). Format F# with Fantomas before committing.
 
-## Codegen (the target)
+## Codegen & sandbox
 
-Goal: a renderer that emits **C# locally into this repo** from the specs (review artifacts first;
-McProtoNet-shaped later). Not built yet — [Dsl/Printer.fs](minecraft-protoccol-fs/Dsl/Printer.fs)
-currently only pretty-prints. When adding it, write output to a dedicated folder (e.g.
-`generated-csharp/`) and keep the renderer separate from the DSL definitions.
+Codegen lives in [Codegen/](minecraft-protocol-fs/Codegen), separate from the DSL. The DSL AST is the
+language-neutral IR; a backend implements `ILanguageTarget` ([Target.fs](minecraft-protocol-fs/Codegen/Target.fs))
+and `Generator` drives it — one file per type. Adding a language = one new target, nothing else
+changes. Run: `dotnet run -- gen` (whole protocol) or `dotnet run -- gen Vec4f` (one type, echoed to
+stdout). Output goes to `generated-csharp/`.
+
+**Target shape = McProtoNet** ([CSharp.fs](minecraft-protocol-fs/Codegen/CSharp.fs)): value types →
+`[ProtocolSupport(from,to)] public readonly partial record struct Name(...)`, reference types →
+`sealed partial class`; namespace `McProtoNet.Protocol`. Read/Write live **together** in the type body
+(static `Read(ref MinecraftPrimitiveReader, int)` + instance `Write(MinecraftPrimitiveWriter, int)`)
+against the McProtoNet primitive surface, gated by `ThrowHelper.ThrowIfProtocolNotSupported<T>`.
+
+**Runtime primitives vs generated.** Some leaf types are provided by the runtime, not generated:
+`position` (a bitfield packed in a long — decompose in the DSL is not worth it for the only bitfield;
+McProtoNet hand-writes it), plus `string` / `ByteArray` / `optvarint` / `Uuid` / `NBT`. Reference them
+as `Named "Position"` etc. (→ `ReadType<Position>`), do **not** write a spec for them. In contrast,
+**bitflags** *are* generated (record-struct-of-bools + bit pack); they are a family with per-type
+names, so they earned the `bitflags` construct.
+
+**Sandbox** ([sandbox/](sandbox)) makes the generated C# real: `McProtoNet.Sandbox` is a minimal
+McProtoNet-shaped runtime ([Runtime.cs](sandbox/McProtoNet.Sandbox/Runtime.cs): the attribute,
+`MinecraftVersion`, `ThrowHelper`, big-endian reader/writer) plus the generated types linked from
+`generated-csharp/` (incomplete ones excluded in the csproj). `McProtoNet.Sandbox.Console` round-trips
+them. **Compiling the sandbox is the codegen's real test** — it caught a scope bug the printer could not.
+
+**Known codegen gaps** (emit a visible `// TODO(codegen)`, never wrong silent code): multi-version
+*named* types (bitflags multi-version works), and the `ByteArray` / `Array` / `Option` / `union` /
+`discard` wire entries. Close these before their types can enter the sandbox.
 
 ## Guardrails
 
@@ -150,3 +202,5 @@ currently only pretty-prints. When adding it, write output to a dedicated folder
 - This repo may become public: don't hardcode personal absolute paths in committed files —
   reach PacketGenerator via `PACKETGEN_ROOT` / the resolver script.
 - Grow the DSL deliberately: one type at a time, simple → complex, facts-first.
+- Keep spec files (`Spec/**`) clean — **no `//` comments**; the `record`/`namedType`/`bitflags` form
+  should read for itself. (Comments in `Dsl/`/`Codegen/` algebra are fine.)

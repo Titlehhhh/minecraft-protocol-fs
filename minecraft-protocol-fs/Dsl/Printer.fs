@@ -68,6 +68,12 @@ module Printer =
 
         printfn ""
 
+    let printBitflags (spec: BitflagsSpec) =
+        printfn "=== bitflags %s ===" spec.Name
+        for l in spec.Layouts do
+            printfn "Flags [%A] (%A): %s" l.Range l.Backing (String.concat ", " l.Flags)
+        printfn ""
+
     let printPacket (spec: PacketSpec) =
         printfn "=== packet %s | %A %A | %A ===" spec.ClassName spec.State spec.Direction spec.Since
 
@@ -90,6 +96,10 @@ module Printer =
         printfn "===== UNIONS ====="
         for u in spec.Unions do
             printUnion u
+
+        printfn "===== BITFLAGS ====="
+        for b in spec.Bitflags do
+            printBitflags b
 
         printfn "===== PACKETS ====="
         for p in spec.Packets do

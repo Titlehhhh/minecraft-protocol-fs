@@ -131,6 +131,19 @@ module Ast =
         Layouts : UnionLayout list
     }
 
+    // A backing integer whose named bits map to boolean api fields. `Flags` are the wire flag
+    // names in bit order (bit i = 1 <<< i); the api is the union of all layouts' flags as bools.
+    type BitflagsLayout = {
+        Range   : VersionRange
+        Backing : WireType
+        Flags   : string list
+    }
+
+    type BitflagsSpec = {
+        Name    : string
+        Layouts : BitflagsLayout list
+    }
+
     type ProtocolState =
         | Login
         | Play
@@ -150,7 +163,8 @@ module Ast =
     }
 
     type ProtocolSpec = {
-        Types   : NamedTypeSpec list
-        Unions  : UnionTypeSpec list
-        Packets : PacketSpec list
+        Types    : NamedTypeSpec list
+        Unions   : UnionTypeSpec list
+        Bitflags : BitflagsSpec list
+        Packets  : PacketSpec list
     }

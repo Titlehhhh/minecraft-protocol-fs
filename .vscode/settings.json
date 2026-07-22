@@ -13,6 +13,7 @@
   "VsCodeTaskButtons.showCounter": false,
   "VsCodeTaskButtons.tasks": [
     { "label": "$(play) Run", "task": "app: run", "tooltip": "dotnet run — print the protocol" },
+    { "label": "$(file-code) Gen C#", "task": "app: gen", "tooltip": "Generate C# into generated-csharp/" },
     { "label": "$(tools) Build", "task": "build", "tooltip": "dotnet build the solution" },
     { "label": "$(globe) Facts UI", "task": "facts: serve + UI", "tooltip": "Start McpServer + web UI (own window)" },
     { "label": "$(link-external) Open UI", "task": "facts: open UI", "tooltip": "Open http://localhost:5000/" }

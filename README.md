@@ -8,7 +8,7 @@ generated locally from the specs.
 ## Layout
 
 ```text
-minecraft-protoccol-fs/Program.fs   the DSL (types, builders, helpers) + sample specs + a printer
+minecraft-protocol-fs/Program.fs   the DSL (types, builders, helpers) + sample specs + a printer
 scripts/facts.cmd                   one-shot protocol fact lookup (PacketGenerator CLI)
 scripts/serve-facts.cmd             start the facts server in its own window (REST + HTTP MCP)
 AGENTS.md                           how to work in this repo (read this)
@@ -17,7 +17,7 @@ AGENTS.md                           how to work in this repo (read this)
 ## Quick start
 
 ```powershell
-dotnet run --project minecraft-protoccol-fs\minecraft-protoccol-fs.fsproj
+dotnet run --project minecraft-protocol-fs\minecraft-protocol-fs.fsproj
 ```
 
 ## Getting protocol facts

@@ -12,11 +12,26 @@
       "args": [
         "run",
         "--project",
-        "minecraft-protoccol-fs/minecraft-protoccol-fs.fsproj"
+        "minecraft-protocol-fs/minecraft-protocol-fs.fsproj"
       ],
       "problemMatcher": "$msCompile",
       "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
       "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      // Generate C# from the specs into generated-csharp/ (optionally one type: append its name).
+      "label": "app: gen",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "minecraft-protocol-fs/minecraft-protocol-fs.fsproj",
+        "--",
+        "gen"
+      ],
+      "problemMatcher": "$msCompile",
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
     },
     {
       // Compile the whole solution — expect 0 warnings.

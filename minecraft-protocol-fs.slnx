@@ -1,3 +1,22 @@
 <Solution>
-  <Project Path="minecraft-protoccol-fs/minecraft-protoccol-fs.fsproj" />
+  <Folder Name="/Docs/">
+    <File Path="AGENTS.md" />
+    <File Path="CLAUDE.md" />
+    <File Path="README.md" />
+    <File Path="global.json" />
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+  </Folder>
+  <Folder Name="/Scripts/">
+    <File Path="scripts/facts.cmd" />
+    <File Path="scripts/facts.ps1" />
+    <File Path="scripts/serve-facts.cmd" />
+    <File Path="scripts/serve-facts.ps1" />
+    <File Path="scripts/_resolve-packetgen.ps1" />
+  </Folder>
+  <Project Path="minecraft-protocol-fs/minecraft-protocol-fs.fsproj" />
+  <Folder Name="/Sandbox/">
+    <Project Path="sandbox/McProtoNet.Sandbox/McProtoNet.Sandbox.csproj" />
+    <Project Path="sandbox/McProtoNet.Sandbox.Console/McProtoNet.Sandbox.Console.csproj" />
+  </Folder>
 </Solution>
