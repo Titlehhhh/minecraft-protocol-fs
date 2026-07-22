@@ -6,40 +6,43 @@ import { OutputTabs } from './OutputTabs'
 import { GraphPanel } from './GraphPanel'
 import { UsagePanel } from './UsagePanel'
 import { ChunksPanel } from './ChunksPanel'
+import { ConfigPane } from '../sidebar/config/ConfigPane'
 
-export function Main() {
-  const mainView = useUIStore(state => state.mainView)
-
-  if (mainView === 'graph') {
-    return (
-      <div className="main">
-        <GraphPanel />
-      </div>
-    )
-  }
-
-  if (mainView === 'usage') {
-    return (
-      <div className="main">
-        <UsagePanel />
-      </div>
-    )
-  }
-
-  if (mainView === 'chunks') {
-    return (
-      <div className="main">
-        <ChunksPanel />
-      </div>
-    )
-  }
-
+function ProtocolPanel() {
   return (
-    <div className="main">
+    <>
       <Toolbar />
       <StatusBar />
       <SchemaPanel />
       <OutputTabs />
-    </div>
+    </>
+  )
+}
+
+function SettingsPanel() {
+  return (
+    <section className="settings-panel">
+      <div className="settings-header">
+        <div>
+          <h2>Settings</h2>
+          <p>Model tiers, deterministic generation options, output path, and assessor settings.</p>
+        </div>
+      </div>
+      <ConfigPane />
+    </section>
+  )
+}
+
+export function Main() {
+  const mainView = useUIStore(state => state.mainView)
+
+  return (
+    <main className="main">
+      {mainView === 'protocol' && <ProtocolPanel />}
+      {mainView === 'workbench' && <ChunksPanel />}
+      {mainView === 'graph' && <GraphPanel />}
+      {mainView === 'usage' && <UsagePanel />}
+      {mainView === 'settings' && <SettingsPanel />}
+    </main>
   )
 }

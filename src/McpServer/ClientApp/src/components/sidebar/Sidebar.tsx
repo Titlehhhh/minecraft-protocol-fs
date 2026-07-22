@@ -3,43 +3,38 @@ import { useUIStore } from '../../store/uiStore'
 import { PacketsPane } from './PacketsPane'
 import { TypesPane } from './TypesPane'
 import { NativeTypesPane } from './NativeTypesPane'
-import { ConfigPane } from './config/ConfigPane'
 
 interface Props {
   style?: CSSProperties
 }
+
+const sourceTabs = [
+  { id: 'packets', label: 'Packets' },
+  { id: 'types', label: 'Types' },
+  { id: 'native', label: 'Native' },
+] as const
 
 export function Sidebar({ style }: Props) {
   const sidebarTab = useUIStore(s => s.sidebarTab)
   const setSidebarTab = useUIStore(s => s.setSidebarTab)
 
   return (
-    <div className="sidebar" style={style}>
+    <aside className="sidebar" style={style}>
+      <div className="sidebar-title">
+        <strong>Protocol sources</strong>
+        <span>facts from protocol access layer</span>
+      </div>
+
       <div className="sidebar-tabs">
-        <button
-          className={`sidebar-tab${sidebarTab === 'packets' ? ' active' : ''}`}
-          onClick={() => setSidebarTab('packets')}
-        >
-          📦 Packets
-        </button>
-        <button
-          className={`sidebar-tab${sidebarTab === 'types' ? ' active' : ''}`}
-          onClick={() => setSidebarTab('types')}
-        >
-          🗂 Types
-        </button>
-        <button
-          className={`sidebar-tab${sidebarTab === 'native' ? ' active' : ''}`}
-          onClick={() => setSidebarTab('native')}
-        >
-          🔲 Native
-        </button>
-        <button
-          className={`sidebar-tab${sidebarTab === 'config' ? ' active' : ''}`}
-          onClick={() => setSidebarTab('config')}
-        >
-          ⚙️ Config
-        </button>
+        {sourceTabs.map(tab => (
+          <button
+            key={tab.id}
+            className={`sidebar-tab${sidebarTab === tab.id ? ' active' : ''}`}
+            onClick={() => setSidebarTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       <div className={`sidebar-pane${sidebarTab === 'packets' ? ' active' : ''}`}>
@@ -51,9 +46,6 @@ export function Sidebar({ style }: Props) {
       <div className={`sidebar-pane${sidebarTab === 'native' ? ' active' : ''}`}>
         <NativeTypesPane />
       </div>
-      <div className={`sidebar-pane${sidebarTab === 'config' ? ' active' : ''}`}>
-        <ConfigPane />
-      </div>
-    </div>
+    </aside>
   )
 }

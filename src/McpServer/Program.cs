@@ -36,6 +36,7 @@ app.MapGet("/", (HttpContext http) =>
 });
 
 app.MapConfigApi();
+app.MapModelCatalogApi();
 app.MapArtifactApi();
 app.MapPacketApi();
 app.MapGraphApi();

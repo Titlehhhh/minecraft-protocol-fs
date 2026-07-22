@@ -116,6 +116,48 @@ public sealed class ProtocolUsageQueries
         return new DependencyResult(owner.Id, owner.Kind, owner.Path, dependencies);
     }
 
+    /// <summary>
+    /// Directed type-to-type dependency edges (named types only; natives and shapes are
+    /// ignored). This is the raw adjacency a build-order / topological layering consumes.
+    /// Names are bare (no <c>type:</c> prefix), matching <see cref="GetTypes"/> output.
+    /// A type that references itself is reported via <see cref="TypeDependency.SelfRecursive"/>
+    /// rather than as a self-edge in <see cref="TypeDependency.Deps"/>.
+    /// </summary>
+    public IReadOnlyList<TypeDependency> GetTypeDependencies()
+    {
+        var typeIds = _repository.GetTypes().Select(TypeId).ToHashSet(StringComparer.Ordinal);
+        var deps = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var selfRecursive = new Dictionary<string, bool>(StringComparer.Ordinal);
+        foreach (var id in typeIds)
+        {
+            deps[id] = new HashSet<string>(StringComparer.Ordinal);
+            selfRecursive[id] = false;
+        }
+
+        foreach (var record in GetUsageRecords())
+        {
+            if (!string.Equals(record.OwnerKind, "type", StringComparison.Ordinal)) continue;
+            if (!string.Equals(record.TargetKind, "type", StringComparison.Ordinal)) continue;
+            if (!typeIds.Contains(record.OwnerId) || !typeIds.Contains(record.TargetId)) continue;
+
+            if (string.Equals(record.OwnerId, record.TargetId, StringComparison.Ordinal))
+                selfRecursive[record.OwnerId] = true;
+            else
+                deps[record.OwnerId].Add(record.TargetId);
+        }
+
+        return typeIds
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .Select(id => new TypeDependency(
+                Name: StripTypePrefix(id),
+                Deps: deps[id].Select(StripTypePrefix).OrderBy(name => name, StringComparer.Ordinal).ToArray(),
+                SelfRecursive: selfRecursive[id]))
+            .ToArray();
+    }
+
+    private static string StripTypePrefix(string id) =>
+        id.StartsWith("type:", StringComparison.Ordinal) ? id["type:".Length..] : id;
+
     private UsageRecord[] GetUsageRecords()
     {
         var records = new List<UsageRecord>();
@@ -346,3 +388,8 @@ public sealed record DependencyResult(
     string Kind,
     string Path,
     IReadOnlyCollection<DependencySummary> Dependencies);
+
+public sealed record TypeDependency(
+    string Name,
+    IReadOnlyList<string> Deps,
+    bool SelfRecursive);

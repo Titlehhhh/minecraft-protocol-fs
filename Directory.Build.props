@@ -7,6 +7,7 @@
         <ArtifactsDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)artifacts'))</ArtifactsDir>
         <GeneratedDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)Generated'))</GeneratedDir>
         <DataDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)minecraft-data'))</DataDir>
+        <BuildInParallel>false</BuildInParallel>
     </PropertyGroup>
 
     <ItemGroup>

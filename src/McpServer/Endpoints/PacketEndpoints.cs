@@ -150,6 +150,18 @@ public static class PacketEndpoints
             return Results.Ok(result);
         });
 
+        app.MapGet("/api/build-order", (ProtocolQueryService query) =>
+        {
+            try
+            {
+                return Results.Ok(query.GetBuildOrder());
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = $"{ex.GetType().Name}: {ex.Message}" });
+            }
+        });
+
         app.MapGet("/api/usage", (ProtocolUsageQueries usage, int? top, string? kind) =>
         {
             try

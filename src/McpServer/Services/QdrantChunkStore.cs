@@ -40,6 +40,8 @@ public sealed class QdrantChunkStore
         _options.EmbeddingConfigured,
         _options.QdrantConfigured,
         _options.Collection,
+        _options.EmbeddingBaseUrl ?? "",
+        _options.EmbeddingModel ?? "",
         _options.Missing);
 
     public async Task<ProtocolChunkIndexResponse> ReindexAsync(IReadOnlyList<ProtocolRagChunk> chunks, CancellationToken ct)
@@ -231,6 +233,8 @@ public sealed record ProtocolChunkStatus(
     bool EmbeddingConfigured,
     bool QdrantConfigured,
     string Collection,
+    string EmbeddingBaseUrl,
+    string EmbeddingModel,
     string[] Missing);
 
 public sealed record ProtocolChunkIndexResponse(int Chunks, int Vectors, int VectorSize);

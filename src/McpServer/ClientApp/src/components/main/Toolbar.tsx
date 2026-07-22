@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { usePacketsStore } from '../../store/packetsStore'
 import { useGenerationStore } from '../../store/generationStore'
+import { useUIStore } from '../../store/uiStore'
 
 export function Toolbar() {
   const selectedId = usePacketsStore(s => s.selectedId)
@@ -13,54 +14,54 @@ export function Toolbar() {
   const clearOutput = useGenerationStore(s => s.clearOutput)
   const isGenerating = useGenerationStore(s => s.isGenerating)
   const isAssessing = useGenerationStore(s => s.isAssessing)
+  const setSelectedOwner = useUIStore(s => s.setSelectedOwner)
 
-  // Local input state — syncs from store when packet is selected from list
   const [packetId, setPacketId] = useState('')
   useEffect(() => { setPacketId(selectedId) }, [selectedId])
 
   const handleChange = (v: string) => {
     setPacketId(v)
     selectPacket(v)
+    setSelectedOwner(v ? { kind: 'packet', id: v } : null)
   }
 
   return (
     <div className="toolbar">
-      <input
-        className="toolbar-id"
-        type="text"
-        value={packetId}
-        placeholder="Packet ID, e.g. play.toClient.entity_metadata"
-        onChange={e => handleChange(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') generate(packetId, false) }}
-      />
+      <div className="toolbar-field">
+        <label>Packet id</label>
+        <input
+          className="toolbar-id"
+          type="text"
+          value={packetId}
+          placeholder="play.toClient.entity_metadata"
+          onChange={e => handleChange(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') generate(packetId, false) }}
+        />
+      </div>
       <button className="btn-primary" disabled={isGenerating} onClick={() => generate(packetId, false)}>
-        {isGenerating ? <span className="spinner" /> : '▶ Generate'}
+        {isGenerating ? <span className="spinner" /> : 'Generate'}
       </button>
       <button
         className="btn-blue"
         disabled={isGenerating}
-        title="Generate and save to Output directory"
+        title="Generate and save to output directory"
         onClick={() => generate(packetId, true)}
       >
-        💾 Save
+        Save
       </button>
       {isGenerating && (
-        <button
-          className="btn-ghost"
-          style={{ color: '#f85149', borderColor: '#da363655' }}
-          onClick={cancel}
-        >
-          ✕ Cancel
+        <button className="btn-danger" onClick={cancel}>
+          Cancel
         </button>
       )}
       <button className="btn-blue" disabled={isGenerating} onClick={() => buildPrompt(packetId)}>
-        📋 Prompt
+        Prompt
       </button>
       <button className="btn-ghost" disabled={isAssessing} onClick={() => assess(packetId)}>
-        🔮 Assess
+        Assess
       </button>
       <button className="btn-ghost" onClick={() => toggleSchema(packetId)}>
-        🔍 Schema
+        Schema
       </button>
       <button className="btn-ghost" onClick={clearOutput}>
         Clear

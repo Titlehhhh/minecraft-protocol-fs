@@ -21,7 +21,7 @@ public static partial class MinecraftDataPaths
         <MakeDir Directories="$(GeneratedDir)" Condition="!Exists('$(GeneratedDir)')"/>
 
 
-        <WriteLinesToFile File="$(GeneratedFile)" Overwrite="true" Lines="$(GenCode)"/>
+        <WriteLinesToFile File="$(GeneratedFile)" Overwrite="true" WriteOnlyWhenDifferent="true" Lines="$(GenCode)"/>
         <ItemGroup>
             <Compile Include="$(GeneratedFile)"/>
         </ItemGroup>
@@ -46,7 +46,7 @@ public static partial class ArtifactsPaths
         <MakeDir Directories="$(GeneratedDir)" Condition="!Exists('$(GeneratedDir)')"/>
 
 
-        <WriteLinesToFile File="$(GeneratedFile)" Overwrite="true" Lines="$(GenCode)"/>
+        <WriteLinesToFile File="$(GeneratedFile)" Overwrite="true" WriteOnlyWhenDifferent="true" Lines="$(GenCode)"/>
         <ItemGroup>
             <None Include="$(GeneratedFile)"/>
             <Compile Include="$(GeneratedFile)"/>

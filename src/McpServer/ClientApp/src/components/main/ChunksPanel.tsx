@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchChunks, fetchChunkStatus, fetchOwnerChunks, indexChunks, searchChunks } from '../../api/chunks'
-import { usePacketsStore } from '../../store/packetsStore'
 import { useUIStore } from '../../store/uiStore'
 import type { ChunkKind, ChunkSearchOwner, ChunkStatus, ProtocolRagChunk } from '../../types'
 
@@ -13,18 +12,19 @@ function compactScore(value: number) {
   return Number.isFinite(value) ? value.toFixed(4) : '0'
 }
 
-function pickInitialId(kind: 'packet' | 'type', packetId: string, typeId: string | null) {
-  if (kind === 'packet') return packetId || 'play.toClient.resource_pack_send'
-  return typeId || 'command_node'
+function defaultOwner() {
+  return { kind: 'packet' as const, id: 'play.toClient.resource_pack_send' }
 }
 
 export function ChunksPanel() {
-  const selectedPacket = usePacketsStore(state => state.selectedId)
-  const selectedType = useUIStore(state => state.selectedType)
+  const selectedOwner = useUIStore(state => state.selectedOwner)
+  const setSelectedOwner = useUIStore(state => state.setSelectedOwner)
+  const setMainView = useUIStore(state => state.setMainView)
 
   const [status, setStatus] = useState<ChunkStatus | null>(null)
-  const [kind, setKind] = useState<'packet' | 'type'>('packet')
-  const [ownerId, setOwnerId] = useState(() => pickInitialId('packet', selectedPacket, selectedType))
+  const [kind, setKind] = useState<'packet' | 'type'>(() => selectedOwner?.kind ?? defaultOwner().kind)
+  const [ownerId, setOwnerId] = useState(() => selectedOwner?.id ?? defaultOwner().id)
+  const [autoFollow, setAutoFollow] = useState(true)
   const [filterKind, setFilterKind] = useState<ChunkKind>('all')
   const [filter, setFilter] = useState('')
   const [maxChars, setMaxChars] = useState(900)
@@ -45,27 +45,32 @@ export function ChunksPanel() {
   }, [])
 
   useEffect(() => {
-    const next = pickInitialId(kind, selectedPacket, selectedType)
-    if (next && !ownerId) setOwnerId(next)
-  }, [kind, ownerId, selectedPacket, selectedType])
+    if (!autoFollow || !selectedOwner) return
+    setKind(selectedOwner.kind)
+    setOwnerId(selectedOwner.id)
+  }, [autoFollow, selectedOwner])
 
   const stats = useMemo(() => {
     const owners = new Set(chunks.map(chunk => `${chunk.ownerKind}:${chunk.ownerId}`))
     const kinds = new Set(chunks.map(chunk => chunk.chunkKind))
     const maxTokens = chunks.reduce((max, chunk) => Math.max(max, chunk.estimatedTokenCount), 0)
-    return { owners: owners.size, kinds: kinds.size, maxTokens }
+    const nearLimit = chunks.filter(chunk => chunk.estimatedTokenCount >= 430).length
+    return { owners: owners.size, kinds: kinds.size, maxTokens, nearLimit }
   }, [chunks])
 
-  const loadOwner = async () => {
-    const id = ownerId.trim()
+  const currentOwnerLabel = `${kind}:${ownerId || '(empty)'}`
+
+  const loadOwner = async (nextKind = kind, nextOwnerId = ownerId) => {
+    const id = nextOwnerId.trim()
     if (!id) return
     setLoading(true)
     setError(null)
     setMessage(null)
     try {
-      const result = await fetchOwnerChunks(kind, id, maxChars)
+      const result = await fetchOwnerChunks(nextKind, id, maxChars)
       setChunks(result.chunks)
-      setMessage(`Loaded ${result.chunks.length} chunks for ${kind}:${id}`)
+      setSelectedOwner({ kind: nextKind, id })
+      setMessage(`Loaded ${result.chunks.length} chunks for ${nextKind}:${id}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
       setChunks([])
@@ -123,20 +128,42 @@ export function ChunksPanel() {
     }
   }
 
-  const applySelection = () => {
-    const next = pickInitialId(kind, selectedPacket, selectedType)
-    setOwnerId(next)
+  const openResultOwner = (owner: ChunkSearchOwner) => {
+    if (owner.ownerKind !== 'packet' && owner.ownerKind !== 'type') return
+    const nextKind = owner.ownerKind
+    setKind(nextKind)
+    setOwnerId(owner.ownerId)
+    setAutoFollow(false)
+    void loadOwner(nextKind, owner.ownerId)
   }
 
   return (
     <section className="chunks-panel">
+      <div className="workbench-hero">
+        <div>
+          <h2>AI preparation workbench</h2>
+          <p>Inspect structural chunks, test semantic retrieval, and prepare deterministic context before any F# generator exists.</p>
+        </div>
+        <div className="workbench-stage-strip" aria-label="Pipeline stages">
+          <span className="stage done">facts</span>
+          <span className="stage done">chunks</span>
+          <span className={status?.enabled ? 'stage done' : 'stage wait'}>vectors</span>
+          <span className="stage wait">job draft</span>
+          <span className="stage wait">F# proposal</span>
+        </div>
+      </div>
+
       <div className="chunks-toolbar">
         <div className="chunks-title-block">
-          <h2>Chunks</h2>
-          <div className="chunks-subtitle">Structural protocol chunks and optional vector search</div>
+          <h2>Context target</h2>
+          <div className="chunks-subtitle">{currentOwnerLabel}</div>
         </div>
+        <label className="inline-check">
+          <input type="checkbox" checked={autoFollow} onChange={e => setAutoFollow(e.target.checked)} />
+          follow sources
+        </label>
         <div className={`chunks-status ${status?.enabled ? 'enabled' : 'disabled'}`}>
-          {status?.enabled ? 'vector on' : 'vector off'}
+          {status?.enabled ? 'vectors ready' : 'vectors disabled'}
         </div>
         <button className="btn-ghost" type="button" onClick={() => fetchChunkStatus().then(setStatus)} disabled={loading || indexing || searching}>
           Refresh
@@ -147,22 +174,19 @@ export function ChunksPanel() {
         <div className="chunks-list">
           <div className="chunks-controls">
             <div className="chunks-card chunks-owner">
-              <h2>Owner</h2>
+              <h2>Selected owner</h2>
               <div className="chunks-row">
                 <select value={kind} onChange={e => setKind(e.target.value as 'packet' | 'type')}>
                   <option value="packet">packet</option>
                   <option value="type">type</option>
                 </select>
-                <button className="btn-ghost" type="button" onClick={applySelection}>Use selected</button>
-              </div>
-              <div className="chunks-row">
                 <input type="text" value={ownerId} onChange={e => setOwnerId(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void loadOwner() }} />
-                <button className="btn-blue" type="button" onClick={() => void loadOwner()} disabled={loading}>Load</button>
+                <button className="btn-blue" type="button" onClick={() => void loadOwner()} disabled={loading}>Load chunks</button>
               </div>
             </div>
 
             <div className="chunks-card">
-              <h2>Bulk</h2>
+              <h2>Bulk load / index</h2>
               <div className="chunks-row">
                 <select value={filterKind} onChange={e => setFilterKind(e.target.value as ChunkKind)}>
                   <option value="all">all</option>
@@ -171,7 +195,7 @@ export function ChunksPanel() {
                 </select>
                 <input type="text" value={filter} placeholder="filter" onChange={e => setFilter(e.target.value)} />
                 <input className="chunks-number" type="number" min={300} max={1200} value={maxChars} onChange={e => setMaxChars(Number(e.target.value) || 900)} />
-                <button className="btn-ghost" type="button" onClick={() => void loadFiltered()} disabled={loading}>Load</button>
+                <button className="btn-ghost" type="button" onClick={() => void loadFiltered()} disabled={loading}>Preview</button>
                 <button className="btn-primary" type="button" onClick={() => void runIndex()} disabled={indexing || !status?.enabled}>Index</button>
               </div>
             </div>
@@ -186,6 +210,7 @@ export function ChunksPanel() {
             <span><b>{stats.owners}</b> owners</span>
             <span><b>{stats.kinds}</b> chunk kinds</span>
             <span><b>{stats.maxTokens}</b> max est tokens</span>
+            {stats.nearLimit > 0 && <span className="warn"><b>{stats.nearLimit}</b> near 512-token limit</span>}
             {loading && <span><span className="spinner" /> loading</span>}
           </div>
 
@@ -216,6 +241,8 @@ export function ChunksPanel() {
               <span>embedding</span><b>{status?.embeddingConfigured ? 'configured' : 'missing'}</b>
               <span>qdrant</span><b>{status?.qdrantConfigured ? 'configured' : 'missing'}</b>
               <span>collection</span><code>{status?.collection ?? 'unknown'}</code>
+              <span>model</span><code>{status?.embeddingModel || 'unknown'}</code>
+              <span>base</span><code>{status?.embeddingBaseUrl || 'unknown'}</code>
             </div>
             {status && !status.enabled && (
               <p className="chunks-muted">Missing: {status.missing.join(', ')}</p>
@@ -232,14 +259,27 @@ export function ChunksPanel() {
             {searching && <div className="chunks-muted"><span className="spinner" /> searching</div>}
           </div>
 
+          <div className="chunks-card ai-job-card">
+            <h2>Future AI job</h2>
+            <div className="job-readiness">
+              <span className={ownerId ? 'ready' : ''}>owner</span>
+              <span className={chunks.length > 0 ? 'ready' : ''}>context</span>
+              <span className={status?.enabled ? 'ready' : ''}>vectors</span>
+              <span>runner</span>
+            </div>
+            <button className="btn-ghost" type="button" onClick={() => setMainView('settings')}>
+              Configure models
+            </button>
+          </div>
+
           <div className="chunks-results">
             {results.length === 0 ? <div className="chunks-empty">No search results.</div> : results.map(owner => (
               <section className="chunks-result" key={owner.owner}>
-                <div className="chunks-result-head">
+                <button className="chunks-result-head" type="button" onClick={() => openResultOwner(owner)}>
                   <span className="chunks-kind">{owner.ownerKind}</span>
                   <strong>{owner.ownerId}</strong>
                   <em>{compactScore(owner.score)}</em>
-                </div>
+                </button>
                 {owner.chunks.map(chunk => (
                   <div className="chunks-hit" key={chunk.id}>
                     <div><b>{chunk.chunkKind}</b><em>{compactScore(chunk.score)}</em></div>

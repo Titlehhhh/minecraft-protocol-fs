@@ -180,6 +180,144 @@ public sealed class ProtocolQueryService
             packets.OrderBy(packet => packet.Id, StringComparer.Ordinal).ToArray());
     }
 
+    /// <summary>
+    /// Orders every named type from simplest to most complex by a topological layering of the
+    /// type-to-type dependency graph. Strongly-connected components (genuinely recursive/mutually
+    /// dependent types such as Slot &lt;-&gt; SlotComponent) are condensed into a single group so the
+    /// graph is layerable; each type's layer = 1 + max(layer of its dependencies). Within a layer,
+    /// types are ordered by structural complexity score. Layer 0 depends only on native/shape kinds.
+    /// </summary>
+    public BuildOrderResult GetBuildOrder()
+    {
+        var edges = new ProtocolUsageQueries(_repository).GetTypeDependencies();
+        var names = edges.Select(edge => edge.Name).ToArray();
+        var deps = edges.ToDictionary(
+            edge => edge.Name,
+            edge => (IReadOnlyList<string>)edge.Deps,
+            StringComparer.Ordinal);
+        var selfRecursive = edges.ToDictionary(edge => edge.Name, edge => edge.SelfRecursive, StringComparer.Ordinal);
+
+        var score = new Dictionary<string, int>(StringComparer.Ordinal);
+        var tier = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var name in names)
+        {
+            var s = PacketComplexityScorer.Compute(_repository.GetTypeHistory(name).History);
+            score[name] = s;
+            tier[name] = _thresholds.Classify(s).ToLabel();
+        }
+
+        // Condense strongly-connected components so the cyclic core becomes one node in a DAG.
+        var sccs = TarjanScc(names, deps);
+        var sccOf = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < sccs.Count; i++)
+            foreach (var name in sccs[i])
+                sccOf[name] = i;
+
+        var compDeps = new Dictionary<int, HashSet<int>>();
+        for (var i = 0; i < sccs.Count; i++) compDeps[i] = new HashSet<int>();
+        foreach (var name in names)
+            foreach (var dep in deps[name])
+                if (sccOf[dep] != sccOf[name])
+                    compDeps[sccOf[name]].Add(sccOf[dep]);
+
+        // Longest-path layering over the (acyclic) condensation.
+        var compLayer = new Dictionary<int, int>();
+        int LayerOf(int comp)
+        {
+            if (compLayer.TryGetValue(comp, out var cached)) return cached;
+            var max = -1;
+            foreach (var dep in compDeps[comp]) max = Math.Max(max, LayerOf(dep));
+            return compLayer[comp] = max + 1;
+        }
+        for (var i = 0; i < sccs.Count; i++) LayerOf(i);
+
+        var sccMinScore = new Dictionary<int, int>();
+        for (var i = 0; i < sccs.Count; i++) sccMinScore[i] = sccs[i].Min(name => score[name]);
+
+        // Keep members of a recursive group contiguous: order by (layer, group min score, group, score, name).
+        var ordered = names
+            .OrderBy(name => compLayer[sccOf[name]])
+            .ThenBy(name => sccMinScore[sccOf[name]])
+            .ThenBy(name => sccOf[name])
+            .ThenBy(name => score[name])
+            .ThenBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        // Renumber SCC ids into stable, sequential group ids following output order.
+        var groupRemap = new Dictionary<int, int>();
+        var nextGroup = 0;
+        foreach (var name in ordered)
+            if (!groupRemap.ContainsKey(sccOf[name]))
+                groupRemap[sccOf[name]] = nextGroup++;
+
+        var entries = ordered
+            .Select(name => new BuildOrderEntry(
+                Name: name,
+                Layer: compLayer[sccOf[name]],
+                Group: groupRemap[sccOf[name]],
+                Recursive: sccs[sccOf[name]].Count > 1 || selfRecursive[name],
+                Score: score[name],
+                Tier: tier[name],
+                Deps: deps[name]))
+            .ToArray();
+
+        var layerCount = entries.Length == 0 ? 0 : entries.Max(entry => entry.Layer) + 1;
+        return new BuildOrderResult(entries.Length, layerCount, entries);
+    }
+
+    /// <summary>Tarjan's strongly-connected-components over a bare-name adjacency map.</summary>
+    private static List<List<string>> TarjanScc(
+        IReadOnlyList<string> nodes,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> adjacency)
+    {
+        var index = new Dictionary<string, int>(StringComparer.Ordinal);
+        var low = new Dictionary<string, int>(StringComparer.Ordinal);
+        var onStack = new HashSet<string>(StringComparer.Ordinal);
+        var stack = new Stack<string>();
+        var components = new List<List<string>>();
+        var counter = 0;
+
+        void StrongConnect(string v)
+        {
+            index[v] = counter;
+            low[v] = counter;
+            counter++;
+            stack.Push(v);
+            onStack.Add(v);
+
+            foreach (var w in adjacency[v])
+            {
+                if (!index.ContainsKey(w))
+                {
+                    StrongConnect(w);
+                    low[v] = Math.Min(low[v], low[w]);
+                }
+                else if (onStack.Contains(w))
+                {
+                    low[v] = Math.Min(low[v], index[w]);
+                }
+            }
+
+            if (low[v] != index[v]) return;
+
+            var component = new List<string>();
+            string popped;
+            do
+            {
+                popped = stack.Pop();
+                onStack.Remove(popped);
+                component.Add(popped);
+            } while (!string.Equals(popped, v, StringComparison.Ordinal));
+            components.Add(component);
+        }
+
+        foreach (var node in nodes)
+            if (!index.ContainsKey(node))
+                StrongConnect(node);
+
+        return components;
+    }
+
     private static bool MatchesFilter(string value, string? filter)
     {
         if (string.IsNullOrWhiteSpace(filter)) return true;
@@ -215,3 +353,17 @@ public sealed record ProtocolStats(
     ProtocolTierStats Tiers,
     IReadOnlyCollection<ProtocolNamespaceStats> ByNamespace,
     IReadOnlyCollection<ProtocolPacketStats> Packets);
+
+public sealed record BuildOrderResult(
+    int TypeCount,
+    int LayerCount,
+    IReadOnlyList<BuildOrderEntry> Types);
+
+public sealed record BuildOrderEntry(
+    string Name,
+    int Layer,
+    int Group,
+    bool Recursive,
+    int Score,
+    string Tier,
+    IReadOnlyList<string> Deps);

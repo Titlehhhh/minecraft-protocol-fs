@@ -225,7 +225,24 @@ export interface ChunkStatus {
   embeddingConfigured: boolean
   qdrantConfigured: boolean
   collection: string
+  embeddingBaseUrl: string
+  embeddingModel: string
   missing: string[]
+}
+
+export interface OpenRouterModelItem {
+  id: string
+  name: string
+  contextLength: number | null
+  description: string
+  promptPrice: string
+  completionPrice: string
+  inputModalities: string[]
+  outputModalities: string[]
+}
+
+export interface OpenRouterModelSearchResponse {
+  models: OpenRouterModelItem[]
 }
 
 export interface ChunkIndexResponse {

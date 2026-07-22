@@ -9,10 +9,19 @@ public sealed class ProtodefContainer : ProtodefType
     [JsonConstructor]
     public ProtodefContainer(List<ProtodefContainerField> fields)
     {
-        Fields = fields;
+        Fields = fields ?? new();
+        ReindexFields();
     }
 
     public bool Contains(string name) => Fields.Exists(x => x.Name == name);
+
+    public void ReindexFields()
+    {
+        for (var i = 0; i < Fields.Count; i++)
+        {
+            Fields[i].WireIndex = i;
+        }
+    }
 
     private ProtodefContainer(ProtodefContainer other)
     {
@@ -22,6 +31,8 @@ public sealed class ProtodefContainer : ProtodefType
             //fieldClone.Parent = this;
             Fields.Add(fieldClone);
         }
+
+        ReindexFields();
     }
 
 

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { usePacketsStore } from '../../store/packetsStore'
 import { useGenerationStore } from '../../store/generationStore'
+import { useUIStore } from '../../store/uiStore'
 import { PacketItem } from './PacketItem'
 
 export function PacketList() {
@@ -14,6 +15,7 @@ export function PacketList() {
   const selectPacket = usePacketsStore(s => s.selectPacket)
   const toggleCheck = usePacketsStore(s => s.toggleCheck)
   const loadSchema = useGenerationStore(s => s.loadSchema)
+  const setSelectedOwner = useUIStore(s => s.setSelectedOwner)
 
   const source = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
@@ -34,6 +36,7 @@ export function PacketList() {
 
   const handleSelect = (id: string) => {
     selectPacket(id)
+    setSelectedOwner({ kind: 'packet', id })
     loadSchema(id)
   }
 

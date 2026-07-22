@@ -92,6 +92,11 @@ static async Task<int> RunAsync(string[] args)
                 Write(query.GetStats(), format);
                 return Ok;
 
+            case "order":
+            case "build-order":
+                Write(query.GetBuildOrder(), format);
+                return Ok;
+
             case "graph":
             {
                 var graph = new ProtocolGraphBuilder(repository).Build(
@@ -230,6 +235,7 @@ packetgen commands:
   composition <packet-id> [--format json|toon]
   chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
   stats [--format json|toon]
+  order [--format json|toon]                 (type build order, simple -> complex)
   graph [--ns play] [--direction toClient] [--include-types false] [--format json|toon]
 
 exit codes:

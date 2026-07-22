@@ -13,6 +13,10 @@ public sealed class ProtodefContainerField
         Type = type ?? throw new ArgumentNullException(nameof(type));
     }
 
+    [JsonPropertyName("wireIndex")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? WireIndex { get; internal set; }
+
     [JsonPropertyName("anon")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Anon { get; }
@@ -29,6 +33,7 @@ public sealed class ProtodefContainerField
     public ProtodefContainerField Clone()
     {
         var clone = new ProtodefContainerField(Anon, Name, (ProtodefType)Type.Clone());
+        clone.WireIndex = WireIndex;
         clone.Type.Parent = null; // или назначишь позже в OnDeserialized
         return clone;
     }

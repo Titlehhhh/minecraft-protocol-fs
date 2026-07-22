@@ -7,17 +7,29 @@ import { useResize } from './hooks/useResize'
 import { useConfigStore } from './store/configStore'
 import { usePacketsStore } from './store/packetsStore'
 import { useUIStore } from './store/uiStore'
-import { fetchProtocolTypesByKind, fetchNativeTypes } from './api/packets'
+import { fetchProtocolTypesByKind, fetchNativeTypes, fetchBuildOrder } from './api/packets'
+
+const navItems = [
+  { view: 'protocol', label: 'Protocol' },
+  { view: 'workbench', label: 'Workbench' },
+  { view: 'graph', label: 'Graph' },
+  { view: 'usage', label: 'Usage' },
+  { view: 'settings', label: 'Settings' },
+] as const
 
 export function App() {
   const mainView = useUIStore(state => state.mainView)
   const setMainView = useUIStore(state => state.setMainView)
+  const sourcePanelOpen = useUIStore(state => state.sourcePanelOpen)
+  const setSourcePanelOpen = useUIStore(state => state.setSourcePanelOpen)
+  const selectedOwner = useUIStore(state => state.selectedOwner)
+  const showSources = sourcePanelOpen && mainView !== 'settings'
 
   const { size: sidebarWidth, isDragging, onMouseDown } = useResize({
     direction: 'col',
-    min: 200,
-    max: 600,
-    initial: 310,
+    min: 240,
+    max: 560,
+    initial: 330,
   })
 
   useEffect(() => {
@@ -27,14 +39,16 @@ export function App() {
     fetchProtocolTypesByKind()
       .then(typesByKind => {
         useUIStore.getState().setProtocolTypesByKind(typesByKind)
-        // Also set flat list for backwards compatibility
         const flatList = Object.values(typesByKind).flat().sort()
         useUIStore.getState().setProtocolTypes(flatList)
       })
-      .catch(() => { /* ignore — non-critical */ })
+      .catch(() => { /* non-critical */ })
     fetchNativeTypes()
       .then(types => useUIStore.getState().setNativeTypes(types))
-      .catch(() => { /* ignore — non-critical */ })
+      .catch(() => { /* non-critical */ })
+    fetchBuildOrder()
+      .then(buildOrder => useUIStore.getState().setBuildOrder(buildOrder))
+      .catch(() => { /* non-critical */ })
   }, [])
 
   useEffect(() => {
@@ -50,46 +64,50 @@ export function App() {
 
   return (
     <>
-      <header>
-        <h1>⚡ McProtoNet Generator</h1>
-        <span>PacketGenerator MCP Server</span>
+      <header className="app-header">
+        <div className="brand-block">
+          <h1>McProtoNet Workbench</h1>
+          <span>PacketGenerator MCP Server</span>
+        </div>
+
         <nav className="header-nav" aria-label="Main view">
-          <button
-            type="button"
-            className={`header-nav-btn ${mainView === 'generator' ? 'active' : ''}`}
-            onClick={() => setMainView('generator')}
-          >
-            ⚙ Генерация
-          </button>
-          <button
-            type="button"
-            className={`header-nav-btn ${mainView === 'graph' ? 'active' : ''}`}
-            onClick={() => setMainView('graph')}
-          >
-            🕸 Граф
-          </button>
-          <button
-            type="button"
-            className={`header-nav-btn ${mainView === 'usage' ? 'active' : ''}`}
-            onClick={() => setMainView('usage')}
-          >
-            Usage
-          </button>
-          <button
-            type="button"
-            className={`header-nav-btn ${mainView === 'chunks' ? 'active' : ''}`}
-            onClick={() => setMainView('chunks')}
-          >
-            Chunks
-          </button>
+          {navItems.map(item => (
+            <button
+              key={item.view}
+              type="button"
+              className={`header-nav-btn ${mainView === item.view ? 'active' : ''}`}
+              onClick={() => setMainView(item.view)}
+            >
+              {item.label}
+            </button>
+          ))}
         </nav>
+
+        <button
+          type="button"
+          className={`source-toggle ${showSources ? 'active' : ''}`}
+          onClick={() => setSourcePanelOpen(!sourcePanelOpen)}
+          disabled={mainView === 'settings'}
+        >
+          Sources
+        </button>
+
+        <div className="selected-owner-chip" title={selectedOwner ? selectedOwner.id : undefined}>
+          {selectedOwner ? `${selectedOwner.kind}:${selectedOwner.id}` : 'no selection'}
+        </div>
+
         <div className="header-status">
           <SaveIndicator />
         </div>
       </header>
+
       <div className="layout">
-        <Sidebar style={{ width: sidebarWidth }} />
-        <ResizeHandle direction="col" isDragging={isDragging} onMouseDown={onMouseDown} />
+        {showSources && (
+          <>
+            <Sidebar style={{ width: sidebarWidth }} />
+            <ResizeHandle direction="col" isDragging={isDragging} onMouseDown={onMouseDown} />
+          </>
+        )}
         <Main />
       </div>
     </>

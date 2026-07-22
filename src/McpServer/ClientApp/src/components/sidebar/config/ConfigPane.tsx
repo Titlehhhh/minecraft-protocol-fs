@@ -3,6 +3,7 @@ import { useConfigStore } from '../../../store/configStore'
 import { TierRow, TIER_ROW_DEFS } from './TierRow'
 import { AssessorSection } from './AssessorSection'
 import { PresetsSection } from './PresetsSection'
+import { ModelSearchSection } from './ModelSearchSection'
 import type { Tier, InputFormat } from '../../../types'
 
 export function ConfigPane() {
@@ -131,6 +132,7 @@ export function ConfigPane() {
       </div>
 
       <AssessorSection />
+      <ModelSearchSection focusedTier={focusedTier} />
       <PresetsSection focusedTier={focusedTier} />
     </div>
   )
