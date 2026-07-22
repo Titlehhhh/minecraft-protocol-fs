@@ -209,7 +209,7 @@ Console.WriteLine($"protocol version = {version}\n");
         var back = SpawnInfo.Read(ref r, v);
         var ok = back.Name == info.Name && back.Death!.Location == death.Location
                  && back.SeaLevel == (v >= 768 ? 63 : 0);
-        Console.WriteLine($"SpawnInfo @{v}: {bytes.Length} bytes, roundtrip: {ok}, death={back.Death.Location}");
+        Console.WriteLine($"SpawnInfo @{v}: {bytes.Length} bytes, roundtrip: {ok}, death={back.Death?.Location}");
     }
     Console.WriteLine();
 }

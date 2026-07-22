@@ -1,0 +1,3 @@
+# The DSL codegen writes LF; pin generated output to LF so re-running `gen`
+# never dirties the tree with line-ending-only diffs (autocrlf would re-smudge to CRLF).
+generated-csharp/** text eol=lf
