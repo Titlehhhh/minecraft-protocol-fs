@@ -1,4 +1,4 @@
-# One-shot protocol fact lookup via PacketGenerator's CLI.
+# One-shot protocol fact lookup via McProtoFacts' CLI.
 # Use this for a single query. For many queries in a session, run serve-facts.cmd instead.
 #
 # Examples:
@@ -8,13 +8,14 @@
 #   scripts\facts.cmd packets --filter metadata --format json
 $ErrorActionPreference = 'Stop'
 
-$pg = & (Join-Path $PSScriptRoot '_resolve-packetgen.ps1')
-$packetgen = Join-Path $pg 'tools\packetgen.cmd'
+$factsRoot = & (Join-Path $PSScriptRoot '_resolve-facts.ps1')
+$cli = Join-Path $factsRoot 'tools\mcproto-facts.cmd'
+if (-not (Test-Path $cli)) { $cli = Join-Path $factsRoot 'tools\packetgen.cmd' }
 
-# Run from the PacketGenerator root so its global.json (SDK) applies, not this repo's.
-Push-Location $pg
+# Run from the McProtoFacts root so its global.json (SDK) applies, not this repo's.
+Push-Location $factsRoot
 try {
-    & $packetgen @args
+    & $cli @args
     $code = $LASTEXITCODE
 }
 finally {

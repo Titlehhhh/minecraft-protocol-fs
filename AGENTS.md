@@ -21,7 +21,7 @@ This is how we work here. Follow it for every new type/packet:
    type whose `deps` are all already done; leave the one `recursive` group (the Slot/SlotComponent
    core) until its layer, since it needs a recursive reference. The UI mirrors this under the Types
    panel's **"By build order"** toggle.
-2. **Fetch the real facts** from PacketGenerator — see next section. Never guess the shape.
+2. **Fetch the real facts** from McProtoFacts — see next section. Never guess the shape.
 3. **Express it** in the DSL as **one new file** under [Spec/](minecraft-protocol-fs/Spec). Nothing else
    to wire up: [Spec/Protocol.fs](minecraft-protocol-fs/Spec/Protocol.fs) auto-indexes every spec by
    reflection and the fsproj globs `Spec/**`, so you never edit a shared file (this is what makes
@@ -43,16 +43,16 @@ before expanding the DSL. Prefer adding one type over broadening the algebra spe
 
 **Hard rule.** Raw `minecraft-data` `protocol.json` files are the *input dataset*, not the
 inspection surface. Do **not** read them to model a type — they are namespace-sensitive and easy
-to get wrong. Use PacketGenerator's prepared protocol access surfaces instead. (Raw json is only
-for debugging PacketGenerator's own loader/parser — not our concern here.)
+to get wrong. Use McProtoFacts' prepared protocol access surfaces instead. (Raw json is only
+for debugging McProtoFacts' own loader/parser — not our concern here.)
 
-PacketGenerator lives in a separate checkout. The scripts locate it via `PACKETGEN_ROOT`, falling
-back to `..\mcprotonet-workspace\PacketGenerator` then `..\PacketGenerator`. If neither exists,
-set `PACKETGEN_ROOT`.
+McProtoFacts (formerly PacketGenerator) lives in a separate checkout. The scripts locate it via `MCPROTO_FACTS_ROOT`, falling
+back to `..\mcprotonet-workspace\mcproto-facts` then `..\mcproto-facts` (legacy `PacketGenerator` names also probed). If neither exists,
+set `MCPROTO_FACTS_ROOT`.
 
 ### One-shot lookup → `scripts\facts.cmd`
 
-Wraps PacketGenerator's CLI; args pass straight through.
+Wraps McProtoFacts' CLI; args pass straight through.
 
 ```powershell
 scripts\facts.cmd type entityMetadata --format toon
@@ -69,7 +69,7 @@ are `{state}.{direction}.{snake_name}` (`play.toClient.teams`). If unsure of an 
 
 ### Many lookups in a session → `scripts\serve-facts.cmd`
 
-Starts PacketGenerator's McpServer **in its own terminal window** (close it to stop). Then hit
+Starts McProtoFacts' McpServer **in its own terminal window** (close it to stop). Then hit
 REST or HTTP MCP without paying CLI build/startup cost each time:
 
 ```text
@@ -237,7 +237,7 @@ in the sandbox) are excluded in the sandbox csproj until those land.
 
 - Never read raw `minecraft-data` json to model a type. Use the facts scripts.
 - This repo may become public: don't hardcode personal absolute paths in committed files —
-  reach PacketGenerator via `PACKETGEN_ROOT` / the resolver script.
+  reach McProtoFacts via `MCPROTO_FACTS_ROOT` / the resolver script.
 - Grow the DSL deliberately: one type at a time, simple → complex, facts-first.
 - Keep spec files (`Spec/**`) clean — **no `//` comments**; the `record`/`namedType`/`bitflags` form
   should read for itself. (Comments in `Dsl/`/`Codegen/` algebra are fine.)

@@ -15,7 +15,7 @@ minecraft-protocol-fs/              the F# project
   Program.fs                        entry point: `dotnet run` prints, `-- gen` generates
 generated-csharp/                   codegen output (C# mirrored from Spec/)
 sandbox/                            minimal McProtoNet-shaped runtime that compiles & round-trips the generated C#
-scripts/facts.cmd                   one-shot protocol fact lookup (PacketGenerator CLI)
+scripts/facts.cmd                   one-shot protocol fact lookup (McProtoFacts CLI)
 scripts/serve-facts.cmd             start the facts server in its own window (REST + HTTP MCP)
 AGENTS.md                           how to work in this repo (read this)
 ```
@@ -28,8 +28,8 @@ dotnet run --project minecraft-protocol-fs\minecraft-protocol-fs.fsproj
 
 ## Getting protocol facts
 
-Model shapes come from **PacketGenerator's prepared surfaces**, never from raw `minecraft-data`
-json. Point `PACKETGEN_ROOT` at a PacketGenerator checkout (or keep it beside
+Model shapes come from **McProtoFacts' prepared surfaces**, never from raw `minecraft-data`
+json. Point `MCPROTO_FACTS_ROOT` at a mcproto-facts checkout (or keep it beside
 `mcprotonet-workspace`), then:
 
 ```powershell

@@ -43,7 +43,7 @@
       "presentation": { "reveal": "always", "panel": "shared", "clear": true }
     },
     {
-      // Start PacketGenerator's McpServer WITH the web UI in its own window.
+      // Start McProtoFacts' McpServer WITH the web UI in its own window.
       // UI: http://localhost:5000/  (close that window to stop the server).
       "label": "facts: serve + UI",
       "type": "process",

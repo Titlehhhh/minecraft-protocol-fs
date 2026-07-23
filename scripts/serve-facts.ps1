@@ -1,4 +1,4 @@
-# Starts PacketGenerator's McpServer in its OWN terminal window.
+# Starts McProtoFacts' McpServer in its OWN terminal window.
 # Use this when you'll query facts many times in a session (REST + HTTP MCP).
 # Close that window to stop the server.
 #
@@ -14,7 +14,7 @@ param([switch]$Ui)
 
 $ErrorActionPreference = 'Stop'
 
-$pg = & (Join-Path $PSScriptRoot '_resolve-packetgen.ps1')
+$pg = & (Join-Path $PSScriptRoot '_resolve-facts.ps1')
 $proj = Join-Path $pg 'src\McpServer\McpServer.csproj'
 
 # BuildClientApp=false: skip the web UI bundle (faster start) unless -Ui was passed.
