@@ -1,17 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using PacketGenerator.Protocol.Complexity;
 using PacketGenerator.Protocol.Queries;
 using PacketGenerator.Protocol.Repository;
 using PacketGenerator.Protocol.Serialization;
-using ProtoCore;
-using Protodef;
-using Protodef.Primitive;
-using Protodef.Enumerable;
 
 namespace McpServer.Endpoints;
 
@@ -19,11 +12,9 @@ public static class PacketEndpoints
 {
     public static void MapPacketApi(this WebApplication app)
     {
-        app.MapGet("/api/packets", (IProtocolRepository repo) =>
+        app.MapGet("/api/packets", (ProtocolQueryService query) =>
         {
-            var result = repo.GetPackets()
-                .ToDictionary(kv => kv.Key, kv => kv.Value.Keys.ToArray());
-            return Results.Ok(result);
+            return Results.Ok(query.GetPackets());
         });
 
         app.MapGet("/api/packets/{ns}/{dir}", (string ns, string dir, IProtocolRepository repo) =>
@@ -75,76 +66,19 @@ public static class PacketEndpoints
             });
         });
 
-        app.MapGet("/api/types", (IProtocolRepository repo) =>
+        app.MapGet("/api/types", (ProtocolQueryService query) =>
         {
-            var types = repo.GetTypes().OrderBy(t => t).ToArray();
-            return Results.Ok(types);
+            return Results.Ok(query.GetTypes());
         });
 
-        app.MapGet("/api/native-types", (IProtocolRepository repo) =>
+        app.MapGet("/api/native-types", (ProtocolQueryService query) =>
         {
-            return Results.Ok(repo.GetNativeTypes());
+            return Results.Ok(query.GetNativeTypes());
         });
 
-        app.MapGet("/api/types-by-kind", (IProtocolRepository repo) =>
+        app.MapGet("/api/types-by-kind", (ProtocolQueryService query) =>
         {
-            var types = repo.GetTypes();
-            var grouped = new System.Collections.Generic.SortedDictionary<string, List<string>>();
-
-            foreach (var typeId in types)
-            {
-                try
-                {
-                    var typeHistory = repo.GetTypeHistory(typeId);
-                    string? kind = null;
-
-                    // Determine kind from the first non-null type in history
-                    foreach (var (_, protodefType) in typeHistory.History)
-                    {
-                        if (protodefType is null) continue;
-
-                        kind = protodefType switch
-                        {
-                            ProtodefContainer _ => "container",
-                            ProtodefBitField _ => "bitfield",
-                            ProtodefBitFlags _ => "bitflags",
-                            ProtodefBuffer _ => "buffer",
-                            ProtodefMapper _ => "mapper",
-                            ProtodefArray _ => "array",
-                            ProtodefOption _ => "option",
-                            ProtodefPrefixedString _ => "pstring",
-                            ProtodefSwitch _ => "switch",
-                            ProtodefLoop _ => "loop",
-                            ProtodefTopBitSetTerminatedArray _ => "topBitSetTerminatedArray",
-                            ProtodefVarInt _ => "varint",
-                            ProtodefVarLong _ => "varlong",
-                            ProtodefVoid _ => "void",
-                            ProtodefString _ => "string",
-                            ProtodefBool _ => "bool",
-                            ProtodefCustomType _ => "custom",
-                            _ => "unknown"
-                        };
-                        break;
-                    }
-
-                    kind ??= "unknown";
-
-                    if (!grouped.ContainsKey(kind))
-                        grouped[kind] = new List<string>();
-
-                    grouped[kind].Add(typeId);
-                }
-                catch
-                {
-                    // Skip types that can't be loaded
-                    if (!grouped.ContainsKey("error"))
-                        grouped["error"] = new List<string>();
-                    grouped["error"].Add(typeId);
-                }
-            }
-
-            var result = grouped.ToDictionary(kv => kv.Key, kv => kv.Value.OrderBy(t => t).ToArray());
-            return Results.Ok(result);
+            return Results.Ok(query.GetTypesByKind());
         });
 
         app.MapGet("/api/build-order", (ProtocolQueryService query) =>
@@ -195,19 +129,11 @@ public static class PacketEndpoints
             }
         });
 
-        app.MapGet("/api/composition/{**id}", (string id, IProtocolRepository repo) =>
+        app.MapGet("/api/composition/{**id}", (string id, ProtocolQueryService query) =>
         {
             try
             {
-                var packet = repo.GetPacket(id);
-                var composition = new HashSet<string>(StringComparer.Ordinal);
-                foreach (var (_, type) in packet.History)
-                {
-                    if (type is null) continue;
-                    var resolved = type.CreatePrimitiveResolvedCopy();
-                    composition.UnionWith(ProtodefTypeAnalyzer.GetTypeComposition(resolved));
-                }
-                return Results.Ok(composition.OrderBy(k => k).ToArray());
+                return Results.Ok(query.GetPacketComposition(id));
             }
             catch (Exception ex)
             {
@@ -215,26 +141,18 @@ public static class PacketEndpoints
             }
         });
 
-        app.MapGet("/api/schema/{**id}", (string id, IProtocolRepository repo) =>
+        app.MapGet("/api/schema/{**id}", (string id, ProtocolQueryService query) =>
         {
             try
             {
-                var packet    = repo.GetPacket(id);
-                var supported = repo.GetSupportedProtocols();
-
-                var json = System.Text.Json.JsonSerializer.SerializeToNode(
-                    packet.History, Protodef.ProtodefType.DefaultJsonOptions)!;
-                var obj = json.AsObject();
-                VersionAliases.Apply(obj, supported);
-
-                var jsonStr = System.Text.Json.JsonSerializer.Serialize(json,
-                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                var toonStr = ToonSerializer.Encode(json);
-
-                var score = PacketComplexityScorer.Compute(packet.History);
-                var tier  = new ComplexityThresholds().Classify(score).ToLabel();
-
-                return Results.Ok(new { json = jsonStr, toon = toonStr, complexityScore = score, tier });
+                var schema = query.GetPacketSchema(id, OutputFormat.Json);
+                return Results.Ok(new
+                {
+                    json = schema.Json,
+                    toon = schema.Toon,
+                    complexityScore = schema.ComplexityScore,
+                    tier = schema.Tier
+                });
             }
             catch (Exception ex)
             {
@@ -242,26 +160,18 @@ public static class PacketEndpoints
             }
         });
 
-        app.MapGet("/api/type/{**id}", (string id, IProtocolRepository repo) =>
+        app.MapGet("/api/type/{**id}", (string id, ProtocolQueryService query) =>
         {
             try
             {
-                var type      = repo.GetTypeHistory(id);
-                var supported = repo.GetSupportedProtocols();
-
-                var json = System.Text.Json.JsonSerializer.SerializeToNode(
-                    type.History, Protodef.ProtodefType.DefaultJsonOptions)!;
-                var obj = json.AsObject();
-                VersionAliases.Apply(obj, supported);
-
-                var jsonStr = System.Text.Json.JsonSerializer.Serialize(json,
-                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                var toonStr = ToonSerializer.Encode(json);
-
-                var score = PacketComplexityScorer.Compute(type.History);
-                var tier  = new ComplexityThresholds().Classify(score).ToLabel();
-
-                return Results.Ok(new { json = jsonStr, toon = toonStr, complexityScore = score, tier });
+                var schema = query.GetTypeSchema(id, OutputFormat.Json);
+                return Results.Ok(new
+                {
+                    json = schema.Json,
+                    toon = schema.Toon,
+                    complexityScore = schema.ComplexityScore,
+                    tier = schema.Tier
+                });
             }
             catch (Exception ex)
             {

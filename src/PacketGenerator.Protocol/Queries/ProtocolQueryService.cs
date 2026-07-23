@@ -21,19 +21,27 @@ public sealed class ProtocolQueryService
         _thresholds = thresholds ?? new ComplexityThresholds();
     }
 
-    public IReadOnlyDictionary<string, string[]> GetPackets(string? filter = null)
+    public IReadOnlyDictionary<string, string[]> GetPackets(string? filter = null, string? tier = null)
     {
         var packets = _repository.GetPackets()
             .ToDictionary(
                 kv => kv.Key,
-                kv => kv.Value.Keys
-                    .Where(name => MatchesFilter($"{kv.Key}.{name}", filter))
+                kv => kv.Value
+                    .Where(p => MatchesFilter($"{kv.Key}.{p.Key}", filter) && MatchesTier(p.Value.History, tier))
+                    .Select(p => p.Key)
                     .OrderBy(name => name, StringComparer.Ordinal)
                     .ToArray());
 
         return packets
             .Where(kv => kv.Value.Length > 0)
             .ToDictionary(kv => kv.Key, kv => kv.Value);
+    }
+
+    private bool MatchesTier(Dictionary<ProtocolRange, ProtodefType?> history, string? tier)
+    {
+        if (string.IsNullOrWhiteSpace(tier)) return true;
+        var score = PacketComplexityScorer.Compute(history);
+        return _thresholds.Classify(score).ToLabel() == tier;
     }
 
     public string[] GetTypes(string? filter = null)
