@@ -17,6 +17,7 @@ public static class ServiceRegistration
         builder.Services.AddSingleton(RagOptions.FromConfiguration(builder.Configuration));
         builder.Services.AddHttpClient<RagEmbeddingClient>();
         builder.Services.AddHttpClient<QdrantChunkStore>();
+        builder.Services.AddSingleton<HybridSearchService>();
 
         builder.Services
             .AddMcpServer(options =>

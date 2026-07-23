@@ -1,5 +1,9 @@
 using System.ComponentModel;
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using ModelContextProtocol.Server;
 using McProtoFacts.Protocol.Queries;
 using McProtoFacts.Protocol.Serialization;
@@ -117,6 +121,42 @@ public static class DataTool
         string format = "toon")
     {
         return SerializeUsage(usage.GetDependencies(id), format);
+    }
+
+    [McpServerTool(UseStructuredContent = false)]
+    [Description(
+        "Hybrid search (BM25 + optional semantic embeddings) over all protocol packets and named types across all versions. " +
+        "RECOMMENDED FIRST STEP for any broad task: find relevant packets/types by concept before drilling down with get_packet/get_type. " +
+        "Query can mix identifiers and natural language, e.g. 'chunk sections payload', 'team color formatting', 'varint length prefix'. " +
+        "Returns matching owners (packets/types) ranked by relevance with their most relevant chunk paths and version ranges."
+    )]
+    public static async Task<string> SearchProtocol(
+        McpServer.Services.HybridSearchService search,
+        string query,
+        [Description("Maximum number of packets/types to return (1-50, default 8).")]
+        int limit = 8,
+        CancellationToken ct = default)
+    {
+        var response = await search.SearchAsync(query, limit, ct);
+        if (response.Owners.Count == 0) return $"mode: {response.Mode}\nno matches";
+
+        var sb = new StringBuilder();
+        sb.Append("mode: ").Append(response.Mode).Append('\n');
+        var rank = 0;
+        foreach (var owner in response.Owners)
+        {
+            rank++;
+            sb.Append(rank).Append(". ").Append(owner.Owner)
+              .Append("  score=").Append(owner.Score.ToString("0.####", CultureInfo.InvariantCulture)).Append('\n');
+            foreach (var chunk in owner.Chunks)
+            {
+                sb.Append("   - ").Append(chunk.ChunkKind)
+                  .Append(' ').Append(chunk.Path)
+                  .Append(" [").Append(chunk.VersionRange).Append(']').Append('\n');
+            }
+        }
+        sb.Append("Use get_packet / get_type with an owner id for the full versioned schema.");
+        return sb.ToString();
     }
 
     private static OutputFormat ParseFormat(string format) =>

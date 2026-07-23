@@ -13,6 +13,24 @@ public static class ChunkEndpoints
 {
     public static void MapChunkApi(this WebApplication app)
     {
+        app.MapGet("/api/search", async (
+            string q,
+            int? limit,
+            HybridSearchService search,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await search.SearchAsync(q, limit ?? 10, ct));
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = $"{ex.GetType().Name}: {ex.Message}" });
+            }
+        });
+
+        app.MapGet("/api/search/status", (HybridSearchService search) => Results.Ok(search.GetStatus()));
+
         app.MapGet("/api/chunks/status", (QdrantChunkStore store) => Results.Ok(store.GetStatus()));
 
         app.MapGet("/api/chunks", (

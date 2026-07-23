@@ -18,6 +18,17 @@ Before changing code or doing protocol research, read:
 
 ## Core Rule
 
+For any broad task (finding which packets/types are relevant to a concept, feature area,
+or wire construct), start with the built-in hybrid search before enumerating or guessing ids:
+
+```powershell
+# REST (server running): GET http://localhost:5000/api/search?q=team+color+formatting
+# HTTP MCP tool: search_protocol
+```
+
+It works with zero external services (BM25); with an embedding endpoint configured it
+upgrades to hybrid ranking automatically. Then drill down with the tools below.
+
 For packet examples, packet history, graph work, edge-case discovery, `switch` analysis,
 composition analysis, or type lookup, use the prepared protocol access surfaces first:
 

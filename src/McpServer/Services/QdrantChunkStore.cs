@@ -241,7 +241,7 @@ public sealed record ProtocolChunkIndexResponse(int Chunks, int Vectors, int Vec
 
 public sealed record ProtocolChunkSearchRequest(string Query, int Limit);
 
-public sealed record ProtocolChunkSearchResponse(string Query, IReadOnlyList<ProtocolChunkSearchOwner> Owners);
+public sealed record ProtocolChunkSearchResponse(string Query, IReadOnlyList<ProtocolChunkSearchOwner> Owners, string Mode = "vector");
 
 public sealed record ProtocolChunkSearchOwner(
     string Owner,

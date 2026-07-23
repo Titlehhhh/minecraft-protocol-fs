@@ -143,6 +143,8 @@ GET  /api/composition/{id}
 GET  /api/schema/{id}
 GET  /api/type/{id}
 GET  /api/graph
+GET  /api/search?q=text&limit=10
+GET  /api/search/status
 GET  /api/chunks/status
 GET  /api/chunks?kind=all|packet|type&filter=text&maxChars=900
 GET  /api/chunks/{id}?kind=packet|type&maxChars=900
@@ -150,9 +152,29 @@ POST /api/chunks/index
 POST /api/chunks/search
 ```
 
+## Built-in search
+
+`GET /api/search` (and the `search_protocol` MCP tool) is the recommended entry
+point for broad questions: it finds relevant packets/types before drilling down
+with `get_packet`/`get_type`. It needs **no external services**:
+
+- **lexical mode** — always on: in-process BM25 over all protocol chunks,
+  identifiers are split into subtokens (`map_chunk` → `map`, `chunk`);
+- **hybrid mode** — activates automatically when an OpenAI-compatible
+  embedding endpoint is configured (`Rag:EmbeddingBaseUrl`/`Rag:EmbeddingModel`
+  in `appsettings.json`, or `RAG_EMBEDDING_BASE_URL`/`RAG_EMBEDDING_MODEL`;
+  LM Studio works out of the box). Semantic and BM25 rankings are fused via
+  Reciprocal Rank Fusion. Embeddings are cached in
+  `%LOCALAPPDATA%\mcproto-facts\embed-cache-{model}.json` keyed by chunk
+  content hash — the first search embeds the whole corpus (~2-3 min via
+  LM Studio), subsequent server restarts reuse the cache (seconds). If the
+  embedding endpoint is down, search degrades to lexical mode and reports the
+  error in `/api/search/status` instead of failing.
+
 The Web UI has a `Chunks` view for inspecting deterministic protocol chunks. The chunk
-viewer is always available. Vector indexing and semantic search are enabled only when these
-variables are configured:
+viewer is always available. Qdrant-backed vector indexing (`/api/chunks/index`,
+`/api/chunks/search`) is an optional alternative for external setups (Docker)
+and additionally requires:
 
 ```powershell
 $env:RAG_EMBEDDING_BASE_URL="http://127.0.0.1:1234/v1"
