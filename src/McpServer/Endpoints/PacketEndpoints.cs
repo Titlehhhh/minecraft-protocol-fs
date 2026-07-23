@@ -1,9 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using McpServer.Models;
 using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -218,33 +215,7 @@ public static class PacketEndpoints
             }
         });
 
-        app.MapGet("/api/assess/{**id}", async (
-            string id,
-            IProtocolRepository repo,
-            IComplexityAssessor assessor,
-            CancellationToken ct) =>
-        {
-            try
-            {
-                var packet          = repo.GetPacket(id);
-                var structuralScore = PacketComplexityScorer.Compute(packet.History);
-                var assessment      = await assessor.AssessAsync(packet.History, ct);
-                return Results.Ok(new
-                {
-                    id,
-                    structuralScore,
-                    tier     = assessment.Tier.ToLabel(),
-                    llmScore = assessment.LlmScore,
-                    reason   = assessment.Reason,
-                });
-            }
-            catch (Exception ex)
-            {
-                return Results.BadRequest(new { error = ex.Message });
-            }
-        });
-
-        app.MapGet("/api/schema/{**id}", (string id, IProtocolRepository repo, ModelConfigService mcs) =>
+        app.MapGet("/api/schema/{**id}", (string id, IProtocolRepository repo) =>
         {
             try
             {
@@ -254,14 +225,14 @@ public static class PacketEndpoints
                 var json = System.Text.Json.JsonSerializer.SerializeToNode(
                     packet.History, Protodef.ProtodefType.DefaultJsonOptions)!;
                 var obj = json.AsObject();
-                PacketPostProcessor.ApplyVersionAliases(obj, supported);
+                VersionAliases.Apply(obj, supported);
 
                 var jsonStr = System.Text.Json.JsonSerializer.Serialize(json,
                     new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
                 var toonStr = ToonSerializer.Encode(json);
 
                 var score = PacketComplexityScorer.Compute(packet.History);
-                var tier  = mcs.ClassifyTier(score).ToLabel();
+                var tier  = new ComplexityThresholds().Classify(score).ToLabel();
 
                 return Results.Ok(new { json = jsonStr, toon = toonStr, complexityScore = score, tier });
             }
@@ -271,7 +242,7 @@ public static class PacketEndpoints
             }
         });
 
-        app.MapGet("/api/type/{**id}", (string id, IProtocolRepository repo, ModelConfigService mcs) =>
+        app.MapGet("/api/type/{**id}", (string id, IProtocolRepository repo) =>
         {
             try
             {
@@ -281,14 +252,14 @@ public static class PacketEndpoints
                 var json = System.Text.Json.JsonSerializer.SerializeToNode(
                     type.History, Protodef.ProtodefType.DefaultJsonOptions)!;
                 var obj = json.AsObject();
-                PacketPostProcessor.ApplyVersionAliases(obj, supported);
+                VersionAliases.Apply(obj, supported);
 
                 var jsonStr = System.Text.Json.JsonSerializer.Serialize(json,
                     new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
                 var toonStr = ToonSerializer.Encode(json);
 
                 var score = PacketComplexityScorer.Compute(type.History);
-                var tier  = mcs.ClassifyTier(score).ToLabel();
+                var tier  = new ComplexityThresholds().Classify(score).ToLabel();
 
                 return Results.Ok(new { json = jsonStr, toon = toonStr, complexityScore = score, tier });
             }

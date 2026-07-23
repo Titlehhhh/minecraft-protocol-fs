@@ -35,13 +35,9 @@ app.MapGet("/", (HttpContext http) =>
     return Task.CompletedTask;
 });
 
-app.MapConfigApi();
-app.MapModelCatalogApi();
-app.MapArtifactApi();
 app.MapPacketApi();
 app.MapGraphApi();
 app.MapChunkApi();
-app.MapGenerateApi();
 app.MapMcp("/mcp");
 
 Console.WriteLine("[McpServer] Ready.");

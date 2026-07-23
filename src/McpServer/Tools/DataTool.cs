@@ -4,8 +4,6 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using McpServer.Models;
-using McpServer.Services;
 using ModelContextProtocol.Server;
 using PacketGenerator.Protocol.Complexity;
 using PacketGenerator.Protocol.Queries;
@@ -45,15 +43,14 @@ public static class DataTool
         "- Example: filter=\"player|move\" → matches play.toServer.player_move\n\n" +
         "Complexity filtering (tier parameter):\n" +
         "- Values: 'easy', 'medium', 'heavy'.\n" +
-        "- Filters by structural complexity tier based on current model config thresholds.\n" +
-        "- Use 'easy' to get simple packets safe to generate with cheap models.\n" +
-        "- Use 'heavy' to find packets that require special handling or Claude-level reasoning.\n" +
+        "- Filters by structural complexity tier.\n" +
+        "- Use 'easy' to get structurally simple packets.\n" +
+        "- Use 'heavy' to find packets with the most complex wire structure.\n" +
         "- Both filters can be combined.\n\n" +
         "Do NOT use wildcards or regex in the filter parameter."
     )]
     public static string GetPackets(
         IProtocolRepository repository,
-        ModelConfigService modelConfig,
         string? filter = null,
         [Description("Optional complexity tier filter: 'tiny', 'easy', 'medium', or 'heavy'. Leave null to return all tiers.")]
         string? tier = null)
@@ -65,7 +62,7 @@ public static class DataTool
               {
                   var def   = repository.GetPacket($"{ns}.{name}");
                   var score = PacketComplexityScorer.Compute(def.History);
-                  return modelConfig.ClassifyTier(score).ToLabel() == tier;
+                  return new ComplexityThresholds().Classify(score).ToLabel() == tier;
               }).ToArray();
 
         var packets =

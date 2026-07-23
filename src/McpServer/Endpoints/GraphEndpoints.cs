@@ -13,14 +13,13 @@ public static class GraphEndpoints
     {
         app.MapGet("/api/graph", (
             IProtocolRepository repo,
-            ModelConfigService modelConfig,
             string? ns,
             string? direction,
             bool? includeTypes) =>
         {
             try
             {
-                var graph = new ProtocolGraphBuilder(repo, modelConfig.GetComplexityThresholds())
+                var graph = new ProtocolGraphBuilder(repo)
                     .Build(ns, direction, includeTypes ?? true);
                 return Results.Ok(graph);
             }

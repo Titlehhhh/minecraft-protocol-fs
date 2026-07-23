@@ -1,7 +1,8 @@
 # PacketGenerator
 
-PacketGenerator is a public toolset for inspecting Minecraft protocol packet definitions and
-generating C# packet code for the McProtoNet ecosystem.
+PacketGenerator is a public toolset for inspecting Minecraft protocol packet definitions
+for the McProtoNet ecosystem. It is a protocol facts provider: it does not generate code
+itself — consumers of the facts do.
 
 It uses `PrismarineJS/minecraft-data` as the upstream protocol dataset, builds a versioned
 protocol data model, and exposes it through:
@@ -9,15 +10,12 @@ protocol data model, and exposes it through:
 - a reusable protocol access library,
 - a scriptable CLI,
 - a stdio MCP server,
-- a Web UI / REST API / HTTP MCP server,
-- LLM-based generation workflows.
+- a Web UI / REST API / HTTP MCP server.
 
 ## Requirements
 
 - .NET 11 SDK preview selected by `global.json`.
 - Initialized `minecraft-data` submodule.
-- OpenRouter API key only for LLM generation. Read-only CLI, REST, and MCP access do not
-  require a key.
 
 ```powershell
 git submodule update --init
@@ -62,7 +60,7 @@ minecraft-data protocol.json
 -> versioned type histories
 -> packet/type repository
 -> query and serialization services
--> CLI / stdio MCP / REST / HTTP MCP / generation / graph
+-> CLI / stdio MCP / REST / HTTP MCP / graph
 ```
 
 ### Projects
@@ -73,7 +71,7 @@ minecraft-data protocol.json
 - `src/PacketGenerator.Protocol` is the protocol access layer.
 - `src/PacketGenerator.Cli` is the normal stdout CLI.
 - `src/PacketGenerator.McpStdio` is the stdio MCP server.
-- `src/McpServer` hosts Web UI, REST, HTTP MCP, and LLM generation.
+- `src/McpServer` hosts Web UI, REST, and HTTP MCP.
 
 `PacketGenerator.Protocol` is the shared source for packet/type queries. Other surfaces should
 stay thin over it instead of duplicating protocol parsing.
@@ -116,6 +114,9 @@ list_types_by_kind
 get_packet_schema
 get_type_schema
 get_packet_composition
+get_protocol_usage
+get_protocol_users
+get_protocol_dependencies
 get_protocol_stats
 get_protocol_graph
 ```
@@ -131,6 +132,10 @@ GET  /api/stats
 GET  /api/types
 GET  /api/native-types
 GET  /api/types-by-kind
+GET  /api/build-order
+GET  /api/usage
+GET  /api/users/{id}
+GET  /api/deps/{id}
 GET  /api/composition/{id}
 GET  /api/schema/{id}
 GET  /api/type/{id}
@@ -140,9 +145,6 @@ GET  /api/chunks?kind=all|packet|type&filter=text&maxChars=900
 GET  /api/chunks/{id}?kind=packet|type&maxChars=900
 POST /api/chunks/index
 POST /api/chunks/search
-POST /api/prompt
-POST /api/generate
-POST /api/generate/batch
 ```
 
 The Web UI has a `Chunks` view for inspecting deterministic protocol chunks. The chunk
@@ -160,21 +162,6 @@ HTTP MCP is available at:
 
 ```text
 http://localhost:5000/mcp
-```
-
-## OpenRouter Configuration
-
-Read-only access does not require an API key. For generation:
-
-```powershell
-cd src/McpServer
-dotnet user-secrets set "OpenRouter:ApiKey" "sk-or-..."
-```
-
-or set:
-
-```powershell
-$env:OPENROUTER_API_KEY="sk-or-..."
 ```
 
 ## Agent Notes
