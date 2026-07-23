@@ -8,7 +8,7 @@
             <GeneratedFile>$(GeneratedDir)/MinecraftPaths.generated.cs</GeneratedFile>
             <GenCode>
                 <![CDATA[
-namespace PacketGenerator.Constants%3B
+namespace McProtoFacts.Constants%3B
 
 public static partial class MinecraftDataPaths
 {
@@ -33,7 +33,7 @@ public static partial class MinecraftDataPaths
             <GeneratedFile>$(GeneratedDir)/ArtifactsPaths.generated.cs</GeneratedFile>
             <GenCode>
                 <![CDATA[
-namespace PacketGenerator.Constants%3B
+namespace McProtoFacts.Constants%3B
 
 public static partial class ArtifactsPaths
 {

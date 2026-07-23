@@ -1,7 +1,7 @@
 # McpServer Agent Instructions
 
 `McpServer` hosts the Web UI, REST API, and HTTP MCP transport.
-It consumes `PacketGenerator.Protocol`; it should not own protocol parsing or history logic.
+It consumes `McProtoFacts.Protocol`; it should not own protocol parsing or history logic.
 
 ## Rules
 

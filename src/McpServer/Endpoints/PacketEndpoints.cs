@@ -2,9 +2,9 @@ using System;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using PacketGenerator.Protocol.Queries;
-using PacketGenerator.Protocol.Repository;
-using PacketGenerator.Protocol.Serialization;
+using McProtoFacts.Protocol.Queries;
+using McProtoFacts.Protocol.Repository;
+using McProtoFacts.Protocol.Serialization;
 
 namespace McpServer.Endpoints;
 

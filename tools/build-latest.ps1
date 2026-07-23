@@ -7,7 +7,7 @@ param(
 )
 
 $mutex = [System.Threading.Mutex]::new($false, $MutexName)
-$buildLog = Join-Path $env:TEMP ("packetgenerator-build-{0}-{1}.log" -f $PID, [Guid]::NewGuid().ToString("N"))
+$buildLog = Join-Path $env:TEMP ("mcproto-facts-build-{0}-{1}.log" -f $PID, [Guid]::NewGuid().ToString("N"))
 
 try {
     $null = $mutex.WaitOne()

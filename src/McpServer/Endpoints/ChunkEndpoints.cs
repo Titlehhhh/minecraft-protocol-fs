@@ -4,8 +4,8 @@ using System.Threading.Tasks;
 using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using PacketGenerator.Protocol.Rag;
-using PacketGenerator.Protocol.Repository;
+using McProtoFacts.Protocol.Rag;
+using McProtoFacts.Protocol.Repository;
 
 namespace McpServer.Endpoints;
 

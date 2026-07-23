@@ -1,6 +1,9 @@
-# PacketGenerator
+# McProtoFacts
 
-PacketGenerator is a public toolset for inspecting Minecraft protocol packet definitions
+> Formerly known as **PacketGenerator**. The project outgrew its name: code generation
+> moved out, and what remained is a protocol facts provider.
+
+McProtoFacts is a public toolset for inspecting Minecraft protocol packet definitions
 for the McProtoNet ecosystem. It is a protocol facts provider: it does not generate code
 itself — consumers of the facts do.
 
@@ -19,7 +22,7 @@ protocol data model, and exposes it through:
 
 ```powershell
 git submodule update --init
-dotnet build PacketGenerator.slnx -maxcpucount:1
+dotnet build McProtoFacts.slnx -maxcpucount:1
 ```
 
 ## Quick Start
@@ -27,19 +30,19 @@ dotnet build PacketGenerator.slnx -maxcpucount:1
 Use the CLI for packet and type inspection:
 
 ```powershell
-tools\packetgen.cmd stats --format json
-tools\packetgen.cmd packets --filter keep_alive --format json
-tools\packetgen.cmd packet play.toClient.keep_alive --format toon
-tools\packetgen.cmd type ArmorTrimMaterial --format json
-tools\packetgen.cmd composition play.toClient.keep_alive --format json
-tools\packetgen.cmd graph --ns play --direction toClient --format json
-tools\packetgen.cmd chunks --kind type --filter command_node --format json
+tools\mcproto-facts.cmd stats --format json
+tools\mcproto-facts.cmd packets --filter keep_alive --format json
+tools\mcproto-facts.cmd packet play.toClient.keep_alive --format toon
+tools\mcproto-facts.cmd type ArmorTrimMaterial --format json
+tools\mcproto-facts.cmd composition play.toClient.keep_alive --format json
+tools\mcproto-facts.cmd graph --ns play --direction toClient --format json
+tools\mcproto-facts.cmd chunks --kind type --filter command_node --format json
 ```
 
 Run the stdio MCP server:
 
 ```powershell
-tools\packetgen-mcp.cmd
+tools\mcproto-facts-mcp.cmd
 ```
 
 Run the Web UI, REST API, and HTTP MCP server:
@@ -68,12 +71,12 @@ minecraft-data protocol.json
 - `src/MinecraftData` resolves paths to the vendored `minecraft-data` dataset.
 - `src/Protodef` models and serializes ProtoDef nodes.
 - `src/ProtoCore` loads and validates versioned protocol files.
-- `src/PacketGenerator.Protocol` is the protocol access layer.
-- `src/PacketGenerator.Cli` is the normal stdout CLI.
-- `src/PacketGenerator.McpStdio` is the stdio MCP server.
+- `src/McProtoFacts.Protocol` is the protocol access layer.
+- `src/McProtoFacts.Cli` is the normal stdout CLI.
+- `src/McProtoFacts.McpStdio` is the stdio MCP server.
 - `src/McpServer` hosts Web UI, REST, and HTTP MCP.
 
-`PacketGenerator.Protocol` is the shared source for packet/type queries. Other surfaces should
+`McProtoFacts.Protocol` is the shared source for packet/type queries. Other surfaces should
 stay thin over it instead of duplicating protocol parsing.
 
 ## CLI
@@ -104,7 +107,7 @@ Exit codes:
 
 ## Stdio MCP
 
-`tools\packetgen-mcp.cmd` starts a stdio MCP server with read-only tools:
+`tools\mcproto-facts-mcp.cmd` starts a stdio MCP server with read-only tools:
 
 ```text
 list_packets

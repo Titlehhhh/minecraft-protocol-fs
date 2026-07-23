@@ -10,7 +10,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using PacketGenerator.Protocol.Rag;
+using McProtoFacts.Protocol.Rag;
 
 namespace McpServer.Services;
 

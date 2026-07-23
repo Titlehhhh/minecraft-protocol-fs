@@ -2,8 +2,8 @@ using System;
 using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using PacketGenerator.Protocol.Graph;
-using PacketGenerator.Protocol.Repository;
+using McProtoFacts.Protocol.Graph;
+using McProtoFacts.Protocol.Repository;
 
 namespace McpServer.Endpoints;
 
@@ -65,7 +65,7 @@ file static class GraphPage
 <body>
 <header>
   <div>
-    <h1>Граф minecraft-data / PacketGenerator</h1>
+    <h1>Граф minecraft-data / McProtoFacts</h1>
     <div class="hint">Сервер строит nodes/edges; клиент только рисует и фильтрует</div>
   </div>
   <div class="controls">

@@ -1,7 +1,7 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using TruePath;
 using TruePath.SystemIo;
-using PacketGenerator.Constants;
+using McProtoFacts.Constants;
 
 namespace MinecraftData;
 

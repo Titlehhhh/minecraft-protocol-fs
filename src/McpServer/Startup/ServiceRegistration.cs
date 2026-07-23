@@ -2,8 +2,8 @@ using McpServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
-using PacketGenerator.Protocol.Queries;
-using PacketGenerator.Protocol.Repository;
+using McProtoFacts.Protocol.Queries;
+using McProtoFacts.Protocol.Repository;
 
 namespace McpServer.Startup;
 

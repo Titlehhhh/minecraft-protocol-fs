@@ -14,6 +14,6 @@ This project parses and models ProtoDef JSON nodes.
 - Check upstream ProtoDef docs when changing semantics, but treat them as incomplete.
 - Add parser behavior only when backed by current `minecraft-data` input or a documented
   ProtoDef shape.
-- Do not add PacketGenerator-specific query behavior here; keep that in
-  `PacketGenerator.Protocol`.
+- Do not add McProtoFacts-specific query behavior here; keep that in
+  `McProtoFacts.Protocol`.
 

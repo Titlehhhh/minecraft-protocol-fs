@@ -1,8 +1,8 @@
 using System.ComponentModel;
 using System.Text.Json;
 using ModelContextProtocol.Server;
-using PacketGenerator.Protocol.Queries;
-using PacketGenerator.Protocol.Serialization;
+using McProtoFacts.Protocol.Queries;
+using McProtoFacts.Protocol.Serialization;
 using Protodef;
 
 namespace McpServer.Tools;

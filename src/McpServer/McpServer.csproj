@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
 
@@ -17,7 +17,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\PacketGenerator.Protocol\PacketGenerator.Protocol.csproj"/>
+        <ProjectReference Include="..\McProtoFacts.Protocol\McProtoFacts.Protocol.csproj"/>
         <ProjectReference Include="..\ProtoCore\ProtoCore.csproj"/>
     </ItemGroup>
 

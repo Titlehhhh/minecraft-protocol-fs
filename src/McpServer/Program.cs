@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using PacketGenerator.Protocol.Loading;
+using McProtoFacts.Protocol.Loading;
 
 var start = 735;
 var end = 772;

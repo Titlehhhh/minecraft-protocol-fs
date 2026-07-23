@@ -1,7 +1,7 @@
 # Design
 
 > Note (2026-07-23): LLM generation and model-settings surfaces described below were
-> removed from the backend — PacketGenerator is now a facts-only server. Generation
+> removed from the backend — McProtoFacts is now a facts-only server. Generation
 > screens and settings panes in this document are historical; the inspection surfaces
 > (protocol panes, chunks, graph, usage) remain accurate.
 

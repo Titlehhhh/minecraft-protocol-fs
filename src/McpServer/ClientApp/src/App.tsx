@@ -67,7 +67,7 @@ export function App() {
       <header className="app-header">
         <div className="brand-block">
           <h1>McProtoNet Workbench</h1>
-          <span>PacketGenerator MCP Server</span>
+          <span>McProtoFacts MCP Server</span>
         </div>
 
         <nav className="header-nav" aria-label="Main view">
