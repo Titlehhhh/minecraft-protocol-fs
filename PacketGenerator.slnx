@@ -1,8 +1,4 @@
 ﻿<Solution>
-  <Folder Name="/Sandbox/">
-    <Project Path="src\SandBoxApp\SandBoxApp.csproj" />
-    <Project Path="src\SandBoxLib\SandBoxLib.csproj" />
-  </Folder>
   <Folder Name="/SolutionItems/">
     <File Path="Directory.Build.props" />
     <File Path="Directory.Build.targets" />

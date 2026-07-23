@@ -157,7 +157,7 @@ RAG_QDRANT_COLLECTION=mcprotonet_protocol_chunks
 - CLI and MCP wrappers should remain thin.
 - Raw `minecraft-data` should not be used as packet examples unless the loader/parser itself
   is under investigation.
-- File-based `tools/packetgen.cs` and `tools/packetgen-mcp.cs` are prototypes. The `.cmd`
-  wrappers are the recommended agent entrypoints because they keep stdout/MCP framing clean.
+- The `.cmd` wrappers in `tools/` are the recommended agent entrypoints because they keep
+  stdout/MCP framing clean.
 - Avoid internal shorthand for the protocol access layer in public prose. Prefer
   `protocol core`, `protocol access layer`, or `protocol data model`.
