@@ -55,4 +55,19 @@ public sealed partial class SetProjectilePowerPacket : IProtocolType<SetProjecti
 
         throw new System.NotSupportedException($"SetProjectilePowerPacket has no wire layout for protocol version {protocolVersion}.");
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 766 && protocolVersion <= 766)
+            return 0x79;
+        if (protocolVersion >= 767 && protocolVersion <= 767)
+            return 0x79;
+        if (protocolVersion >= 768 && protocolVersion <= 769)
+            return 0x80;
+        if (protocolVersion >= 770 && protocolVersion <= 770)
+            return 0x80;
+        if (protocolVersion >= 771 && protocolVersion <= 772)
+            return 0x80;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

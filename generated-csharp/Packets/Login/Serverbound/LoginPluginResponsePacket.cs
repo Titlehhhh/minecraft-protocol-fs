@@ -32,4 +32,15 @@ public sealed partial class LoginPluginResponsePacket : IProtocolType<LoginPlugi
         if (Data is { } dataValue)
             writer.WriteRestBytes(dataValue);
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 763)
+            return 0x02;
+        if (protocolVersion >= 764 && protocolVersion <= 765)
+            return 0x02;
+        if (protocolVersion >= 766 && protocolVersion <= 772)
+            return 0x02;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

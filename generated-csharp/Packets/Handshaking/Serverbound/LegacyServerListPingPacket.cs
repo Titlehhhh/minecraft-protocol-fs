@@ -17,4 +17,11 @@ public readonly partial record struct LegacyServerListPingPacket(int Payload) : 
         ThrowHelper.ThrowIfProtocolNotSupported<LegacyServerListPingPacket>(protocolVersion);
         writer.WriteUnsignedByte((byte)Payload);
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 772)
+            return 0xFE;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

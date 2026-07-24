@@ -177,6 +177,8 @@ module Ast =
             Since: VersionRange
             ApiFields: ApiField list
             Layouts: WireLayout list
+            ProtoName: string option
+            Ids: (int * int * int) list
         }
 
     type ProtocolSpec =

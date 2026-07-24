@@ -109,4 +109,13 @@ public sealed partial class LoginSuccessPacket : IProtocolType<LoginSuccessPacke
 
         throw new System.NotSupportedException($"LoginSuccessPacket has no wire layout for protocol version {protocolVersion}.");
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 765)
+            return 0x02;
+        if (protocolVersion >= 766 && protocolVersion <= 772)
+            return 0x02;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

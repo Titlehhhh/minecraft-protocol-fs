@@ -32,4 +32,11 @@ public sealed partial class LoginCookieResponsePacket : IProtocolType<LoginCooki
         if (Value is { } valueValue)
             writer.WriteByteArray(valueValue);
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 766 && protocolVersion <= 772)
+            return 0x04;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

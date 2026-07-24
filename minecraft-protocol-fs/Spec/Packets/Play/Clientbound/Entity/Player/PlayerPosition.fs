@@ -7,6 +7,8 @@ module PlayerPosition =
 
     let playerPosition =
         packet "PlayerPositionPacket" Play Clientbound All {
+            protoId "position"
+
             api [
                 field "X"               TDouble                          All
                 field "Y"               TDouble                          All

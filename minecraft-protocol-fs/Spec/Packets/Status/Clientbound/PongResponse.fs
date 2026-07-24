@@ -7,6 +7,8 @@ module PongResponse =
 
     let pongResponse =
         packet "PongResponsePacket" Status Clientbound All {
+            protoId "ping"
+
             api [
                 field "Time" TLong All
             ]

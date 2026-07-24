@@ -7,6 +7,8 @@ module PingRequest =
 
     let pingRequest =
         packet "PingRequestPacket" Status Serverbound All {
+            protoId "ping"
+
             api [
                 field "Time" TLong All
             ]

@@ -7,6 +7,8 @@ module LoginDisconnect =
 
     let loginDisconnect =
         packet "LoginDisconnectPacket" Login Clientbound All {
+            protoId "disconnect"
+
             api [
                 field "Reason" TString All
             ]

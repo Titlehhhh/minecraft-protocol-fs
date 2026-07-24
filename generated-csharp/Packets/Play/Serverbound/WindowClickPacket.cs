@@ -137,4 +137,37 @@ public sealed partial class WindowClickPacket : IProtocolType<WindowClickPacket>
 
         throw new System.NotSupportedException($"WindowClickPacket has no wire layout for protocol version {protocolVersion}.");
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 736)
+            return 0x09;
+        if (protocolVersion >= 751 && protocolVersion <= 754)
+            return 0x09;
+        if (protocolVersion >= 755 && protocolVersion <= 758)
+            return 0x08;
+        if (protocolVersion >= 759 && protocolVersion <= 759)
+            return 0x0A;
+        if (protocolVersion >= 760 && protocolVersion <= 760)
+            return 0x0B;
+        if (protocolVersion >= 761 && protocolVersion <= 761)
+            return 0x0A;
+        if (protocolVersion >= 762 && protocolVersion <= 763)
+            return 0x0B;
+        if (protocolVersion >= 764 && protocolVersion <= 764)
+            return 0x0D;
+        if (protocolVersion >= 765 && protocolVersion <= 765)
+            return 0x0D;
+        if (protocolVersion >= 766 && protocolVersion <= 767)
+            return 0x0E;
+        if (protocolVersion >= 768 && protocolVersion <= 768)
+            return 0x10;
+        if (protocolVersion >= 769 && protocolVersion <= 769)
+            return 0x10;
+        if (protocolVersion >= 770 && protocolVersion <= 770)
+            return 0x10;
+        if (protocolVersion >= 771 && protocolVersion <= 772)
+            return 0x11;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

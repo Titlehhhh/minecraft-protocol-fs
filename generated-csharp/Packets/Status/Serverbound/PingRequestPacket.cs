@@ -17,4 +17,11 @@ public readonly partial record struct PingRequestPacket(long Time) : IProtocolTy
         ThrowHelper.ThrowIfProtocolNotSupported<PingRequestPacket>(protocolVersion);
         writer.WriteSignedLong(Time);
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 772)
+            return 0x01;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

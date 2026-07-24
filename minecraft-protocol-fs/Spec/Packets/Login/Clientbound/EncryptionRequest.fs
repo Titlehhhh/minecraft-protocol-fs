@@ -7,6 +7,8 @@ module EncryptionRequest =
 
     let encryptionRequest =
         packet "EncryptionRequestPacket" Login Clientbound All {
+            protoId "encryption_begin"
+
             api [
                 field "ServerId"           TString All
                 field "PublicKey"          TBytes  All

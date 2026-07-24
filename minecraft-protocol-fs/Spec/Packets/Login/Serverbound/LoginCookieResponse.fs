@@ -7,6 +7,8 @@ module LoginCookieResponse =
 
     let loginCookieResponse =
         packet "LoginCookieResponsePacket" Login Serverbound (Since 766) {
+            protoId "cookie_response"
+
             api [
                 field "Key"   TString          All
                 field "Value" (TOption TBytes) All

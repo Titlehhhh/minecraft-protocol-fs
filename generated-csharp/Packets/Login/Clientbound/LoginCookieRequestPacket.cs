@@ -24,4 +24,11 @@ public sealed partial class LoginCookieRequestPacket : IProtocolType<LoginCookie
         ThrowHelper.ThrowIfProtocolNotSupported<LoginCookieRequestPacket>(protocolVersion);
         writer.WriteString(Cookie);
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 766 && protocolVersion <= 772)
+            return 0x05;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

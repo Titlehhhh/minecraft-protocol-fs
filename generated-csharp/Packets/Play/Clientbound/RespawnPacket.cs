@@ -246,4 +246,41 @@ public sealed partial class RespawnPacket : IProtocolType<RespawnPacket>
 
         throw new System.NotSupportedException($"RespawnPacket has no wire layout for protocol version {protocolVersion}.");
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 736)
+            return 0x3A;
+        if (protocolVersion >= 751 && protocolVersion <= 754)
+            return 0x39;
+        if (protocolVersion >= 755 && protocolVersion <= 755)
+            return 0x3D;
+        if (protocolVersion >= 756 && protocolVersion <= 756)
+            return 0x3D;
+        if (protocolVersion >= 757 && protocolVersion <= 758)
+            return 0x3D;
+        if (protocolVersion >= 759 && protocolVersion <= 759)
+            return 0x3B;
+        if (protocolVersion >= 760 && protocolVersion <= 760)
+            return 0x3E;
+        if (protocolVersion >= 761 && protocolVersion <= 761)
+            return 0x3D;
+        if (protocolVersion >= 762 && protocolVersion <= 763)
+            return 0x41;
+        if (protocolVersion >= 764 && protocolVersion <= 764)
+            return 0x43;
+        if (protocolVersion >= 765 && protocolVersion <= 765)
+            return 0x45;
+        if (protocolVersion >= 766 && protocolVersion <= 766)
+            return 0x47;
+        if (protocolVersion >= 767 && protocolVersion <= 767)
+            return 0x47;
+        if (protocolVersion >= 768 && protocolVersion <= 769)
+            return 0x4C;
+        if (protocolVersion >= 770 && protocolVersion <= 770)
+            return 0x4B;
+        if (protocolVersion >= 771 && protocolVersion <= 772)
+            return 0x4B;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

@@ -73,4 +73,15 @@ public sealed partial class EncryptionResponsePacket : IProtocolType<EncryptionR
 
         throw new System.NotSupportedException($"EncryptionResponsePacket has no wire layout for protocol version {protocolVersion}.");
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 763)
+            return 0x01;
+        if (protocolVersion >= 764 && protocolVersion <= 765)
+            return 0x01;
+        if (protocolVersion >= 766 && protocolVersion <= 772)
+            return 0x01;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

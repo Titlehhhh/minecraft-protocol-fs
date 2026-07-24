@@ -114,4 +114,15 @@ public sealed partial class LoginStartPacket : IProtocolType<LoginStartPacket>
 
         throw new System.NotSupportedException($"LoginStartPacket has no wire layout for protocol version {protocolVersion}.");
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 763)
+            return 0x00;
+        if (protocolVersion >= 764 && protocolVersion <= 765)
+            return 0x00;
+        if (protocolVersion >= 766 && protocolVersion <= 772)
+            return 0x00;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

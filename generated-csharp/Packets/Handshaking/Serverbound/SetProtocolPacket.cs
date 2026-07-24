@@ -36,4 +36,11 @@ public sealed partial class SetProtocolPacket : IProtocolType<SetProtocolPacket>
         writer.WriteUnsignedShort((ushort)ServerPort);
         writer.WriteVarInt(NextState);
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 772)
+            return 0x00;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

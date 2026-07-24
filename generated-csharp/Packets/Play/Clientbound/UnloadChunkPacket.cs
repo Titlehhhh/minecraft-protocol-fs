@@ -44,4 +44,41 @@ public readonly partial record struct UnloadChunkPacket(int ChunkX, int ChunkZ) 
 
         throw new System.NotSupportedException($"UnloadChunkPacket has no wire layout for protocol version {protocolVersion}.");
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 736)
+            return 0x1D;
+        if (protocolVersion >= 751 && protocolVersion <= 754)
+            return 0x1C;
+        if (protocolVersion >= 755 && protocolVersion <= 755)
+            return 0x1D;
+        if (protocolVersion >= 756 && protocolVersion <= 756)
+            return 0x1D;
+        if (protocolVersion >= 757 && protocolVersion <= 758)
+            return 0x1D;
+        if (protocolVersion >= 759 && protocolVersion <= 759)
+            return 0x1A;
+        if (protocolVersion >= 760 && protocolVersion <= 760)
+            return 0x1C;
+        if (protocolVersion >= 761 && protocolVersion <= 761)
+            return 0x1B;
+        if (protocolVersion >= 762 && protocolVersion <= 763)
+            return 0x1E;
+        if (protocolVersion >= 764 && protocolVersion <= 764)
+            return 0x1F;
+        if (protocolVersion >= 765 && protocolVersion <= 765)
+            return 0x1F;
+        if (protocolVersion >= 766 && protocolVersion <= 766)
+            return 0x21;
+        if (protocolVersion >= 767 && protocolVersion <= 767)
+            return 0x21;
+        if (protocolVersion >= 768 && protocolVersion <= 769)
+            return 0x22;
+        if (protocolVersion >= 770 && protocolVersion <= 770)
+            return 0x21;
+        if (protocolVersion >= 771 && protocolVersion <= 772)
+            return 0x21;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

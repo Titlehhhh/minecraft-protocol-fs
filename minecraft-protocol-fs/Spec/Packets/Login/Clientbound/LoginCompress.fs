@@ -7,6 +7,8 @@ module LoginCompress =
 
     let loginCompress =
         packet "LoginCompressPacket" Login Clientbound All {
+            protoId "compress"
+
             api [
                 field "Threshold" TInt All
             ]

@@ -7,6 +7,8 @@ module EncryptionResponse =
 
     let encryptionResponse =
         packet "EncryptionResponsePacket" Login Serverbound All {
+            protoId "encryption_begin"
+
             api [
                 field "SharedSecret"     TBytes           All
                 field "VerifyToken"      (TOption TBytes) All

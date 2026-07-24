@@ -3,11 +3,18 @@ using McProtoNet.Protocol.Packets.Handshaking.Serverbound;
 using McProtoNet.Protocol.Packets.Login.Clientbound;
 using McProtoNet.Protocol.Packets.Login.Serverbound;
 using McProtoNet.Protocol.Packets.Play.Clientbound;
+using McProtoNet.Protocol.Packets.Status.Clientbound;
+using McProtoNet.Protocol.Packets.Status.Serverbound;
 using McProtoNet.Serialization;
 
 int version = MinecraftVersion.LatestProtocol;
 
 static string Hex(byte[] b) => Convert.ToHexString(b);
+
+static void Assert(bool condition, [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(condition))] string? expr = null)
+{
+    if (!condition) throw new Exception($"assertion failed: {expr}");
+}
 
 Console.WriteLine($"protocol version = {version}\n");
 
@@ -231,6 +238,16 @@ Console.WriteLine($"protocol version = {version}\n");
         Console.WriteLine($"SetCooldownPacket @{v}: {bytes.Length} bytes, ticks={back.CooldownTicks}, item={back.ItemId}, group={back.CooldownGroup ?? "-"}");
     }
     Console.WriteLine();
+}
+
+// --- GetPacketId: numeric ids from the McProtoFacts manifest ---
+{
+    Assert(SetProtocolPacket.GetPacketId(772) == 0x00);
+    Assert(ServerInfoPacket.GetPacketId(772) == 0x00);
+    Assert(PongResponsePacket.GetPacketId(772) == 0x01);
+    Assert(PingStartPacket.GetPacketId(772) == 0x00);
+    Assert(PingRequestPacket.GetPacketId(772) == 0x01);
+    Console.WriteLine("GetPacketId: all asserted ids ok\n");
 }
 
 Console.WriteLine("done — poke away.");

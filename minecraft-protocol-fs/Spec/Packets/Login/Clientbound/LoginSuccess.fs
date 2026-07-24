@@ -7,6 +7,8 @@ module LoginSuccess =
 
     let loginSuccess =
         packet "LoginSuccessPacket" Login Clientbound All {
+            protoId "success"
+
             api [
                 field "Uuid"                TUuid                            All
                 field "Username"            TString                          All

@@ -33,4 +33,15 @@ public sealed partial class MoveMinecartPacket : IProtocolType<MoveMinecartPacke
         foreach (var stepsItem in Steps)
             writer.WriteType<MinecartStep>(stepsItem, protocolVersion);
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 768 && protocolVersion <= 769)
+            return 0x31;
+        if (protocolVersion >= 770 && protocolVersion <= 770)
+            return 0x30;
+        if (protocolVersion >= 771 && protocolVersion <= 772)
+            return 0x30;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

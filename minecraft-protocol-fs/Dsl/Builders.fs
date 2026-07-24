@@ -8,6 +8,7 @@ module Builders =
     type PacketBuilder(name, state, direction, since) =
         let mutable apiFields: ApiField list = []
         let mutable layouts: WireLayout list = []
+        let mutable protoName = None
 
         member _.Yield(()) = ()
         member _.Zero() = ()
@@ -21,6 +22,9 @@ module Builders =
         member _.Wire((), range, entries) =
             layouts <- layouts @ [ { Range = range; Entries = entries } ]
 
+        [<CustomOperation("protoId")>]
+        member _.ProtoId((), name) = protoName <- Some name
+
         member _.Run(()) =
             {
                 ClassName = name
@@ -29,6 +33,8 @@ module Builders =
                 Since = since
                 ApiFields = apiFields
                 Layouts = layouts
+                ProtoName = protoName
+                Ids = []
             }
 
     type NamedTypeBuilder(name) =

@@ -15,4 +15,11 @@ public readonly partial record struct PingStartPacket() : IProtocolType<PingStar
     {
         ThrowHelper.ThrowIfProtocolNotSupported<PingStartPacket>(protocolVersion);
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 772)
+            return 0x00;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

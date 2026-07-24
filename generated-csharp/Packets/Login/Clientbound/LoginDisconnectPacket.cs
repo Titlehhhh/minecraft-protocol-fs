@@ -24,4 +24,13 @@ public sealed partial class LoginDisconnectPacket : IProtocolType<LoginDisconnec
         ThrowHelper.ThrowIfProtocolNotSupported<LoginDisconnectPacket>(protocolVersion);
         writer.WriteString(Reason);
     }
+
+    public static int GetPacketId(int protocolVersion)
+    {
+        if (protocolVersion >= 735 && protocolVersion <= 765)
+            return 0x00;
+        if (protocolVersion >= 766 && protocolVersion <= 772)
+            return 0x00;
+        throw new System.NotSupportedException($"No packet id for protocol {protocolVersion}.");
+    }
 }

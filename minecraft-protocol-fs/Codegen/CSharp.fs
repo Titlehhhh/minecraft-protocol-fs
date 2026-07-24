@@ -455,7 +455,13 @@ module CSharp =
                 yield s.UsingSystem
         ]
 
-    let private renderType (s: RuntimeSurface) (ns: string) (spec: NamedTypeSpec) : string =
+    let private renderType
+        (s: RuntimeSurface)
+        (ns: string)
+        (spec: NamedTypeSpec)
+        (extraMembers: MemberDeclarationSyntax list)
+        : string
+        =
         let value = spec.ApiFields |> List.forall (fun f -> isValue f.Type)
         let fields = spec.ApiFields |> List.map (fun f -> csType s f.Type, f.Name)
         let apiTypes = spec.ApiFields |> List.map (fun f -> f.Name, f.Type) |> Map.ofList
@@ -483,6 +489,7 @@ module CSharp =
         let shell =
             shell
                 .AddMembers(readMethod s spec.Name (parseBody readBody), writeMethod s value (parseBody writeBody))
+                .AddMembers(List.toArray extraMembers)
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
 
         renderUnit s ns spec.Name (usingsFor s spec.ApiFields) shell
@@ -494,8 +501,31 @@ module CSharp =
     let private packetNamespace (s: RuntimeSurface) (p: PacketSpec) : string =
         sprintf "%s.Packets.%A.%A" s.Namespace p.State p.Direction
 
-    /// A packet renders exactly like a named type; only the namespace and file placement differ.
+    /// `public static int GetPacketId(int protocolVersion)`: one guarded branch per manifest
+    /// range in ascending version order, then a throw — only emitted for packets whose `Ids` the
+    /// manifest resolved (see `PacketIds.enrich`).
+    let private getPacketIdMethod (s: RuntimeSurface) (ids: (int * int * int) list) : MemberDeclarationSyntax =
+        let body =
+            [
+                for lo, hi, id in ids |> List.sortBy (fun (lo, _, _) -> lo) ->
+                    sprintf "if (%s >= %d && %s <= %d) return 0x%02X;" s.VersionParam lo s.VersionParam hi id
+            ]
+            @ [
+                sprintf
+                    "throw new System.NotSupportedException($\"No packet id for protocol {%s}.\");"
+                    s.VersionParam
+            ]
+
+        MethodDeclaration(PredefinedType(Token SyntaxKind.IntKeyword), "GetPacketId")
+            .AddModifiers(Token SyntaxKind.PublicKeyword, Token SyntaxKind.StaticKeyword)
+            .AddParameterListParameters(Parameter(Identifier s.VersionParam).WithType(ParseTypeName "int"))
+            .WithBody(parseBody body)
+
+    /// A packet renders exactly like a named type; only the namespace, file placement, and the
+    /// optional `GetPacketId` member differ.
     let private renderPacket (s: RuntimeSurface) (p: PacketSpec) : string =
+        let extraMembers = if p.Ids.IsEmpty then [] else [ getPacketIdMethod s p.Ids ]
+
         renderType
             s
             (packetNamespace s p)
@@ -504,6 +534,7 @@ module CSharp =
                 ApiFields = p.ApiFields
                 Layouts = p.Layouts
             }
+            extraMembers
 
     // ----- bitflags -----
 
@@ -560,7 +591,7 @@ module CSharp =
         { new ILanguageTarget with
             member _.Id = "csharp"
             member _.Extension = ".cs"
-            member _.RenderType spec = renderType surface surface.Namespace spec
+            member _.RenderType spec = renderType surface surface.Namespace spec []
             member _.RenderBitflags spec = renderBitflags surface spec
             member _.RenderPacket spec = renderPacket surface spec
         }
