@@ -105,8 +105,8 @@ module CSharpSurface =
                         F64, prim "ReadDouble()" "WriteDouble" "double"
                         Str, prim "ReadString()" "WriteString" "string"
                         Uuid, prim "ReadUUID()" "WriteUUID" "Guid"
-                        Nbt, prim "ReadNbtTag(false)" "WriteNbt" "NbtTag"
-                        AnonNbt, prim "ReadNbtTag(true)" "WriteNbt" "NbtTag"
+                        Nbt, prim "ReadNbtTag(false)!" "WriteNbt" "NbtTag"
+                        AnonNbt, prim "ReadNbtTag(true)!" "WriteNbt" "NbtTag"
                         ByteArray, prim "ReadByteArray()" "WriteByteArray" "byte[]"
                         RestBytes, prim "ReadRestBytes()" "WriteRestBytes" "byte[]"
                     ]

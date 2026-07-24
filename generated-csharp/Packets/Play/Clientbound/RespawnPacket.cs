@@ -18,9 +18,10 @@ public sealed partial class RespawnPacket : IProtocolType<RespawnPacket>
     public DeathLocation? Death { get; }
     public int PortalCooldown { get; }
     public bool CopyMetadata { get; }
+    public int CopyMetadataByte { get; }
     public SpawnInfo WorldState { get; }
 
-    public RespawnPacket(string dimension, NbtTag dimensionNbt, string dimensionName, string worldName, long hashedSeed, int gamemode, int previousGamemode, bool isDebug, bool isFlat, DeathLocation? death, int portalCooldown, bool copyMetadata, SpawnInfo worldState)
+    public RespawnPacket(string dimension, NbtTag dimensionNbt, string dimensionName, string worldName, long hashedSeed, int gamemode, int previousGamemode, bool isDebug, bool isFlat, DeathLocation? death, int portalCooldown, bool copyMetadata, int copyMetadataByte, SpawnInfo worldState)
     {
         Dimension = dimension;
         DimensionNbt = dimensionNbt;
@@ -34,6 +35,7 @@ public sealed partial class RespawnPacket : IProtocolType<RespawnPacket>
         Death = death;
         PortalCooldown = portalCooldown;
         CopyMetadata = copyMetadata;
+        CopyMetadataByte = copyMetadataByte;
         WorldState = worldState;
     }
 
@@ -50,12 +52,12 @@ public sealed partial class RespawnPacket : IProtocolType<RespawnPacket>
             var isDebug = reader.ReadBoolean();
             var isFlat = reader.ReadBoolean();
             var copyMetadata = reader.ReadBoolean();
-            return new RespawnPacket(dimension, default!, default!, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, default!, default!, copyMetadata, default!);
+            return new RespawnPacket(dimension, default!, default!, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, default!, default!, copyMetadata, default!, default!);
         }
 
         if (protocolVersion >= 751 && protocolVersion <= 758)
         {
-            var dimensionNbt = reader.ReadNbtTag(false);
+            var dimensionNbt = reader.ReadNbtTag(false)!;
             var worldName = reader.ReadString();
             var hashedSeed = reader.ReadSignedLong();
             var gamemode = reader.ReadUnsignedByte();
@@ -63,7 +65,7 @@ public sealed partial class RespawnPacket : IProtocolType<RespawnPacket>
             var isDebug = reader.ReadBoolean();
             var isFlat = reader.ReadBoolean();
             var copyMetadata = reader.ReadBoolean();
-            return new RespawnPacket(default!, dimensionNbt, default!, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, default!, default!, copyMetadata, default!);
+            return new RespawnPacket(default!, dimensionNbt, default!, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, default!, default!, copyMetadata, default!, default!);
         }
 
         if (protocolVersion >= 759 && protocolVersion <= 759)
@@ -79,7 +81,7 @@ public sealed partial class RespawnPacket : IProtocolType<RespawnPacket>
             DeathLocation? death = null;
             if (reader.ReadBoolean())
                 death = reader.ReadType<DeathLocation>(protocolVersion);
-            return new RespawnPacket(default!, default!, dimensionName, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, death, default!, copyMetadata, default!);
+            return new RespawnPacket(default!, default!, dimensionName, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, death, default!, copyMetadata, default!, default!);
         }
 
         if (protocolVersion >= 760 && protocolVersion <= 762)
@@ -95,7 +97,7 @@ public sealed partial class RespawnPacket : IProtocolType<RespawnPacket>
             DeathLocation? death = null;
             if (reader.ReadBoolean())
                 death = reader.ReadType<DeathLocation>(protocolVersion);
-            return new RespawnPacket(default!, default!, dimensionName, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, death, default!, copyMetadata, default!);
+            return new RespawnPacket(default!, default!, dimensionName, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, death, default!, copyMetadata, default!, default!);
         }
 
         if (protocolVersion >= 763 && protocolVersion <= 763)
@@ -112,7 +114,7 @@ public sealed partial class RespawnPacket : IProtocolType<RespawnPacket>
             if (reader.ReadBoolean())
                 death = reader.ReadType<DeathLocation>(protocolVersion);
             var portalCooldown = reader.ReadVarInt();
-            return new RespawnPacket(default!, default!, dimensionName, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, death, portalCooldown, copyMetadata, default!);
+            return new RespawnPacket(default!, default!, dimensionName, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, death, portalCooldown, copyMetadata, default!, default!);
         }
 
         if (protocolVersion >= 764 && protocolVersion <= 765)
@@ -129,14 +131,14 @@ public sealed partial class RespawnPacket : IProtocolType<RespawnPacket>
                 death = reader.ReadType<DeathLocation>(protocolVersion);
             var portalCooldown = reader.ReadVarInt();
             var copyMetadata = reader.ReadBoolean();
-            return new RespawnPacket(default!, default!, dimensionName, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, death, portalCooldown, copyMetadata, default!);
+            return new RespawnPacket(default!, default!, dimensionName, worldName, hashedSeed, gamemode, previousGamemode, isDebug, isFlat, death, portalCooldown, copyMetadata, default!, default!);
         }
 
         if (protocolVersion >= 766)
         {
             var worldState = reader.ReadType<SpawnInfo>(protocolVersion);
-            var copyMetadata = reader.ReadUnsignedByte();
-            return new RespawnPacket(default!, default!, default!, default!, default!, default!, default!, default!, default!, default!, default!, copyMetadata, worldState);
+            var copyMetadataByte = reader.ReadUnsignedByte();
+            return new RespawnPacket(default!, default!, default!, default!, default!, default!, default!, default!, default!, default!, default!, default!, copyMetadataByte, worldState);
         }
 
         throw new System.NotSupportedException($"RespawnPacket has no wire layout for protocol version {protocolVersion}.");
@@ -240,7 +242,7 @@ public sealed partial class RespawnPacket : IProtocolType<RespawnPacket>
         if (protocolVersion >= 766)
         {
             writer.WriteType<SpawnInfo>(WorldState, protocolVersion);
-            writer.WriteUnsignedByte((byte)CopyMetadata);
+            writer.WriteUnsignedByte((byte)CopyMetadataByte);
             return;
         }
 

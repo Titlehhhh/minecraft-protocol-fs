@@ -26,7 +26,7 @@ public sealed partial class DisconnectPacket : IProtocolType<DisconnectPacket>
 
         if (protocolVersion >= 765)
         {
-            var reason = reader.ReadNbtTag(true);
+            var reason = reader.ReadNbtTag(true)!;
             return new DisconnectPacket(default!, reason);
         }
 
