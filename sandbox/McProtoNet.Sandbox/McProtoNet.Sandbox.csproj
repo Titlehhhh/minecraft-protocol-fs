@@ -19,7 +19,8 @@
                           ..\..\generated-csharp\Packets\Play\Clientbound\EntityMetadataPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\MapPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\RespawnPacket.cs;
-                          ..\..\generated-csharp\Packets\Play\Serverbound\WindowClickPacket.cs"
+                          ..\..\generated-csharp\Packets\Play\Serverbound\WindowClickPacket.cs;
+                          ..\..\generated-csharp\Packets\Configuration\Clientbound\DisconnectPacket.cs"
                  Link="Generated\%(RecursiveDir)%(Filename)%(Extension)"/>
     </ItemGroup>
 

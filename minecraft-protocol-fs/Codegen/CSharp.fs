@@ -27,11 +27,29 @@ module CSharp =
 
     // ----- small text helpers -----
 
+    /// C# reserved keywords; a camel-cased identifier that collides with one must be verbatim
+    /// (`@namespace`), else Roslyn emits the bare keyword and the file fails to parse.
+    let private csharpKeywords =
+        set [
+            "abstract"; "as"; "base"; "bool"; "break"; "byte"; "case"; "catch"; "char"; "checked"
+            "class"; "const"; "continue"; "decimal"; "default"; "delegate"; "do"; "double"; "else"
+            "enum"; "event"; "explicit"; "extern"; "false"; "finally"; "fixed"; "float"; "for"
+            "foreach"; "goto"; "if"; "implicit"; "in"; "int"; "interface"; "internal"; "is"; "lock"
+            "long"; "namespace"; "new"; "null"; "object"; "operator"; "out"; "override"; "params"
+            "private"; "protected"; "public"; "readonly"; "ref"; "return"; "sbyte"; "sealed"
+            "short"; "sizeof"; "stackalloc"; "static"; "string"; "struct"; "switch"; "this"; "throw"
+            "true"; "try"; "typeof"; "uint"; "ulong"; "unchecked"; "unsafe"; "ushort"; "using"
+            "virtual"; "void"; "volatile"; "while"
+        ]
+
     let private camel (s: string) =
-        if s.Length = 0 || s.[0] = '_' then
-            s
-        else
-            string (System.Char.ToLower s.[0]) + s.[1..]
+        let n =
+            if s.Length = 0 || s.[0] = '_' then
+                s
+            else
+                string (System.Char.ToLower s.[0]) + s.[1..]
+
+        if csharpKeywords.Contains n then "@" + n else n
 
     let private pascal (s: string) =
         if s.Length = 0 then
