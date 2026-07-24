@@ -1,7 +1,7 @@
 using McProtoNet.Protocol.Attributes;
 using McProtoNet.Serialization;
 
-namespace McProtoNet.Protocol;
+namespace McProtoNet.Protocol.Packets.Play.Clientbound;
 [ProtocolSupport(768, MinecraftVersion.LatestProtocol)]
 public sealed partial class MoveMinecartPacket : IProtocolType<MoveMinecartPacket>
 {

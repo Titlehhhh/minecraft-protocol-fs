@@ -1,7 +1,7 @@
 using McProtoNet.Protocol.Attributes;
 using McProtoNet.Serialization;
 
-namespace McProtoNet.Protocol;
+namespace McProtoNet.Protocol.Packets.Login.Serverbound;
 [ProtocolSupport(764, MinecraftVersion.LatestProtocol)]
 public readonly partial record struct LoginAcknowledgedPacket() : IProtocolType<LoginAcknowledgedPacket>
 {

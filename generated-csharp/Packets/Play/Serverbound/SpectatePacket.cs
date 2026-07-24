@@ -2,7 +2,7 @@ using McProtoNet.Protocol.Attributes;
 using McProtoNet.Serialization;
 using System;
 
-namespace McProtoNet.Protocol;
+namespace McProtoNet.Protocol.Packets.Play.Serverbound;
 [ProtocolSupport(MinecraftVersion.StartProtocol, MinecraftVersion.LatestProtocol)]
 public readonly partial record struct SpectatePacket(Guid Target) : IProtocolType<SpectatePacket>
 {

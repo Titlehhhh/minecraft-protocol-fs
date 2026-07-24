@@ -1,7 +1,7 @@
 using McProtoNet.Protocol.Attributes;
 using McProtoNet.Serialization;
 
-namespace McProtoNet.Protocol;
+namespace McProtoNet.Protocol.Packets.Play.Clientbound;
 [ProtocolSupport(MinecraftVersion.StartProtocol, MinecraftVersion.LatestProtocol)]
 public readonly partial record struct UpdateHealthPacket(float Health, int Food, float FoodSaturation) : IProtocolType<UpdateHealthPacket>
 {

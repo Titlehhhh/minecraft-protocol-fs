@@ -1,7 +1,7 @@
 using McProtoNet.Protocol.Attributes;
 using McProtoNet.Serialization;
 
-namespace McProtoNet.Protocol;
+namespace McProtoNet.Protocol.Packets.Play.Clientbound;
 [ProtocolSupport(762, MinecraftVersion.LatestProtocol)]
 public readonly partial record struct HurtAnimationPacket(int EntityId, float Yaw) : IProtocolType<HurtAnimationPacket>
 {

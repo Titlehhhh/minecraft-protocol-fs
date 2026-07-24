@@ -2,7 +2,7 @@ using McProtoNet.Protocol.Attributes;
 using McProtoNet.Serialization;
 using System;
 
-namespace McProtoNet.Protocol;
+namespace McProtoNet.Protocol.Packets.Play.Clientbound;
 [ProtocolSupport(MinecraftVersion.StartProtocol, MinecraftVersion.LatestProtocol)]
 public readonly partial record struct SpawnEntityPacket(int EntityId, Guid ObjectUuid, int Type, double X, double Y, double Z, int Pitch, int Yaw, int HeadPitch, int ObjectData, int VelocityX, int VelocityY, int VelocityZ) : IProtocolType<SpawnEntityPacket>
 {

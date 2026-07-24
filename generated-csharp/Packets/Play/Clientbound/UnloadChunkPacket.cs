@@ -1,7 +1,7 @@
 using McProtoNet.Protocol.Attributes;
 using McProtoNet.Serialization;
 
-namespace McProtoNet.Protocol;
+namespace McProtoNet.Protocol.Packets.Play.Clientbound;
 [ProtocolSupport(MinecraftVersion.StartProtocol, MinecraftVersion.LatestProtocol)]
 public readonly partial record struct UnloadChunkPacket(int ChunkX, int ChunkZ) : IProtocolType<UnloadChunkPacket>
 {

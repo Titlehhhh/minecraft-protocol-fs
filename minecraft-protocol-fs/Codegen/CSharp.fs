@@ -199,6 +199,7 @@ module CSharp =
     /// Assemble usings + file-scoped namespace + one type into formatted, *validated* source text.
     let private renderUnit
         (s: RuntimeSurface)
+        (ns: string)
         (label: string)
         (usingNames: string list)
         (decl: MemberDeclarationSyntax)
@@ -207,7 +208,7 @@ module CSharp =
         let cu =
             CompilationUnit()
                 .AddUsings([| for u in usingNames -> UsingDirective(ParseName u) |])
-                .AddMembers(FileScopedNamespaceDeclaration(ParseName s.Namespace).AddMembers(decl))
+                .AddMembers(FileScopedNamespaceDeclaration(ParseName ns).AddMembers(decl))
                 .NormalizeWhitespace("    ", "\n", false)
 
         let errors =
@@ -454,7 +455,7 @@ module CSharp =
                 yield s.UsingSystem
         ]
 
-    let private renderType (s: RuntimeSurface) (spec: NamedTypeSpec) : string =
+    let private renderType (s: RuntimeSurface) (ns: string) (spec: NamedTypeSpec) : string =
         let value = spec.ApiFields |> List.forall (fun f -> isValue f.Type)
         let fields = spec.ApiFields |> List.map (fun f -> csType s f.Type, f.Name)
         let apiTypes = spec.ApiFields |> List.map (fun f -> f.Name, f.Type) |> Map.ofList
@@ -484,14 +485,20 @@ module CSharp =
                 .AddMembers(readMethod s spec.Name (parseBody readBody), writeMethod s value (parseBody writeBody))
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
 
-        renderUnit s spec.Name (usingsFor s spec.ApiFields) shell
+        renderUnit s ns spec.Name (usingsFor s spec.ApiFields) shell
 
     // ----- packets -----
 
-    /// A packet renders exactly like a named type; only the file placement differs.
+    /// Packets live under `<root>.Packets.<State>.<Direction>` so same-named packets from
+    /// different states/directions (e.g. `KeepAlivePacket` in Configuration vs Play) don't collide.
+    let private packetNamespace (s: RuntimeSurface) (p: PacketSpec) : string =
+        sprintf "%s.Packets.%A.%A" s.Namespace p.State p.Direction
+
+    /// A packet renders exactly like a named type; only the namespace and file placement differ.
     let private renderPacket (s: RuntimeSurface) (p: PacketSpec) : string =
         renderType
             s
+            (packetNamespace s p)
             {
                 Name = p.ClassName
                 ApiFields = p.ApiFields
@@ -544,7 +551,7 @@ module CSharp =
                 .AddMembers(readMethod s name (parseBody readBody), writeMethod s true (parseBody writeBody))
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
 
-        renderUnit s name [ s.UsingAttributes; s.UsingSerialization ] shell
+        renderUnit s s.Namespace name [ s.UsingAttributes; s.UsingSerialization ] shell
 
     // ----- target -----
 
@@ -553,7 +560,7 @@ module CSharp =
         { new ILanguageTarget with
             member _.Id = "csharp"
             member _.Extension = ".cs"
-            member _.RenderType spec = renderType surface spec
+            member _.RenderType spec = renderType surface surface.Namespace spec
             member _.RenderBitflags spec = renderBitflags surface spec
             member _.RenderPacket spec = renderPacket surface spec
         }

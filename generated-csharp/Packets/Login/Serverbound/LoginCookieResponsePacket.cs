@@ -1,7 +1,7 @@
 using McProtoNet.Protocol.Attributes;
 using McProtoNet.Serialization;
 
-namespace McProtoNet.Protocol;
+namespace McProtoNet.Protocol.Packets.Login.Serverbound;
 [ProtocolSupport(766, MinecraftVersion.LatestProtocol)]
 public sealed partial class LoginCookieResponsePacket : IProtocolType<LoginCookieResponsePacket>
 {

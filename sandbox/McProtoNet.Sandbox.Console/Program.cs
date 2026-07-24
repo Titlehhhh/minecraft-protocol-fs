@@ -1,4 +1,8 @@
 using McProtoNet.Protocol;
+using McProtoNet.Protocol.Packets.Handshaking.Serverbound;
+using McProtoNet.Protocol.Packets.Login.Clientbound;
+using McProtoNet.Protocol.Packets.Login.Serverbound;
+using McProtoNet.Protocol.Packets.Play.Clientbound;
 using McProtoNet.Serialization;
 
 int version = MinecraftVersion.LatestProtocol;

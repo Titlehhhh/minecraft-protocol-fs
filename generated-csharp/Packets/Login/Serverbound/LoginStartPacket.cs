@@ -2,7 +2,7 @@ using McProtoNet.Protocol.Attributes;
 using McProtoNet.Serialization;
 using System;
 
-namespace McProtoNet.Protocol;
+namespace McProtoNet.Protocol.Packets.Login.Serverbound;
 [ProtocolSupport(MinecraftVersion.StartProtocol, MinecraftVersion.LatestProtocol)]
 public sealed partial class LoginStartPacket : IProtocolType<LoginStartPacket>
 {
