@@ -19,7 +19,8 @@ module Respawn =
                 field "IsFlat"           TBool                             (Until 765)
                 field "Death"            (TOption(TNamed "DeathLocation")) (Between(759, 765))
                 field "PortalCooldown"   TInt                              (Between(763, 765))
-                field "CopyMetadata"     TBool                             All
+                field "CopyMetadata"     TBool                             (Until 765)
+                field "CopyMetadataByte" TInt                              (Since 766)
                 field "WorldState"       (TNamed "SpawnInfo")              (Since 766)
             ]
 
@@ -97,6 +98,6 @@ module Respawn =
 
             wire (Since 766) [
                 read "worldState"   (Named "SpawnInfo") "WorldState"
-                read "copyMetadata" U8                   "CopyMetadata"
+                read "copyMetadata" U8                   "CopyMetadataByte"
             ]
         }
