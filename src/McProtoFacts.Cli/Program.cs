@@ -78,6 +78,24 @@ static async Task<int> RunAsync(string[] args)
             case "composition":
                 return WriteById(args, id => query.GetPacketComposition(id), format);
 
+            case "ids":
+            {
+                var rawPv = ReadOption(args, "--pv");
+                if (rawPv is not null)
+                {
+                    if (!int.TryParse(rawPv, out var pv))
+                    {
+                        Console.Error.WriteLine($"Invalid --pv value '{rawPv}'. Expected a protocol version number.");
+                        return InvalidArgs;
+                    }
+
+                    Write(query.GetPacketIdMap(pv, ReadOption(args, "--ns"), ReadOption(args, "--direction")), format);
+                    return Ok;
+                }
+
+                return WriteById(args, id => query.GetPacketIds(id), format);
+            }
+
             case "chunks":
             {
                 var maxChars = ReadIntOption(args, "--max-chars") ?? 900;
@@ -233,6 +251,8 @@ mcproto-facts commands:
   packet <packet-id> [--format json|toon]
   type <type-id> [--format json|toon]
   composition <packet-id> [--format json|toon]
+  ids <packet-id> [--format json|toon]       (numeric wire ids per protocol version range)
+  ids --pv <N> [--ns play] [--direction toClient|toServer] [--format json|toon]
   chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
   stats [--format json|toon]
   order [--format json|toon]                 (type build order, simple -> complex)

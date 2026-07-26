@@ -125,6 +125,83 @@ public sealed class ProtocolQueryService
             Tier: _thresholds.Classify(score).ToLabel());
     }
 
+    public PacketIdsResult GetPacketIds(string id)
+    {
+        var packet = _repository.GetPacket(id);
+
+        var ranges = new List<(ProtocolRange Range, int Id)>();
+        foreach (var entry in packet.PacketIds.OrderBy(entry => entry.Range.From))
+        {
+            if (ranges.Count > 0
+                && ranges[^1].Id == entry.Id
+                && ranges[^1].Range.To + 1 == entry.Range.From)
+            {
+                ranges[^1] = (new ProtocolRange(ranges[^1].Range.From, entry.Range.To), entry.Id);
+                continue;
+            }
+
+            ranges.Add((entry.Range, entry.Id));
+        }
+
+        return new PacketIdsResult(
+            Id: id,
+            Name: packet.Name,
+            Ranges: ranges
+                .Select(entry => new PacketIdRangeEntry(
+                    Versions: entry.Range.ToString(),
+                    Hex: $"0x{entry.Id:X2}",
+                    Dec: entry.Id))
+                .ToArray());
+    }
+
+    public PacketIdMapResult GetPacketIdMap(int protocolVersion, string? ns = null, string? direction = null)
+    {
+        var supported = _repository.GetSupportedProtocols();
+        if (!supported.Contains(protocolVersion))
+            throw new ArgumentException(
+                $"Protocol version {protocolVersion} is outside the supported range {supported}.");
+
+        var entries = new List<PacketIdMapEntry>();
+        foreach (var (packetNamespace, packetMap) in _repository.GetPackets())
+        {
+            if (!MatchesNamespace(packetNamespace, ns, direction)) continue;
+
+            foreach (var (name, def) in packetMap)
+            {
+                var match = def.PacketIds.FirstOrDefault(entry => entry.Range.Contains(protocolVersion));
+                if (match is null) continue;
+
+                entries.Add(new PacketIdMapEntry(
+                    Id: $"{packetNamespace}.{name}",
+                    Hex: $"0x{match.Id:X2}",
+                    Dec: match.Id));
+            }
+        }
+
+        var ordered = entries
+            .OrderBy(entry => entry.Id[..entry.Id.LastIndexOf('.')], StringComparer.Ordinal)
+            .ThenBy(entry => entry.Dec)
+            .ThenBy(entry => entry.Id, StringComparer.Ordinal)
+            .ToArray();
+
+        return new PacketIdMapResult(
+            ProtocolVersion: protocolVersion,
+            Ns: string.IsNullOrWhiteSpace(ns) ? null : ns,
+            Direction: string.IsNullOrWhiteSpace(direction) ? null : direction,
+            Count: ordered.Length,
+            Packets: ordered);
+    }
+
+    private static bool MatchesNamespace(string packetNamespace, string? ns, string? direction)
+    {
+        if (!string.IsNullOrWhiteSpace(ns)
+            && !packetNamespace.Equals(ns, StringComparison.Ordinal)
+            && !packetNamespace.StartsWith(ns + ".", StringComparison.Ordinal)) return false;
+        if (!string.IsNullOrWhiteSpace(direction)
+            && !packetNamespace.EndsWith("." + direction, StringComparison.Ordinal)) return false;
+        return true;
+    }
+
     public string[] GetPacketComposition(string id)
     {
         var packet = _repository.GetPacket(id);
@@ -343,6 +420,22 @@ public sealed record SchemaResult(
     string Toon,
     int ComplexityScore,
     string Tier);
+
+public sealed record PacketIdRangeEntry(string Versions, string Hex, int Dec);
+
+public sealed record PacketIdsResult(
+    string Id,
+    string Name,
+    IReadOnlyList<PacketIdRangeEntry> Ranges);
+
+public sealed record PacketIdMapEntry(string Id, string Hex, int Dec);
+
+public sealed record PacketIdMapResult(
+    int ProtocolVersion,
+    string? Ns,
+    string? Direction,
+    int Count,
+    IReadOnlyList<PacketIdMapEntry> Packets);
 
 public sealed record ProtocolTierStats(int Tiny, int Easy, int Medium, int Heavy);
 
