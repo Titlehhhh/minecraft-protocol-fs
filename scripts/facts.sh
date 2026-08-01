@@ -4,7 +4,7 @@
 # Use this for a single query. For many queries in a session, run serve-facts.sh instead.
 #
 # Examples:
-#   scripts/facts.sh type entity_metadata --format toon
+#   scripts/facts.sh type entityMetadata --format toon
 #   scripts/facts.sh packet play.toClient.teams --format toon
 #   scripts/facts.sh composition play.toClient.map --format json
 #   scripts/facts.sh packets --filter metadata --format json
