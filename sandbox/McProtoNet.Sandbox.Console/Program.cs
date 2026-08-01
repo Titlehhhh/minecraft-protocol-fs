@@ -240,6 +240,24 @@ Console.WriteLine($"protocol version = {version}\n");
     Console.WriteLine();
 }
 
+// --- SpawnPositionPacket: MULTIVERSION — position only @754, +angle f32 @755 ---
+{
+    var pkt = new SpawnPositionPacket(new Position(10, 64, -20), 90f);
+    foreach (var v in new[] { 754, 772 })
+    {
+        var w = new MinecraftPrimitiveWriter();
+        pkt.Write(w, v);
+        var bytes = w.ToArray();
+        var r = new MinecraftPrimitiveReader(bytes);
+        var back = SpawnPositionPacket.Read(ref r, v);
+        var ok = back.Location == pkt.Location && back.Angle == (v >= 755 ? 90f : 0f);
+        Console.WriteLine($"SpawnPositionPacket @{v}: {bytes.Length} bytes, roundtrip: {ok}, loc={back.Location}");
+    }
+    Assert(SpawnPositionPacket.GetPacketId(735) == 0x42);
+    Assert(SpawnPositionPacket.GetPacketId(772) == 0x5A);
+    Console.WriteLine();
+}
+
 // --- GetPacketId: numeric ids from the McProtoFacts manifest ---
 {
     Assert(SetProtocolPacket.GetPacketId(772) == 0x00);
