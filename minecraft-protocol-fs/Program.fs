@@ -72,7 +72,43 @@ let main argv =
             files |> List.tryFind (fun f -> Path.GetFileNameWithoutExtension f.RelativePath = name))
         |> Option.iter (fun f -> printfn "\n----- %s -----\n%s" f.RelativePath f.Contents)
 
-        0
+        // A stubbed file (TODO(codegen) inside) still compiles, so the set of known stubs
+        // is kept explicit: every such file must be listed in Spec/todo-allowlist.txt,
+        // otherwise gen fails and the delivery script aborts on the non-zero exit code.
+        let normalize (p: string) = p.Replace('\\', '/')
+
+        let todoFiles =
+            files
+            |> List.filter (fun f -> f.Contents.Contains "TODO(codegen)")
+            |> List.map (fun f -> normalize f.RelativePath)
+
+        let allowlistPath =
+            Path.Combine(__SOURCE_DIRECTORY__, "Spec", "todo-allowlist.txt")
+
+        let allowed =
+            if File.Exists allowlistPath then
+                File.ReadAllLines allowlistPath
+                |> Array.map (fun l -> normalize (l.Trim()))
+                |> Array.filter (fun l -> l <> "" && not (l.StartsWith "#"))
+                |> Set.ofArray
+            else
+                Set.empty
+
+        for f in todoFiles |> List.filter allowed.Contains do
+            printfn "stub (allowlisted): %s" f
+
+        for a in allowed |> Set.filter (fun a -> not (List.contains a todoFiles)) do
+            printfn "warning: todo-allowlist entry has no stubs anymore: %s" a
+
+        match todoFiles |> List.filter (allowed.Contains >> not) with
+        | [] -> 0
+        | unexpected ->
+            eprintfn "error: %d file(s) contain TODO(codegen) stubs and are not in %s:" unexpected.Length allowlistPath
+
+            for f in unexpected do
+                eprintfn "  %s" f
+
+            1
     | _ ->
         Printer.printProtocol protocol
         0

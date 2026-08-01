@@ -17,16 +17,15 @@ public sealed partial class EntityMetadataPacket : IProtocolType<EntityMetadataP
     public static EntityMetadataPacket Read(ref MinecraftPrimitiveReader reader, int protocolVersion)
     {
         ThrowHelper.ThrowIfProtocolNotSupported<EntityMetadataPacket>(protocolVersion);
-        var entityId = reader.ReadVarInt();
         // TODO(codegen): read 'Metadata' (SentinelArray (Named "EntityMetadataEntry", 255))
-        return new EntityMetadataPacket(entityId, default!);
+        throw new System.NotImplementedException("TODO(codegen): EntityMetadataPacket wire layout is not fully generated for this protocol version.");
     }
 
     public void Write(MinecraftPrimitiveWriter writer, int protocolVersion)
     {
         ThrowHelper.ThrowIfProtocolNotSupported<EntityMetadataPacket>(protocolVersion);
-        writer.WriteVarInt(EntityId);
-    // TODO(codegen): write 'Metadata' (SentinelArray (Named "EntityMetadataEntry", 255))
+        // TODO(codegen): write 'Metadata' (SentinelArray (Named "EntityMetadataEntry", 255))
+        throw new System.NotImplementedException("TODO(codegen): EntityMetadataPacket wire layout is not fully generated for this protocol version.");
     }
 
     public static int GetPacketId(int protocolVersion)

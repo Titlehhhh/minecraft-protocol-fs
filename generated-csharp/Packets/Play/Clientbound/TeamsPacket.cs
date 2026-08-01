@@ -19,18 +19,14 @@ public sealed partial class TeamsPacket : IProtocolType<TeamsPacket>
         ThrowHelper.ThrowIfProtocolNotSupported<TeamsPacket>(protocolVersion);
         if (protocolVersion <= 764)
         {
-            var teamName = reader.ReadString();
-            var _mode = reader.ReadSignedByte();
             // TODO(codegen): ReadUnion ("_mode", "TeamAction", "Action")
-            return new TeamsPacket(teamName, default!);
+            throw new System.NotImplementedException("TODO(codegen): TeamsPacket wire layout is not fully generated for this protocol version.");
         }
 
         if (protocolVersion >= 771)
         {
-            var teamName = reader.ReadString();
-            var _mode = reader.ReadVarInt();
             // TODO(codegen): ReadUnion ("_mode", "TeamAction", "Action")
-            return new TeamsPacket(teamName, default!);
+            throw new System.NotImplementedException("TODO(codegen): TeamsPacket wire layout is not fully generated for this protocol version.");
         }
 
         throw new System.NotSupportedException($"TeamsPacket has no wire layout for protocol version {protocolVersion}.");
@@ -41,18 +37,16 @@ public sealed partial class TeamsPacket : IProtocolType<TeamsPacket>
         ThrowHelper.ThrowIfProtocolNotSupported<TeamsPacket>(protocolVersion);
         if (protocolVersion <= 764)
         {
-            writer.WriteString(TeamName);
             // TODO(codegen): write wire-only '_mode' (derive from model)
             // TODO(codegen): ReadUnion ("_mode", "TeamAction", "Action")
-            return;
+            throw new System.NotImplementedException("TODO(codegen): TeamsPacket wire layout is not fully generated for this protocol version.");
         }
 
         if (protocolVersion >= 771)
         {
-            writer.WriteString(TeamName);
             // TODO(codegen): write wire-only '_mode' (derive from model)
             // TODO(codegen): ReadUnion ("_mode", "TeamAction", "Action")
-            return;
+            throw new System.NotImplementedException("TODO(codegen): TeamsPacket wire layout is not fully generated for this protocol version.");
         }
 
         throw new System.NotSupportedException($"TeamsPacket has no wire layout for protocol version {protocolVersion}.");

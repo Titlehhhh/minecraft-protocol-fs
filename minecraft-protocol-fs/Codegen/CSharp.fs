@@ -63,6 +63,13 @@ module CSharp =
     let private todoLine (what: string) =
         sprintf "// TODO(codegen): %s" (oneLine what)
 
+    /// A stub branch must fail loudly at runtime: silently reading/writing a partial wire
+    /// (the pre-2026-08-01 behaviour) corrupts the stream for that protocol version.
+    let private throwTodoLine (typeName: string) =
+        sprintf
+            "throw new System.NotImplementedException(\"TODO(codegen): %s wire layout is not fully generated for this protocol version.\");"
+            typeName
+
     /// Value types become `record struct`; everything else a `sealed class` (mirrors McProtoNet).
     let private isValue =
         function
@@ -403,36 +410,46 @@ module CSharp =
         =
         let results = l.Entries |> List.map (fun e -> e, readEntryLines s e)
 
-        let bound =
-            results
-            |> List.choose (function
-                | Read(_, _, api), Ok _ -> Some(localName s api)
-                | _ -> None)
-            |> Set.ofList
+        let errors = results |> List.choose (function _, Error e -> Some e | _ -> None)
 
-        let lines =
-            results
-            |> List.collect (function
-                | _, Ok ls -> ls
-                | _, Error e -> [ todoLine e ])
+        if not (List.isEmpty errors) then
+            (errors |> List.map todoLine) @ [ throwTodoLine name ]
+        else
+            let bound =
+                results
+                |> List.choose (function
+                    | Read(_, _, api), Ok _ -> Some(localName s api)
+                    | _ -> None)
+                |> Set.ofList
 
-        let ctorArgs =
-            apiFields
-            |> List.map (fun f ->
-                if bound.Contains(localName s f.Name) then
-                    localName s f.Name
-                else
-                    "default!")
-            |> String.concat ", "
+            let lines = results |> List.collect (function _, Ok ls -> ls | _, Error _ -> [])
 
-        lines @ [ sprintf "return new %s(%s);" name ctorArgs ]
+            let ctorArgs =
+                apiFields
+                |> List.map (fun f ->
+                    if bound.Contains(localName s f.Name) then
+                        localName s f.Name
+                    else
+                        "default!")
+                |> String.concat ", "
 
-    let private layoutWriteLines (s: RuntimeSurface) (apiTypes: Map<string, ApiType>) (l: WireLayout) : string list =
-        l.Entries
-        |> List.collect (fun e ->
-            match writeEntryLines s apiTypes e with
-            | Ok ls -> ls
-            | Error err -> [ todoLine err ])
+            lines @ [ sprintf "return new %s(%s);" name ctorArgs ]
+
+    let private layoutWriteLines
+        (s: RuntimeSurface)
+        (name: string)
+        (apiTypes: Map<string, ApiType>)
+        (l: WireLayout)
+        : string list
+        =
+        let results = l.Entries |> List.map (writeEntryLines s apiTypes)
+
+        let errors = results |> List.choose (function Error e -> Some e | _ -> None)
+
+        if not (List.isEmpty errors) then
+            (errors |> List.map todoLine) @ [ throwTodoLine name ]
+        else
+            results |> List.collect (function Ok ls -> ls | Error _ -> [])
 
     /// One guarded branch per layout. A single unconditional layout stays flat (the support
     /// attribute already gates its span); with several layouts, a version that matches none throws.
@@ -451,7 +468,10 @@ module CSharp =
 
             [
                 for r, body in layouts do
-                    let body = if isWrite then body @ [ "return;" ] else body
+                    let endsWithThrow =
+                        body |> List.tryLast |> Option.exists (fun (l: string) -> l.StartsWith "throw")
+
+                    let body = if isWrite && not endsWithThrow then body @ [ "return;" ] else body
 
                     match guardCondition s r with
                     | Some c -> yield! [ sprintf "if (%s)" c; "{" ] @ body @ [ "}" ]
@@ -496,7 +516,13 @@ module CSharp =
 
         let writeBody =
             gateLine s spec.Name
-            :: versionedBody s spec.Name true [ for l in spec.Layouts -> l.Range, layoutWriteLines s apiTypes l ]
+            :: versionedBody
+                s
+                spec.Name
+                true
+                [
+                    for l in spec.Layouts -> l.Range, layoutWriteLines s spec.Name apiTypes l
+                ]
 
         let shell =
             if value then
@@ -562,7 +588,7 @@ module CSharp =
 
         let readCore (l: BitflagsLayout) =
             match integralBacking s l.Backing with
-            | None -> [ todoLine (sprintf "backing %A" l.Backing); "return default;" ]
+            | None -> [ todoLine (sprintf "backing %A" l.Backing); throwTodoLine name ]
             | Some p ->
                 let args =
                     apiFlags
@@ -579,7 +605,7 @@ module CSharp =
 
         let writeCore (l: BitflagsLayout) =
             match integralBacking s l.Backing with
-            | None -> [ todoLine (sprintf "backing %A" l.Backing) ]
+            | None -> [ todoLine (sprintf "backing %A" l.Backing); throwTodoLine name ]
             | Some p ->
                 [
                     yield sprintf "%s flags = 0;" p.CsType

@@ -17,17 +17,15 @@ public sealed partial class EntityMetadataEntry : IProtocolType<EntityMetadataEn
     public static EntityMetadataEntry Read(ref MinecraftPrimitiveReader reader, int protocolVersion)
     {
         ThrowHelper.ThrowIfProtocolNotSupported<EntityMetadataEntry>(protocolVersion);
-        var index = reader.ReadUnsignedByte();
-        var _type = reader.ReadVarInt();
         // TODO(codegen): ReadUnion ("_type", "EntityMetadataValue", "Value")
-        return new EntityMetadataEntry(index, default!);
+        throw new System.NotImplementedException("TODO(codegen): EntityMetadataEntry wire layout is not fully generated for this protocol version.");
     }
 
     public void Write(MinecraftPrimitiveWriter writer, int protocolVersion)
     {
         ThrowHelper.ThrowIfProtocolNotSupported<EntityMetadataEntry>(protocolVersion);
-        writer.WriteUnsignedByte((byte)Index);
-    // TODO(codegen): write wire-only '_type' (derive from model)
-    // TODO(codegen): ReadUnion ("_type", "EntityMetadataValue", "Value")
+        // TODO(codegen): write wire-only '_type' (derive from model)
+        // TODO(codegen): ReadUnion ("_type", "EntityMetadataValue", "Value")
+        throw new System.NotImplementedException("TODO(codegen): EntityMetadataEntry wire layout is not fully generated for this protocol version.");
     }
 }
