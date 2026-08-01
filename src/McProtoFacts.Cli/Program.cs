@@ -158,7 +158,16 @@ static int WriteSchema(string[] args, Func<string, SchemaResult> load, OutputFor
     var id = ReadId(args);
     if (id is null) return InvalidArgs;
 
-    Write(load(id), format);
+    // The schema is already rendered in the requested format; re-serializing the whole
+    // SchemaResult record would bury it as a triple escaped-string-inside-JSON payload
+    // (the record keeps Json/Toon copies for the REST endpoints, not for the terminal).
+    var result = load(id);
+    Console.Out.WriteLine($"Id: {result.Id}");
+    Console.Out.WriteLine($"Name: {result.Name}");
+    Console.Out.WriteLine($"ComplexityScore: {result.ComplexityScore}");
+    Console.Out.WriteLine($"Tier: {result.Tier}");
+    Console.Out.WriteLine();
+    Console.Out.WriteLine(result.Schema);
     return Ok;
 }
 
@@ -183,6 +192,7 @@ static JsonSerializerOptions JsonOptions()
     var options = new JsonSerializerOptions
     {
         WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         TypeInfoResolver = new DefaultJsonTypeInfoResolver()
     };
     foreach (var converter in Protodef.ProtodefType.DefaultJsonOptions.Converters)

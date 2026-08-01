@@ -26,6 +26,7 @@ public static class ProtocolSchemaSerializer
             _ => JsonSerializer.Serialize(json, new JsonSerializerOptions
             {
                 WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
                 TypeInfoResolver = new DefaultJsonTypeInfoResolver()
             })
         };
