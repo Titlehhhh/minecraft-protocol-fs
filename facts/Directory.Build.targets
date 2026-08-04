@@ -1,0 +1,56 @@
+<Project>
+    <PropertyGroup>
+
+    </PropertyGroup>
+
+    <Target Name="GenerateMinecraftPaths" BeforeTargets="BeforeBuild">
+        <PropertyGroup>
+            <GeneratedFile>$(GeneratedDir)/MinecraftPaths.generated.cs</GeneratedFile>
+            <GenCode>
+                <![CDATA[
+namespace McProtoFacts.Constants%3B
+
+public static partial class MinecraftDataPaths
+{
+    public const string DataDir = @"$(MinecraftDataDir)$(DirSep)"%3B
+}
+    ]]>
+            </GenCode>
+        </PropertyGroup>
+
+        <MakeDir Directories="$(GeneratedDir)" Condition="!Exists('$(GeneratedDir)')"/>
+
+
+        <WriteLinesToFile File="$(GeneratedFile)" Overwrite="true" WriteOnlyWhenDifferent="true" Lines="$(GenCode)"/>
+        <ItemGroup>
+            <Compile Include="$(GeneratedFile)"/>
+        </ItemGroup>
+    </Target>
+
+
+    <Target Name="GenerateArtifactsPaths" BeforeTargets="BeforeBuild">
+        <PropertyGroup>
+            <GeneratedFile>$(GeneratedDir)/ArtifactsPaths.generated.cs</GeneratedFile>
+            <GenCode>
+                <![CDATA[
+namespace McProtoFacts.Constants%3B
+
+public static partial class ArtifactsPaths
+{
+    public const string ArtifactsDir = @"$(ArtifactsDir)$(DirSep)"%3B
+}
+    ]]>
+            </GenCode>
+        </PropertyGroup>
+
+        <MakeDir Directories="$(GeneratedDir)" Condition="!Exists('$(GeneratedDir)')"/>
+
+
+        <WriteLinesToFile File="$(GeneratedFile)" Overwrite="true" WriteOnlyWhenDifferent="true" Lines="$(GenCode)"/>
+        <ItemGroup>
+            <None Include="$(GeneratedFile)"/>
+            <Compile Include="$(GeneratedFile)"/>
+        </ItemGroup>
+    </Target>
+
+</Project>

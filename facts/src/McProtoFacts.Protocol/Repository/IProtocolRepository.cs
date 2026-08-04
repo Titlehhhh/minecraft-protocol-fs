@@ -1,0 +1,20 @@
+using System.Collections.Generic;
+
+namespace McProtoFacts.Protocol.Repository;
+
+public interface IProtocolRepository
+{
+    ProtocolRange GetSupportedProtocols();
+
+    IEnumerable<string> GetTypes();
+    IEnumerable<string> GetNativeTypes();
+    Dictionary<string, Dictionary<string, PacketDefinition>> GetPackets();
+
+    PacketDefinition GetPacket(string id);
+    PacketDefinition GetPacket(string nameSpace, string name);
+
+    IEnumerable<string> GetPacketMappers();
+
+    TypeHistory GetTypeHistory(string id);
+    bool ContainsPacket(string id);
+}

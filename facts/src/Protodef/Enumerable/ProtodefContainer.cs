@@ -1,0 +1,122 @@
+﻿using System.Text.Json.Serialization;
+
+namespace Protodef.Enumerable;
+
+public sealed class ProtodefContainer : ProtodefType
+{
+    public List<ProtodefContainerField> Fields { get; set; } = new();
+
+    [JsonConstructor]
+    public ProtodefContainer(List<ProtodefContainerField> fields)
+    {
+        Fields = fields ?? new();
+        ReindexFields();
+    }
+
+    public bool Contains(string name) => Fields.Exists(x => x.Name == name);
+
+    public void ReindexFields()
+    {
+        for (var i = 0; i < Fields.Count; i++)
+        {
+            Fields[i].WireIndex = i;
+        }
+    }
+
+    private ProtodefContainer(ProtodefContainer other)
+    {
+        foreach (var field in other.Fields)
+        {
+            var fieldClone = (ProtodefContainerField)field.Clone();
+            //fieldClone.Parent = this;
+            Fields.Add(fieldClone);
+        }
+
+        ReindexFields();
+    }
+
+
+    public ProtodefType this[string name]
+    {
+        get
+        {
+            foreach (var item in Fields)
+            {
+                if (item.Name == name)
+                    return item.Type;
+            }
+
+            throw new KeyNotFoundException();
+        }
+    }
+
+    public T GetFiled<T>(string name) where T : ProtodefType
+    {
+        foreach (var item in Fields)
+        {
+            if (item.Name == name)
+                return (T)item.Type;
+        }
+        throw new KeyNotFoundException();
+    }
+    
+    public override bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
+    {
+        base.TryReplaceChild(key, oldChild, newChild);
+        foreach (var field in Fields)
+        {
+            if (field.Type == oldChild || field.Name == key)
+            {
+                field.Type = newChild;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public override object Clone()
+    {
+        return new ProtodefContainer(this);
+    }
+
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is ProtodefContainer other)
+        {
+            return Fields.SequenceEqual(other.Fields, FieldEqualityComparer.Instance);
+        }
+
+        return false;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Fields);
+    }
+
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl =>
+        Fields.Select(f => new KeyValuePair<string?, ProtodefType>(f.Name, f.Type));
+
+    private class FieldEqualityComparer : IEqualityComparer<ProtodefContainerField>
+    {
+        public static readonly IEqualityComparer<ProtodefContainerField> Instance = new FieldEqualityComparer();
+
+        public bool Equals(ProtodefContainerField? x, ProtodefContainerField? y)
+        {
+            if (ReferenceEquals(x, y)) return true;
+            if (x is null) return false;
+            if (y is null) return false;
+            if (x.GetType() != y.GetType()) return false;
+            var a = x.Anon;
+            var b = y.Anon;
+            var c = x.Type.Equals(y.Type);
+            return a == b && x.Name == y.Name && c;
+        }
+
+        public int GetHashCode(ProtodefContainerField obj)
+        {
+            return obj.GetHashCode();
+        }
+    }
+}

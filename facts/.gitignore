@@ -1,0 +1,32 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+.idea
+.vs
+
+*.generated.cs
+
+Generated/
+artifacts/
+ConsoleApp1/
+
+cloc-2.06.exe
+
+# React / Node
+src/McpServer/ClientApp/node_modules/
+src/McpServer/ClientApp/dist/
+*.tsbuildinfo
+wwwroot/
+
+# Local configuration and RAG/vector-store data
+.env
+.env.*
+!.env.example
+qdrant_storage/
+.qdrant/
+rag-data/
+src/McpServer/qdrant_storage/
+src/McpServer/.qdrant/
+src/McpServer/rag-data/

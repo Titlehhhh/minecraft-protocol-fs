@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/SolutionItems/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Build.targets" />
+  </Folder>
+  <Project Path="src\McProtoFacts.Protocol\McProtoFacts.Protocol.csproj" />
+  <Project Path="src\McProtoFacts.Cli\McProtoFacts.Cli.csproj" />
+  <Project Path="src\McProtoFacts.McpStdio\McProtoFacts.McpStdio.csproj" />
+  <Project Path="src/McpServer/McpServer.csproj" />
+  <Project Path="src/ProtoCore/ProtoCore.csproj" />
+  <Project Path="src\MinecraftData\MinecraftData.csproj" />
+  <Project Path="src\Protodef\Protodef.csproj" />
+</Solution>

@@ -1,0 +1,27 @@
+<Project>
+    <PropertyGroup>
+        <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))</RepoRoot>
+        <DirSep>$([System.IO.Path]::DirectorySeparatorChar)</DirSep>
+        <MinecraftDataDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)minecraft-data/data'))</MinecraftDataDir>
+        <GeneratedConstantsDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)Generated/Constants'))</GeneratedConstantsDir>
+        <ArtifactsDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)artifacts'))</ArtifactsDir>
+        <GeneratedDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)Generated'))</GeneratedDir>
+        <DataDir>$([System.IO.Path]::GetFullPath('$(RepoRoot)minecraft-data'))</DataDir>
+        <BuildInParallel>false</BuildInParallel>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="$(GeneratedDir)/**/*.cs">
+            <Link>Generated/%(RecursiveDir)%(Filename)%(Extension)</Link>
+        </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="$(ArtifactsDir)/**/*.*">
+            <Link>Artifacts/%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <Visible>true</Visible>
+        </None>
+    </ItemGroup>
+
+
+</Project>

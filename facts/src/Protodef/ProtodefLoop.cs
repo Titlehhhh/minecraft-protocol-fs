@@ -1,0 +1,69 @@
+﻿using System.Text.Json.Serialization;
+
+namespace Protodef;
+
+public sealed class ProtodefLoop : ProtodefType
+{
+    public ProtodefLoop()
+    {
+        
+    }
+    [JsonIgnore]
+    public string LoopName { get; set; }
+    
+    private ProtodefType _type;
+    [JsonPropertyName("endVal")] public uint EndValue { get; set; }
+
+    [JsonPropertyName("type")]
+    public ProtodefType Type
+    {
+        get => _type;
+        set => _type = value ?? throw new ArgumentNullException("value");
+    }
+
+    protected override IEnumerable<KeyValuePair<string?, ProtodefType>> ChildrenImpl
+    {
+        get
+        {
+            yield return new KeyValuePair<string?, ProtodefType>("type", Type);
+        }
+    }
+    
+    public override bool TryReplaceChild(string? key, ProtodefType oldChild, ProtodefType newChild)
+    {
+        base.TryReplaceChild(key, oldChild, newChild);
+        if (Type == oldChild || key == "type")
+        {
+            Type = newChild;
+            return true;
+        }
+
+        return false;
+    }
+
+    public override object Clone()
+    {
+        var owner = new ProtodefLoop
+        {
+            EndValue = EndValue,
+            Type = (ProtodefType)Type.Clone()
+        };
+        owner.Type.Parent = owner;
+        return owner;
+    }
+    
+    public override bool Equals(object? obj)
+    {
+        if (obj is not ProtodefLoop other)
+        {
+            return false;
+        }
+
+        return EndValue == other.EndValue && Type.Equals(other.Type);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(EndValue, Type.GetHashCode());
+    }
+}
