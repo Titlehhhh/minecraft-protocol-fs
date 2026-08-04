@@ -46,9 +46,8 @@ inspection surface. Do **not** read them to model a type — they are namespace-
 to get wrong. Use McProtoFacts' prepared protocol access surfaces instead. (Raw json is only
 for debugging McProtoFacts' own loader/parser — not our concern here.)
 
-McProtoFacts (formerly PacketGenerator) lives in a separate checkout. The scripts locate it via `MCPROTO_FACTS_ROOT`, falling
-back to `..\mcprotonet-workspace\mcproto-facts` then `..\mcproto-facts` (legacy `PacketGenerator` names also probed). If neither exists,
-set `MCPROTO_FACTS_ROOT`.
+McProtoFacts (formerly PacketGenerator) lives in `./facts` of this repo (merged in 2026-08-04 as a
+subtree). The `scripts\facts.*` wrappers resolve it automatically — no configuration needed.
 
 ### One-shot lookup → `scripts\facts.cmd`
 
@@ -237,7 +236,8 @@ in the sandbox) are excluded in the sandbox csproj until those land.
 
 - Never read raw `minecraft-data` json to model a type. Use the facts scripts.
 - This repo may become public: don't hardcode personal absolute paths in committed files —
-  reach McProtoFacts via `MCPROTO_FACTS_ROOT` / the resolver script.
+  facts lives in `./facts` of this repo; reach it via the `scripts\facts.*` wrappers, which work
+  without configuration.
 - Grow the DSL deliberately: one type at a time, simple → complex, facts-first.
 - Keep spec files (`Spec/**`) clean — **no `//` comments**; the `record`/`namedType`/`bitflags` form
   should read for itself. (Comments in `Dsl/`/`Codegen/` algebra are fine.)
