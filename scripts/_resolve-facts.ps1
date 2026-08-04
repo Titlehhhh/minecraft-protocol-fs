@@ -1,34 +1,12 @@
-# Resolves the McProtoFacts checkout (formerly PacketGenerator) that provides
-# prepared protocol facts.
-# Order: $env:MCPROTO_FACTS_ROOT -> $env:PACKETGEN_ROOT (legacy)
-#        -> ../mcprotonet-workspace/{mcproto-facts,PacketGenerator} -> ../{mcproto-facts,PacketGenerator}.
-# Kept out of committed docs so this repo can go public without leaking a personal path.
+# Resolves the in-repo McProtoFacts checkout (moved here 2026-08-04,
+# formerly the sibling mcproto-facts/PacketGenerator repository).
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
+$factsRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'facts'
 
-$candidates = @()
-if ($env:MCPROTO_FACTS_ROOT) { $candidates += $env:MCPROTO_FACTS_ROOT }
-if ($env:PACKETGEN_ROOT)     { $candidates += $env:PACKETGEN_ROOT }
-foreach ($name in 'mcproto-facts', 'PacketGenerator') {
-    $candidates += (Join-Path $repoRoot "..\mcprotonet-workspace\$name")
-    $candidates += (Join-Path $repoRoot "..\$name")
+if (-not (Test-Path (Join-Path $factsRoot 'tools\mcproto-facts.cmd'))) {
+    Write-Error "McProtoFacts not found at $factsRoot. Run: git submodule update --init facts/minecraft-data"
+    exit 1
 }
 
-foreach ($c in $candidates) {
-    if (-not $c) { continue }
-    foreach ($cli in 'tools\mcproto-facts.cmd', 'tools\packetgen.cmd') {
-        if (Test-Path (Join-Path $c $cli)) {
-            return (Resolve-Path $c).Path
-        }
-    }
-}
-
-Write-Error @"
-McProtoFacts checkout not found.
-Set MCPROTO_FACTS_ROOT to the mcproto-facts repo, e.g.:
-  `$env:MCPROTO_FACTS_ROOT = 'C:\path\to\mcproto-facts'
-Tried:
-$($candidates -join "`n")
-"@
-exit 1
+(Resolve-Path $factsRoot).Path
