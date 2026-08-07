@@ -2,9 +2,9 @@
 
 > Embedded in minecraft-protocol-fs since 2026-08-04 — see the root AGENTS.md for the DSL workflow. The instructions below apply when developing McProtoFacts itself.
 
-McProtoFacts is a public repository. Keep documentation and code comments self-contained:
-do not reference local workspaces, private planning notes, sibling checkout paths, or personal
-automation. Public docs may mention McProtoNet only as the target library/ecosystem.
+Keep documentation and code comments self-contained: do not reference local workspaces,
+private planning notes, sibling checkout paths, or personal automation. Public docs may
+mention McProtoNet only as the target library/ecosystem.
 
 ## Read Order
 

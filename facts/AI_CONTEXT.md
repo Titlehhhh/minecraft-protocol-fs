@@ -138,6 +138,8 @@ GET /api/composition/{id}
 GET /api/schema/{id}
 GET /api/type/{id}
 GET /api/graph
+GET /api/search?q=text&limit=10
+GET /api/search/status
 GET /api/chunks/status
 GET /api/chunks?kind=all|packet|type&filter=text&maxChars=900
 GET /api/chunks/{id}?kind=packet|type&maxChars=900
