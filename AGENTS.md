@@ -176,9 +176,15 @@ bitflags "PositionUpdateRelatives" {
 ```powershell
 dotnet run   --project minecraft-protocol-fs\minecraft-protocol-fs.fsproj            # prints the protocol
 dotnet run   --project minecraft-protocol-fs\minecraft-protocol-fs.fsproj -- gen     # generate C#
+dotnet run   --project minecraft-protocol-fs\minecraft-protocol-fs.fsproj -- coverage  # coverage.md: specs vs manifest
 dotnet run   --project sandbox\McProtoNet.Sandbox.Console                            # round-trip the generated types
 dotnet build minecraft-protocol-fs.slnx                                              # whole solution, 0 warnings
 ```
+
+`coverage` writes `coverage.md` (gitignored) at the repo root: done / wire gaps / stubs /
+missing, per release protocol version, from `Spec/protocol-ids.json` crossed with the specs.
+Use it to pick the next packet to model. Optional `--stats <file>` (a `facts stats --format
+json` dump) sorts the backlog by difficulty; `--out <path>` redirects.
 
 SDK is pinned by [global.json](global.json) (net10.0). Format F# with Fantomas before committing.
 

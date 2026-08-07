@@ -18,6 +18,9 @@ let private manifestPath () =
     else
         Path.Combine(__SOURCE_DIRECTORY__, "Spec", "protocol-ids.json")
 
+let private allowlistPath () =
+    Path.Combine(__SOURCE_DIRECTORY__, "Spec", "todo-allowlist.txt")
+
 /// Drops a `--out <value>` pair (if present) from a positional-arg list, leaving the rest
 /// in order; used both to find the remaining positional args and, by the caller, to look
 /// up the value itself via `List.tryFindIndex`.
@@ -82,8 +85,7 @@ let main argv =
             |> List.filter (fun f -> f.Contents.Contains "TODO(codegen)")
             |> List.map (fun f -> normalize f.RelativePath)
 
-        let allowlistPath =
-            Path.Combine(__SOURCE_DIRECTORY__, "Spec", "todo-allowlist.txt")
+        let allowlistPath = allowlistPath ()
 
         let allowed =
             if File.Exists allowlistPath then
@@ -109,6 +111,27 @@ let main argv =
                 eprintfn "  %s" f
 
             1
+    | "coverage" :: rest ->
+        // Coverage map: cross the manifest's packet universe with the specs present.
+        // Writes markdown to ../coverage.md (repo root) unless --out overrides; --stats
+        // takes a `facts stats --format json` dump to sort the backlog by difficulty.
+        let outPath =
+            match rest |> List.tryFindIndex ((=) "--out") with
+            | Some i when i + 1 < rest.Length -> rest[i + 1]
+            | _ -> Path.Combine(__SOURCE_DIRECTORY__, "..", "coverage.md")
+
+        let statsPath =
+            match rest |> List.tryFindIndex ((=) "--stats") with
+            | Some i when i + 1 < rest.Length -> Some rest[i + 1]
+            | _ -> None
+
+        let report, summary =
+            Coverage.run (manifestPath ()) (allowlistPath ()) statsPath protocol.Packets
+
+        File.WriteAllText(outPath, report)
+        printfn "%s" summary
+        printfn "written: %s" (Path.GetFullPath outPath)
+        0
     | _ ->
         Printer.printProtocol protocol
         0

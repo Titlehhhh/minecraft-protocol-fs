@@ -14,6 +14,9 @@ artifacts/
 # generated C# — codegen output, rebuilt via `dotnet run -- gen`
 generated-csharp/
 
+# coverage backlog — rebuilt via `dotnet run -- coverage`
+/coverage.md
+
 # agent runtime state (never versioned)
 .omc/
 .superpowers/
