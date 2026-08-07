@@ -29,13 +29,17 @@ dotnet run --project minecraft-protocol-fs\minecraft-protocol-fs.fsproj
 ## Getting protocol facts
 
 Model shapes come from **McProtoFacts' prepared surfaces**, never from raw `minecraft-data`
-json. Point `MCPROTO_FACTS_ROOT` at a mcproto-facts checkout (or keep it beside
-`mcprotonet-workspace`), then:
+json. McProtoFacts lives in this repo, under `./facts`. The `scripts\facts.*` wrappers work
+without extra setup:
 
 ```powershell
 scripts\facts.cmd type entityMetadata --format toon      # one lookup
 scripts\serve-facts.cmd                                   # many lookups (REST/MCP on :5000)
 ```
+
+`facts\` builds with its own SDK (`facts\global.json`, a preview build). Everything else
+builds with the root SDK (net10), and the wrapper scripts start McProtoFacts from its own
+folder.
 
 See [AGENTS.md](AGENTS.md) for the full workflow and DSL reference.
 

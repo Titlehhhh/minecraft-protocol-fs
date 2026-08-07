@@ -10,7 +10,6 @@ $ErrorActionPreference = 'Stop'
 
 $factsRoot = & (Join-Path $PSScriptRoot '_resolve-facts.ps1')
 $cli = Join-Path $factsRoot 'tools\mcproto-facts.cmd'
-if (-not (Test-Path $cli)) { $cli = Join-Path $factsRoot 'tools\packetgen.cmd' }
 
 # Run from the McProtoFacts root so its global.json (SDK) applies, not this repo's.
 Push-Location $factsRoot

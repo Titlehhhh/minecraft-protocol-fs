@@ -93,6 +93,7 @@ ids <packet-id> [--format json|toon]
 ids --pv <N> [--ns play] [--direction toClient|toServer] [--format json|toon]
 chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
 stats [--format json|toon]
+order [--format json|toon]                 (type build order, simple -> complex)
 graph [--ns play] [--direction toClient] [--include-types false] [--format json|toon]
 ```
 
