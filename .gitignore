@@ -11,8 +11,12 @@ artifacts/
 .vs/
 *.user
 
-# generated C# (uncomment if generated output should not be versioned)
-# generated-csharp/
+# generated C# — codegen output, rebuilt via `dotnet run -- gen`
+generated-csharp/
+
+# agent runtime state (never versioned)
+.omc/
+.superpowers/
 
 # OS
 Thumbs.db
