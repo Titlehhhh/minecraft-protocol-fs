@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        # facts/minecraft-data (submodule) is not needed: the DSL and the sandbox
+        # build from Spec/ alone, and facts/ has its own preview SDK.
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build the DSL project
+        run: dotnet build minecraft-protocol-fs/minecraft-protocol-fs.fsproj -c Release
+
+      - name: Generate C# from the specs
+        run: dotnet run --project minecraft-protocol-fs/minecraft-protocol-fs.fsproj -c Release --no-build -- gen
+
+      - name: Build the sandbox against the generated C#
+        run: dotnet build minecraft-protocol-fs.slnx -c Release
