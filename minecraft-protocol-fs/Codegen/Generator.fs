@@ -36,4 +36,4 @@ module Generator =
         (p.Types |> List.map (generateType t))
         @ (p.Bitflags |> List.map (generateBitflags t))
         @ (catalog |> List.map (generatePacket t))
-        @ t.RenderProtocol catalog
+        @ t.RenderProtocol p

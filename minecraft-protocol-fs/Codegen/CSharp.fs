@@ -1060,6 +1060,87 @@ module CSharp =
                 | Error _ -> true
                 | Ok _ -> false))
 
+    let rec private wireNamedRefs (w: WireType) : string list =
+        match w with
+        | Named n -> [ n ]
+        | Array(item, cnt) ->
+            wireNamedRefs item
+            @ (match cnt with
+               | TypedCount t -> wireNamedRefs t
+               | _ -> [])
+        | Option inner -> wireNamedRefs inner
+        | SentinelArray(item, _) -> wireNamedRefs item
+        | Switch(_, cases) -> cases |> List.collect (fun c -> wireNamedRefs c.Type)
+        | _ -> []
+
+    let rec private entryNamedRefs (e: WireEntry) : string list =
+        match e with
+        | Read(_, w, _) -> wireNamedRefs w
+        | Discard(_, w) -> wireNamedRefs w
+        | IfNonZero(_, inner) -> inner |> List.collect entryNamedRefs
+        | ReadOpt(_, w, _, _, _) -> wireNamedRefs w
+        | ReadBlock(w, _, inner) -> wireNamedRefs w @ (inner |> List.collect entryNamedRefs)
+        | ReadUnion(_, u, _) -> [ u ]
+        | InlineUnion(_, arms) -> arms |> List.collect (fun a -> a.Entries |> List.collect entryNamedRefs)
+
+    let rec private apiNamedRefs (t: ApiType) : string list =
+        match t with
+        | TArray inner
+        | TOption inner -> apiNamedRefs inner
+        | TNamed n -> [ n ]
+        | TUnion n -> [ n ]
+        | _ -> []
+
+    /// Named types the delivered output can resolve: runtime-provided primitives plus generated
+    /// named/bitflags types that are themselves stub-free and reference only resolvable types
+    /// (fixpoint). Unions are not generated yet, so a union reference is unresolvable.
+    let private resolvableTypes (s: RuntimeSurface) (protocol: ProtocolSpec) : Set<string> =
+        let runtimeProvided = Set.ofList [ "Position" ]
+
+        let stubFree (t: NamedTypeSpec) =
+            t.Layouts
+            |> List.forall (fun l ->
+                l.Entries
+                |> List.forall (fun e ->
+                    match readEntryLines s e with
+                    | Ok _ -> true
+                    | Error _ -> false))
+
+        let candidates =
+            [
+                for t in protocol.Types ->
+                    let refs =
+                        (t.ApiFields |> List.collect (fun f -> apiNamedRefs f.Type))
+                        @ (t.Layouts |> List.collect (fun l -> l.Entries |> List.collect entryNamedRefs))
+
+                    t.Name, refs, stubFree t
+            ]
+
+        let mutable known =
+            Set.union runtimeProvided (protocol.Bitflags |> List.map (fun b -> b.Name) |> Set.ofList)
+
+        let mutable changed = true
+
+        while changed do
+            changed <- false
+
+            for name, refs, ok in candidates do
+                if ok && not (known.Contains name) && refs |> List.forall known.Contains then
+                    known <- known.Add name
+                    changed <- true
+
+        known
+
+    /// A packet the dispatcher may reference: read side fully generated AND every named type it
+    /// touches resolvable in the delivered output (mirrors the delivery exclusions by data,
+    /// not by file name).
+    let private isDispatchable (s: RuntimeSurface) (known: Set<string>) (p: PacketSpec) =
+        let refs =
+            (p.ApiFields |> List.collect (fun f -> apiNamedRefs f.Type))
+            @ (p.Layouts |> List.collect (fun l -> l.Entries |> List.collect entryNamedRefs))
+
+        not (hasReadStub s p) && refs |> List.forall known.Contains
+
     /// Packet type name relative to the root namespace (`Packets.Play.Clientbound.KeepAlivePacket`).
     let private relTypeName (p: PacketSpec) =
         sprintf "Packets.%A.%A.%s" p.State p.Direction p.ClassName
@@ -1142,7 +1223,20 @@ module CSharp =
                     |> List.map (fun (lo, hi, id) -> sprintf "new(%d, %d, 0x%02X)" lo hi id)
                     |> String.concat ", "
 
-                line (sprintf "        new(%s.Identity, [%s])," (relTypeName e.Spec) ids)
+                // identity inlined (same data the packet's own Identity is printed from): the
+                // registry must not reference packet types — some are not deliverable yet.
+                let identity =
+                    sprintf
+                        "new(\"%s\", \"%s\", %s.%A, %s.%A, %d)"
+                        e.Key
+                        (shortName e.Spec)
+                        s.PhaseEnum
+                        e.Spec.State
+                        s.DirectionEnum
+                        e.Spec.Direction
+                        e.Ordinal
+
+                line (sprintf "        new(%s, [%s])," identity ids)
 
             line "    ];"
             line ""
@@ -1235,7 +1329,12 @@ module CSharp =
     /// `Flow/PacketFlow.g.cs`: one lookup + one ordinal jump table + one constrained call per
     /// packet. Dispatch is deliberately synchronous: the decode must finish before the next
     /// transport read (the `InputPacket.Data` window); anything async happens in the facade after.
-    let private renderFlowFile (s: RuntimeSurface) (entries: Registry.CatalogEntry list) : string =
+    let private renderFlowFile
+        (s: RuntimeSurface)
+        (dispatchable: PacketSpec -> bool)
+        (entries: Registry.CatalogEntry list)
+        : string
+        =
         let sb = System.Text.StringBuilder()
         let line (t: string) = sb.AppendLine t |> ignore
 
@@ -1245,7 +1344,7 @@ module CSharp =
                     for dir in allDirs do
                         let slice =
                             Registry.slice st dir entries
-                            |> List.filter (fun e -> not (hasReadStub s e.Spec))
+                            |> List.filter (fun e -> dispatchable e.Spec)
 
                         if not slice.IsEmpty then yield st, dir, slice
             ]
@@ -1371,7 +1470,12 @@ module CSharp =
 
     /// `Flow/ClientboundHandler.g.cs`: one base for every clientbound phase, phase slot led by
     /// the consumer, ValueTask handlers awaited by the facade after the synchronous dispatch.
-    let private renderHandlerFile (s: RuntimeSurface) (entries: Registry.CatalogEntry list) : string =
+    let private renderHandlerFile
+        (s: RuntimeSurface)
+        (dispatchable: PacketSpec -> bool)
+        (entries: Registry.CatalogEntry list)
+        : string
+        =
         let sb = System.Text.StringBuilder()
         let line (t: string) = sb.AppendLine t |> ignore
 
@@ -1380,7 +1484,7 @@ module CSharp =
                 for st in allStates do
                     let slice =
                         Registry.slice st Clientbound entries
-                        |> List.filter (fun e -> not (hasReadStub s e.Spec))
+                        |> List.filter (fun e -> dispatchable e.Spec)
 
                     if not slice.IsEmpty then yield st, slice
             ]
@@ -1466,8 +1570,14 @@ module CSharp =
         sb.ToString()
 
     /// Aggregate outputs under `Flow/`. Excluded from the sandbox (they need the real transport
-    /// types); their real test is the McProtoNet build after delivery.
-    let private renderProtocolExtras (s: RuntimeSurface) (entries: Registry.CatalogEntry list) : GeneratedFile list =
+    /// types); their real test is the McProtoNet build after delivery. The registry covers the
+    /// whole catalog (identities inlined); dispatcher and handler reference only packets that
+    /// are stub-free and whose named types are resolvable in the delivered output.
+    let private renderProtocolExtras (s: RuntimeSurface) (protocol: ProtocolSpec) : GeneratedFile list =
+        let entries = Registry.catalog protocol.Packets
+        let known = resolvableTypes s protocol
+        let dispatchable (p: PacketSpec) = isDispatchable s known p
+
         [
             {
                 RelativePath = "Flow/PacketRegistry.g.cs"
@@ -1475,11 +1585,11 @@ module CSharp =
             }
             {
                 RelativePath = "Flow/PacketFlow.g.cs"
-                Contents = renderRawUnit "PacketFlow" (renderFlowFile s entries)
+                Contents = renderRawUnit "PacketFlow" (renderFlowFile s dispatchable entries)
             }
             {
                 RelativePath = "Flow/ClientboundHandler.g.cs"
-                Contents = renderRawUnit "ClientboundHandler" (renderHandlerFile s entries)
+                Contents = renderRawUnit "ClientboundHandler" (renderHandlerFile s dispatchable entries)
             }
         ]
 
