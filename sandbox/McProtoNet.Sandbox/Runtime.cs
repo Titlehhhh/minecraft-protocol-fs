@@ -18,10 +18,67 @@ namespace McProtoNet.Protocol.Attributes
             To = to;
         }
     }
+
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false)]
+    public sealed class PacketAttribute : Attribute
+    {
+        public string Key { get; }
+        public McProtoNet.Protocol.PacketPhase Phase { get; }
+        public McProtoNet.Protocol.PacketDirection Direction { get; }
+
+        public PacketAttribute(string key, McProtoNet.Protocol.PacketPhase phase,
+            McProtoNet.Protocol.PacketDirection direction)
+        {
+            Key = key;
+            Phase = phase;
+            Direction = direction;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = true)]
+    public sealed class PacketFieldAttribute : Attribute
+    {
+        public string Name { get; }
+        public string TypeName { get; }
+        public string? Group { get; init; }
+        public int From { get; init; }
+        public int To { get; init; }
+
+        public PacketFieldAttribute(string name, string typeName)
+        {
+            Name = name;
+            TypeName = typeName;
+        }
+    }
 }
 
 namespace McProtoNet.Protocol
 {
+    using McProtoNet.Serialization;
+
+    public enum PacketPhase : byte { Handshaking, Status, Login, Configuration, Play }
+
+    public enum PacketDirection : byte { Clientbound, Serverbound }
+
+    public readonly record struct PacketIdentity(
+        string Key, string Name, PacketPhase Phase, PacketDirection Direction, ushort Ordinal);
+
+    // Sandbox mirror of the real IPacket: no class constraint, so it serves both the current
+    // record-struct packets and the form-A classes.
+    public interface IPacket<TSelf> : IProtocolType<TSelf> where TSelf : IPacket<TSelf>
+    {
+        static abstract PacketIdentity Identity { get; }
+        static abstract bool TryGetPacketId(int protocolVersion, out int id);
+    }
+
+    public sealed class WrongLayerException : Exception
+    {
+        public WrongLayerException(string packetName, int protocolVersion, string expectedLayer)
+            : base($"{packetName}: protocol {protocolVersion} requires layer {expectedLayer}, but it is null.")
+        {
+        }
+    }
+
     public static class MinecraftVersion
     {
         public const int StartProtocol = 735;   // 1.16

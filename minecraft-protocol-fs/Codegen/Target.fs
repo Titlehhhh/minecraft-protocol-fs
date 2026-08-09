@@ -25,8 +25,8 @@ type ILanguageTarget =
     abstract RenderType: NamedTypeSpec -> string
     /// Render one bitflags type into a complete source file body.
     abstract RenderBitflags: BitflagsSpec -> string
-    /// Render one packet into a complete source file body.
-    abstract RenderPacket: PacketSpec -> string
+    /// Render one packet (with its ordinal-catalog entry) into a complete source file body.
+    abstract RenderPacket: Registry.CatalogEntry -> string
 
 /// Shared version-range helpers targets can lean on.
 module VersionRangeX =

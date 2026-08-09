@@ -158,14 +158,14 @@ module CSharp =
             )
             .WithBody(body)
 
-    let private baseTypesFor (s: RuntimeSurface) (name: string) : BaseTypeSyntax[] =
-        match s.ProtocolInterface with
+    let private baseTypesFor (iface: string option) (name: string) : BaseTypeSyntax[] =
+        match iface with
         | Some i -> [| SimpleBaseType(ParseTypeName(sprintf "%s<%s>" i name)) :> BaseTypeSyntax |]
         | None -> [||]
 
     /// `public readonly partial record struct Name(T A, U B) : IProtocolType<Name> { ... }`
     let private recordStructShell
-        (s: RuntimeSurface)
+        (iface: string option)
         (name: string)
         (positional: (string * string) list)
         : TypeDeclarationSyntax
@@ -183,13 +183,18 @@ module CSharp =
                 Token SyntaxKind.PartialKeyword
             )
             .AddParameterListParameters(ps)
-            .AddBaseListTypes(baseTypesFor s name)
+            .AddBaseListTypes(baseTypesFor iface name)
             .WithOpenBraceToken(Token SyntaxKind.OpenBraceToken)
             .WithCloseBraceToken(Token SyntaxKind.CloseBraceToken)
         :> TypeDeclarationSyntax
 
     /// `public sealed partial class Name : IProtocolType<Name> { get-only props + constructor }`
-    let private classShell (s: RuntimeSurface) (name: string) (fields: (string * string) list) : TypeDeclarationSyntax =
+    let private classShell
+        (iface: string option)
+        (name: string)
+        (fields: (string * string) list)
+        : TypeDeclarationSyntax
+        =
         let props: MemberDeclarationSyntax list =
             [
                 for typ, fname in fields ->
@@ -217,7 +222,7 @@ module CSharp =
                 Token SyntaxKind.SealedKeyword,
                 Token SyntaxKind.PartialKeyword
             )
-            .AddBaseListTypes(baseTypesFor s name)
+            .AddBaseListTypes(baseTypesFor iface name)
             .AddMembers(List.toArray (props @ [ ctor ]))
         :> TypeDeclarationSyntax
 
@@ -496,7 +501,9 @@ module CSharp =
     let private renderType
         (s: RuntimeSurface)
         (ns: string)
+        (iface: string option)
         (spec: NamedTypeSpec)
+        (extraAttrs: AttributeListSyntax list)
         (extraMembers: MemberDeclarationSyntax list)
         : string
         =
@@ -526,15 +533,16 @@ module CSharp =
 
         let shell =
             if value then
-                recordStructShell s spec.Name fields
+                recordStructShell iface spec.Name fields
             else
-                classShell s spec.Name fields
+                classShell iface spec.Name fields
 
         let shell =
             shell
                 .AddMembers(readMethod s spec.Name (parseBody readBody), writeMethod s value (parseBody writeBody))
                 .AddMembers(List.toArray extraMembers)
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
+                .AddAttributeLists(List.toArray extraAttrs)
 
         renderUnit s ns spec.Name (usingsFor s spec.ApiFields) shell
 
@@ -603,19 +611,66 @@ module CSharp =
 
         [ tryDecl; getDecl ]
 
-    /// A packet renders exactly like a named type; only the namespace, file placement, and the
-    /// optional `GetPacketId` member differ.
-    let private renderPacket (s: RuntimeSurface) (p: PacketSpec) : string =
-        let extraMembers = if p.Ids.IsEmpty then [] else packetIdMethods s p.Ids
+    /// `public static PacketIdentity Identity => new(...)` — identity as a value, from the catalog.
+    let private identityMember (s: RuntimeSurface) (e: Registry.CatalogEntry) : MemberDeclarationSyntax =
+        let p = e.Spec
+
+        let shortName =
+            if p.ClassName.EndsWith "Packet" then
+                p.ClassName.[.. p.ClassName.Length - 7]
+            else
+                p.ClassName
+
+        ParseMemberDeclaration(
+            sprintf
+                "public static %s Identity => new(\"%s\", \"%s\", %s.%A, %s.%A, %d);"
+                s.IdentityType
+                e.Key
+                shortName
+                s.PhaseEnum
+                p.State
+                s.DirectionEnum
+                p.Direction
+                e.Ordinal
+        )
+
+    /// `[Packet("key", PacketPhase.X, PacketDirection.Y)]` — declarative identity for third-party
+    /// Roslyn source generators; the runtime never reads it.
+    let private packetAttr (s: RuntimeSurface) (e: Registry.CatalogEntry) : AttributeListSyntax =
+        AttributeList(
+            SingletonSeparatedList(
+                Attribute(ParseName s.PacketAttributeName)
+                    .WithArgumentList(
+                        ParseAttributeArgumentList(
+                            sprintf
+                                "(\"%s\", %s.%A, %s.%A)"
+                                e.Key
+                                s.PhaseEnum
+                                e.Spec.State
+                                s.DirectionEnum
+                                e.Spec.Direction
+                        )
+                    )
+            )
+        )
+
+    /// A packet renders like a named type plus: the packet interface (identity + ids), the
+    /// `[Packet]` attribute, and Try/GetPacketId. A packet the manifest knows no ids for still
+    /// implements the interface — its TryGetPacketId is always false.
+    let private renderPacket (s: RuntimeSurface) (e: Registry.CatalogEntry) : string =
+        let p = e.Spec
+        let extraMembers = identityMember s e :: packetIdMethods s p.Ids
 
         renderType
             s
             (packetNamespace s p)
+            s.PacketInterface
             {
                 Name = p.ClassName
                 ApiFields = p.ApiFields
                 Layouts = p.Layouts
             }
+            [ packetAttr s e ]
             extraMembers
 
     // ----- bitflags -----
@@ -660,7 +715,7 @@ module CSharp =
             :: versionedBody s name true [ for l in spec.Layouts -> l.Range, writeCore l ]
 
         let shell =
-            (recordStructShell s name (apiFlags |> List.map (fun f -> "bool", pascal f)))
+            (recordStructShell s.ProtocolInterface name (apiFlags |> List.map (fun f -> "bool", pascal f)))
                 .AddMembers(readMethod s name (parseBody readBody), writeMethod s true (parseBody writeBody))
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
 
@@ -673,9 +728,12 @@ module CSharp =
         { new ILanguageTarget with
             member _.Id = "csharp"
             member _.Extension = ".cs"
-            member _.RenderType spec = renderType surface surface.Namespace spec []
+
+            member _.RenderType spec =
+                renderType surface surface.Namespace surface.ProtocolInterface spec [] []
+
             member _.RenderBitflags spec = renderBitflags surface spec
-            member _.RenderPacket spec = renderPacket surface spec
+            member _.RenderPacket entry = renderPacket surface entry
         }
 
     /// The default C# target: the McProtoNet runtime surface.

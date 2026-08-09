@@ -49,6 +49,13 @@ module CSharpSurface =
             WriteMethodName: string
             /// Interface every generated type implements (as `I<TSelf>`); None to skip.
             ProtocolInterface: string option
+            /// Interface packets implement instead of `ProtocolInterface` (adds identity + ids).
+            PacketInterface: string option
+            /// Identity value type, phase/direction enums and the declarative packet attribute.
+            IdentityType: string
+            PhaseEnum: string
+            DirectionEnum: string
+            PacketAttributeName: string
             /// C# spellings of api leaf types that are not C# keywords.
             NbtType: string
             UuidType: string
@@ -85,6 +92,11 @@ module CSharpSurface =
             ReadMethodName = "Read"
             WriteMethodName = "Write"
             ProtocolInterface = Some "IProtocolType"
+            PacketInterface = Some "IPacket"
+            IdentityType = "PacketIdentity"
+            PhaseEnum = "PacketPhase"
+            DirectionEnum = "PacketDirection"
+            PacketAttributeName = "Packet"
             NbtType = "NbtTag"
             UuidType = "Guid"
             Primitives =

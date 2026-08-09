@@ -21,14 +21,15 @@ module Generator =
         }
 
     /// Generate one packet as a source file for the target language.
-    let generatePacket (t: ILanguageTarget) (p: PacketSpec) : GeneratedFile =
+    let generatePacket (t: ILanguageTarget) (e: Registry.CatalogEntry) : GeneratedFile =
         {
-            RelativePath = sprintf "Packets/%A/%A/%s%s" p.State p.Direction p.ClassName t.Extension
-            Contents = t.RenderPacket p
+            RelativePath = sprintf "Packets/%A/%A/%s%s" e.Spec.State e.Spec.Direction e.Spec.ClassName t.Extension
+            Contents = t.RenderPacket e
         }
 
     /// Generate every named type, bitflags and packet in a protocol. Unions are future work.
+    /// Packets go through the ordinal catalog: identity and ordinals come from there.
     let generateProtocol (t: ILanguageTarget) (p: ProtocolSpec) : GeneratedFile list =
         (p.Types |> List.map (generateType t))
         @ (p.Bitflags |> List.map (generateBitflags t))
-        @ (p.Packets |> List.map (generatePacket t))
+        @ (Registry.catalog p.Packets |> List.map (generatePacket t))

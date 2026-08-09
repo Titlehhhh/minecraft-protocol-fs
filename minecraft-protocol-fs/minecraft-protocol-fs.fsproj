@@ -14,9 +14,9 @@
         <Compile Include="Dsl\Printer.fs" />
 
         <!-- Codegen: abstract language target + backends (depends only on the DSL) -->
-        <Compile Include="Codegen\Target.fs" />
         <Compile Include="Codegen\PacketIds.fs" />
         <Compile Include="Codegen\Registry.fs" />
+        <Compile Include="Codegen\Target.fs" />
         <Compile Include="Codegen\Coverage.fs" />
         <Compile Include="Codegen\Generator.fs" />
         <Compile Include="Codegen\CSharpSurface.fs" />
