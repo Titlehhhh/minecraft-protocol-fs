@@ -545,30 +545,68 @@ module CSharp =
     let private packetNamespace (s: RuntimeSurface) (p: PacketSpec) : string =
         sprintf "%s.Packets.%A.%A" s.Namespace p.State p.Direction
 
-    /// `public static int GetPacketId(int protocolVersion)`: one guarded branch per manifest
-    /// range in ascending version order, then a throw — only emitted for packets whose `Ids` the
-    /// manifest resolved (see `PacketIds.enrich`).
-    let private getPacketIdMethod (s: RuntimeSurface) (ids: (int * int * int) list) : MemberDeclarationSyntax =
-        let body =
+    /// Manifest id ranges, ascending, with adjacent ranges carrying the same id merged
+    /// (755–755 + 756–756 + 757–758 @ 0x21 -> 755–758 @ 0x21).
+    let private coalesceIds (ids: (int * int * int) list) : (int * int * int) list =
+        ids
+        |> List.sortBy (fun (lo, _, _) -> lo)
+        |> List.fold
+            (fun acc (lo, hi, id) ->
+                match acc with
+                | (plo, phi, pid) :: rest when pid = id && phi + 1 = lo -> (plo, hi, pid) :: rest
+                | _ -> (lo, hi, id) :: acc)
+            []
+        |> List.rev
+
+    /// `public static bool TryGetPacketId(int protocolVersion, out int id)`: one guarded branch
+    /// per coalesced manifest range, unknown version -> false; plus `GetPacketId` as a throwing
+    /// wrapper — both only emitted for packets whose `Ids` the manifest resolved
+    /// (see `PacketIds.enrich`).
+    let private packetIdMethods (s: RuntimeSurface) (ids: (int * int * int) list) : MemberDeclarationSyntax list =
+        let tryBody =
             [
-                for lo, hi, id in ids |> List.sortBy (fun (lo, _, _) -> lo) ->
-                    sprintf "if (%s >= %d && %s <= %d) return 0x%02X;" s.VersionParam lo s.VersionParam hi id
+                for lo, hi, id in coalesceIds ids ->
+                    sprintf
+                        "if (%s >= %d && %s <= %d) { id = 0x%02X; return true; }"
+                        s.VersionParam
+                        lo
+                        s.VersionParam
+                        hi
+                        id
             ]
-            @ [
+            @ [ "id = 0;"; "return false;" ]
+
+        let tryDecl =
+            MethodDeclaration(PredefinedType(Token SyntaxKind.BoolKeyword), "TryGetPacketId")
+                .AddModifiers(Token SyntaxKind.PublicKeyword, Token SyntaxKind.StaticKeyword)
+                .AddParameterListParameters(
+                    Parameter(Identifier s.VersionParam).WithType(ParseTypeName "int"),
+                    Parameter(Identifier "id")
+                        .WithType(ParseTypeName "int")
+                        .AddModifiers(Token SyntaxKind.OutKeyword)
+                )
+                .WithBody(parseBody tryBody)
+
+        let getBody =
+            [
+                sprintf "if (TryGetPacketId(%s, out var id)) return id;" s.VersionParam
                 sprintf
                     "throw new System.NotSupportedException($\"No packet id for protocol {%s}.\");"
                     s.VersionParam
             ]
 
-        MethodDeclaration(PredefinedType(Token SyntaxKind.IntKeyword), "GetPacketId")
-            .AddModifiers(Token SyntaxKind.PublicKeyword, Token SyntaxKind.StaticKeyword)
-            .AddParameterListParameters(Parameter(Identifier s.VersionParam).WithType(ParseTypeName "int"))
-            .WithBody(parseBody body)
+        let getDecl =
+            MethodDeclaration(PredefinedType(Token SyntaxKind.IntKeyword), "GetPacketId")
+                .AddModifiers(Token SyntaxKind.PublicKeyword, Token SyntaxKind.StaticKeyword)
+                .AddParameterListParameters(Parameter(Identifier s.VersionParam).WithType(ParseTypeName "int"))
+                .WithBody(parseBody getBody)
+
+        [ tryDecl; getDecl ]
 
     /// A packet renders exactly like a named type; only the namespace, file placement, and the
     /// optional `GetPacketId` member differ.
     let private renderPacket (s: RuntimeSurface) (p: PacketSpec) : string =
-        let extraMembers = if p.Ids.IsEmpty then [] else [ getPacketIdMethod s p.Ids ]
+        let extraMembers = if p.Ids.IsEmpty then [] else packetIdMethods s p.Ids
 
         renderType
             s
