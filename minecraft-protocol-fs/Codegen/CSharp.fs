@@ -611,6 +611,220 @@ module CSharp =
 
         [ tryDecl; getDecl ]
 
+    // ----- form A: version groups (layers) -----
+
+    /// One version layer of a form-A packet. `GroupName` is what consumers see as the nullable
+    /// property (`V764_Last`); the nested struct type gets a `Layer` suffix (`V764_LastLayer`)
+    /// because a member and a nested type cannot share a name (CS0102). `Fields` are the layer's
+    /// non-common api fields with their per-layer C# type (nullability from the layer's wire).
+    type private PacketLayer =
+        {
+            Layout: WireLayout
+            GroupName: string option
+            Fields: (string * string) list
+        }
+
+    /// Mechanical group name from a layout range: `V759`, `V761_763`, `V764_Last`.
+    let private layerName (allLayouts: WireLayout list) (r: VersionRange) : string =
+        match VersionRangeX.bounds r with
+        | Some a, Some b when a = b -> sprintf "V%d" a
+        | Some a, Some b -> sprintf "V%d_%d" a b
+        | Some a, None -> sprintf "V%d_Last" a
+        | None, Some b ->
+            match VersionRangeX.span (allLayouts |> List.map (fun l -> l.Range)) |> fst with
+            | Some lo -> sprintf "V%d_%d" lo b
+            | None -> sprintf "VUntil%d" b
+        | None, None -> "VAll"
+
+    /// Api field names a layout's entries bind (wire-only `_x` discriminators excluded).
+    let rec private boundApis (entries: WireEntry list) : string list =
+        entries
+        |> List.collect (function
+            | Read(_, _, api) when not (api.StartsWith "_") -> [ api ]
+            | ReadOpt(_, _, api, _, _) -> [ api ]
+            | ReadBlock(_, api, _) -> [ api ]
+            | ReadUnion(_, _, api) -> [ api ]
+            | IfNonZero(_, inner) -> boundApis inner
+            | _ -> [])
+
+    /// A field is common when it lives in every version (`Present = All`).
+    let private isCommon (f: ApiField) = f.Present = All
+
+    /// Per-layer C# type of a group field: existence-optionality (`TOption` because the field is
+    /// absent in other versions) is stripped; the layer's own wire decides real nullability.
+    let private layerFieldType (s: RuntimeSurface) (l: WireLayout) (f: ApiField) : string =
+        let inner =
+            match f.Type with
+            | TOption t -> t
+            | t -> t
+
+        let optionalHere =
+            l.Entries
+            |> List.exists (function
+                | Read(_, Option _, api) -> api = f.Name
+                | ReadOpt(_, _, api, _, _) -> api = f.Name
+                | _ -> false)
+
+        if optionalHere then
+            csType s inner + "?"
+        else
+            csType s inner
+
+    /// Cut a multi-layout packet into layers. A layer with no non-common fields gets no group.
+    let private packetLayers (s: RuntimeSurface) (p: PacketSpec) : PacketLayer list =
+        let commonNames =
+            p.ApiFields |> List.filter isCommon |> List.map (fun f -> f.Name) |> Set.ofList
+
+        [
+            for l in p.Layouts ->
+                let bound = boundApis l.Entries |> Set.ofList
+
+                let fields =
+                    p.ApiFields
+                    |> List.filter (fun f -> not (commonNames.Contains f.Name) && bound.Contains f.Name)
+                    |> List.map (fun f -> layerFieldType s l f, f.Name)
+
+                {
+                    Layout = l
+                    GroupName = (if fields.IsEmpty then None else Some(layerName p.Layouts l.Range))
+                    Fields = fields
+                }
+        ]
+
+    /// `public sealed partial record Name(TCommon A, V759Layer? V759 = null, ...) : IPacket<Name>`
+    /// with one nested `readonly record struct {G}Layer(...)` per group.
+    let private packetRecordShell
+        (iface: string option)
+        (name: string)
+        (common: (string * string) list)
+        (layers: PacketLayer list)
+        : TypeDeclarationSyntax
+        =
+        let ps =
+            [
+                for typ, pname in common do
+                    yield Parameter(Identifier pname).WithType(ParseTypeName typ)
+                for l in layers do
+                    match l.GroupName with
+                    | Some g ->
+                        // The record header resolves names in the enclosing scope, not inside the
+                        // record — nested layer types must be qualified with the packet name.
+                        yield
+                            Parameter(Identifier g)
+                                .WithType(ParseTypeName(sprintf "%s.%sLayer?" name g))
+                                .WithDefault(EqualsValueClause(ParseExpression "null"))
+                    | None -> ()
+            ]
+
+        let nested: MemberDeclarationSyntax list =
+            [
+                for l in layers do
+                    match l.GroupName with
+                    | Some g ->
+                        ParseMemberDeclaration(
+                            sprintf
+                                "public readonly record struct %sLayer(%s);"
+                                g
+                                (l.Fields
+                                 |> List.map (fun (t, n) -> sprintf "%s %s" t n)
+                                 |> String.concat ", ")
+                        )
+                    | None -> ()
+            ]
+
+        RecordDeclaration(SyntaxKind.RecordDeclaration, Token SyntaxKind.RecordKeyword, Identifier name)
+            .AddModifiers(
+                Token SyntaxKind.PublicKeyword,
+                Token SyntaxKind.SealedKeyword,
+                Token SyntaxKind.PartialKeyword
+            )
+            .AddParameterListParameters(List.toArray ps)
+            .AddBaseListTypes(baseTypesFor iface name)
+            .WithOpenBraceToken(Token SyntaxKind.OpenBraceToken)
+            .WithCloseBraceToken(Token SyntaxKind.CloseBraceToken)
+            .AddMembers(List.toArray nested)
+        :> TypeDeclarationSyntax
+
+    /// Read body of one layer: entry lines as usual, then a ctor call that fills common
+    /// positionally and this layer's group (if any) by named argument.
+    let private formAReadLines
+        (s: RuntimeSurface)
+        (name: string)
+        (common: ApiField list)
+        (layer: PacketLayer)
+        : string list
+        =
+        let results = layer.Layout.Entries |> List.map (fun e -> e, readEntryLines s e)
+
+        let errors = results |> List.choose (function _, Error e -> Some e | _ -> None)
+
+        if not (List.isEmpty errors) then
+            (errors |> List.map todoLine) @ [ throwTodoLine name ]
+        else
+            let bound =
+                results
+                |> List.choose (function
+                    | Read(_, _, api), Ok _ -> Some(localName s api)
+                    | _ -> None)
+                |> Set.ofList
+
+            let lines = results |> List.collect (function _, Ok ls -> ls | _, Error _ -> [])
+
+            let commonArgs =
+                common
+                |> List.map (fun f ->
+                    if bound.Contains(localName s f.Name) then
+                        localName s f.Name
+                    else
+                        "default!")
+
+            let groupArg =
+                match layer.GroupName with
+                | Some g ->
+                    let args = layer.Fields |> List.map (fun (_, n) -> localName s n)
+                    [ sprintf "%s: new %sLayer(%s)" g g (String.concat ", " args) ]
+                | None -> []
+
+            lines @ [ sprintf "return new %s(%s);" name (String.concat ", " (commonArgs @ groupArg)) ]
+
+    /// Write body of one layer. A layer with a group first demands it (`WrongLayerException`),
+    /// then aliases each group field as a local with the *api-level* type (keeps the `?? throw`
+    /// required-write path valid) under the api name, so entry rendering stays untouched.
+    let private formAWriteLines
+        (s: RuntimeSurface)
+        (name: string)
+        (apiTypes: Map<string, ApiType>)
+        (layer: PacketLayer)
+        : string list
+        =
+        let results = layer.Layout.Entries |> List.map (writeEntryLines s apiTypes)
+
+        let errors = results |> List.choose (function Error e -> Some e | _ -> None)
+
+        if not (List.isEmpty errors) then
+            (errors |> List.map todoLine) @ [ throwTodoLine name ]
+        else
+            let unpack =
+                match layer.GroupName with
+                | Some g ->
+                    sprintf
+                        "var layer = %s ?? throw new %s(\"%s\", %s, \"%s\");"
+                        g
+                        s.WrongLayerExceptionType
+                        name
+                        s.VersionParam
+                        g
+                    :: [
+                        for _, n in layer.Fields ->
+                            let apiT =
+                                apiTypes.TryFind n |> Option.map (csType s) |> Option.defaultValue "var"
+
+                            sprintf "%s %s = layer.%s;" apiT n n
+                    ]
+                | None -> []
+
+            unpack @ (results |> List.collect (function Ok ls -> ls | Error _ -> []))
+
     /// `public static PacketIdentity Identity => new(...)` — identity as a value, from the catalog.
     let private identityMember (s: RuntimeSurface) (e: Registry.CatalogEntry) : MemberDeclarationSyntax =
         let p = e.Spec
@@ -654,24 +868,112 @@ module CSharp =
             )
         )
 
-    /// A packet renders like a named type plus: the packet interface (identity + ids), the
-    /// `[Packet]` attribute, and Try/GetPacketId. A packet the manifest knows no ids for still
-    /// implements the interface — its TryGetPacketId is always false.
+    /// `[PacketField(...)]` per api field: common fields carry their Present bounds, group fields
+    /// one attribute per layer they live in. Third-party-generator channel; runtime never reads it.
+    let private packetFieldAttrs
+        (s: RuntimeSurface)
+        (common: ApiField list)
+        (layers: PacketLayer list)
+        : AttributeListSyntax list
+        =
+        let attr (name: string) (typeName: string) (group: string option) (range: VersionRange) =
+            let lo, hi = VersionRangeX.bounds range
+
+            let named =
+                [
+                    match group with
+                    | Some g -> yield sprintf "Group = \"%s\"" g
+                    | None -> ()
+                    match lo with
+                    | Some v -> yield sprintf "From = %d" v
+                    | None -> ()
+                    match hi with
+                    | Some v -> yield sprintf "To = %d" v
+                    | None -> ()
+                ]
+
+            let args =
+                String.concat ", " (sprintf "\"%s\", \"%s\"" name typeName :: named)
+
+            AttributeList(
+                SingletonSeparatedList(
+                    Attribute(ParseName s.PacketFieldAttributeName)
+                        .WithArgumentList(ParseAttributeArgumentList(sprintf "(%s)" args))
+                )
+            )
+
+        [
+            for f in common -> attr f.Name (csType s f.Type) None f.Present
+            for l in layers do
+                match l.GroupName with
+                | Some g ->
+                    for t, n in l.Fields do
+                        yield attr n t (Some g) l.Layout.Range
+                | None -> ()
+        ]
+
+    /// A packet renders in form A: a sealed record class — common fields positional, one nullable
+    /// group per version layer, layer-guarded Read/Write — plus identity, Try/GetPacketId and the
+    /// declarative attributes. Single-layout packets stay flat: all fields positional, no groups.
+    /// A packet the manifest knows no ids for still implements the packet interface — its
+    /// TryGetPacketId is always false.
     let private renderPacket (s: RuntimeSurface) (e: Registry.CatalogEntry) : string =
         let p = e.Spec
-        let extraMembers = identityMember s e :: packetIdMethods s p.Ids
+        let multi = List.length p.Layouts > 1
 
-        renderType
-            s
-            (packetNamespace s p)
-            s.PacketInterface
-            {
-                Name = p.ClassName
-                ApiFields = p.ApiFields
-                Layouts = p.Layouts
-            }
-            [ packetAttr s e ]
-            extraMembers
+        let commonFields =
+            if multi then p.ApiFields |> List.filter isCommon else p.ApiFields
+
+        let layers =
+            if multi then
+                packetLayers s p
+            else
+                [
+                    for l in p.Layouts ->
+                        {
+                            Layout = l
+                            GroupName = None
+                            Fields = []
+                        }
+                ]
+
+        let commonPos = commonFields |> List.map (fun f -> csType s f.Type, f.Name)
+        let apiTypes = p.ApiFields |> List.map (fun f -> f.Name, f.Type) |> Map.ofList
+
+        let readBody =
+            gateLine s p.ClassName
+            :: versionedBody
+                s
+                p.ClassName
+                false
+                [
+                    for l in layers -> l.Layout.Range, formAReadLines s p.ClassName commonFields l
+                ]
+
+        let writeBody =
+            gateLine s p.ClassName
+            :: versionedBody
+                s
+                p.ClassName
+                true
+                [
+                    for l in layers -> l.Layout.Range, formAWriteLines s p.ClassName apiTypes l
+                ]
+
+        let shell =
+            (packetRecordShell s.PacketInterface p.ClassName commonPos layers)
+                .AddMembers(
+                    readMethod s p.ClassName (parseBody readBody),
+                    writeMethod s false (parseBody writeBody)
+                )
+                .AddMembers(identityMember s e :: packetIdMethods s p.Ids |> List.toArray)
+                .AddAttributeLists(supportAttr s (p.Layouts |> List.map (fun l -> l.Range)))
+                .AddAttributeLists(
+                    packetAttr s e :: packetFieldAttrs s commonFields (if multi then layers else [])
+                    |> List.toArray
+                )
+
+        renderUnit s (packetNamespace s p) p.ClassName (usingsFor s p.ApiFields) shell
 
     // ----- bitflags -----
 
@@ -721,6 +1023,466 @@ module CSharp =
 
         renderUnit s s.Namespace name [ s.UsingAttributes; s.UsingSerialization ] shell
 
+    // ----- whole-protocol aggregates: registry tables, dispatcher, handler base -----
+
+    /// Validate + format a hand-assembled aggregate source file (several top-level types per
+    /// file, so the single-decl `renderUnit` does not fit). Same hard gate: parse errors fail
+    /// generation instead of writing the file.
+    let private renderRawUnit (label: string) (text: string) : string =
+        let cu = ParseCompilationUnit text
+
+        let errors =
+            cu.GetDiagnostics()
+            |> Seq.filter (fun d -> d.Severity = DiagnosticSeverity.Error)
+            |> Seq.toList
+
+        if not errors.IsEmpty then
+            failwithf
+                "codegen: emitted invalid C# for %s:\n%s\n----\n%s"
+                label
+                (errors |> List.map string |> String.concat "\n")
+                text
+
+        cu.NormalizeWhitespace("    ", "\n", false).ToFullString() + "\n"
+
+    let private allStates = [ Handshaking; Status; Login; Configuration; Play ]
+    let private allDirs = [ Clientbound; Serverbound ]
+
+    /// A packet whose read side is not fully generated for at least one layout. Excluded from
+    /// dispatch and the handler base: its ordinal falls through to `Unknown`, so a stub `Read`
+    /// throw can never take down the receive loop.
+    let private hasReadStub (s: RuntimeSurface) (p: PacketSpec) =
+        p.Layouts
+        |> List.exists (fun l ->
+            l.Entries
+            |> List.exists (fun e ->
+                match readEntryLines s e with
+                | Error _ -> true
+                | Ok _ -> false))
+
+    /// Packet type name relative to the root namespace (`Packets.Play.Clientbound.KeepAlivePacket`).
+    let private relTypeName (p: PacketSpec) =
+        sprintf "Packets.%A.%A.%s" p.State p.Direction p.ClassName
+
+    let private shortName (p: PacketSpec) =
+        if p.ClassName.EndsWith "Packet" then
+            p.ClassName.[.. p.ClassName.Length - 7]
+        else
+            p.ClassName
+
+    /// `Flow/PacketRegistry.g.cs`: descriptors + dense id->ordinal tables per pv-run.
+    let private renderRegistryFile (s: RuntimeSurface) (entries: Registry.CatalogEntry list) : string =
+        let sb = System.Text.StringBuilder()
+        let line (t: string) = sb.AppendLine t |> ignore
+
+        let slices =
+            [
+                for st in allStates do
+                    for dir in allDirs do
+                        let slice = Registry.slice st dir entries
+                        if not slice.IsEmpty then yield st, dir, slice
+            ]
+
+        // pv runs with an identical id -> ordinal layout, per slice
+        let runsFor (slice: Registry.CatalogEntry list) =
+            let ids = slice |> List.collect (fun e -> e.Spec.Ids)
+
+            if ids.IsEmpty then
+                []
+            else
+                let minPv = ids |> List.map (fun (lo, _, _) -> lo) |> List.min
+                let maxPv = ids |> List.map (fun (_, hi, _) -> hi) |> List.max
+
+                let mapAt pv =
+                    [
+                        for e in slice do
+                            for lo, hi, id in e.Spec.Ids do
+                                if pv >= lo && pv <= hi then
+                                    yield id, e.Ordinal
+                    ]
+                    |> List.sortBy fst
+
+                let mutable runs = []
+                let mutable runLo = minPv
+                let mutable current = mapAt minPv
+
+                for pv in minPv + 1 .. maxPv do
+                    let m = mapAt pv
+
+                    if m <> current then
+                        runs <- (runLo, pv - 1, current) :: runs
+                        runLo <- pv
+                        current <- m
+
+                runs <- (runLo, maxPv, current) :: runs
+                runs |> List.rev |> List.filter (fun (_, _, m) -> not (List.isEmpty m))
+
+        line "using System;"
+        line "using System.Diagnostics.CodeAnalysis;"
+        line ""
+        line (sprintf "namespace %s;" s.Namespace)
+        line ""
+        line "public readonly record struct IdRange(int FromPv, int ToPv, int Id);"
+        line ""
+        line (sprintf "public sealed record PacketDescriptor(%s Identity, IdRange[] Ids);" s.IdentityType)
+        line ""
+        line "/// <summary>Generated packet registry: dense id->ordinal tables on the hot path,"
+        line "/// descriptor catalogs on the cold one. Unknown ids are a normal stream condition:"
+        line "/// every entry point is Try.</summary>"
+        line "public static partial class PacketRegistry"
+        line "{"
+
+        for st, dir, slice in slices do
+            line (sprintf "    private static readonly PacketDescriptor[] Catalog%A%A =" st dir)
+            line "    ["
+
+            for e in slice do
+                let ids =
+                    coalesceIds e.Spec.Ids
+                    |> List.map (fun (lo, hi, id) -> sprintf "new(%d, %d, 0x%02X)" lo hi id)
+                    |> String.concat ", "
+
+                line (sprintf "        new(%s.Identity, [%s])," (relTypeName e.Spec) ids)
+
+            line "    ];"
+            line ""
+
+        for st, dir, slice in slices do
+            for lo, hi, map in runsFor slice do
+                let maxId = map |> List.map fst |> List.max
+                let table = Array.create (maxId + 1) (-1)
+
+                for id, ordinal in map do
+                    table.[id] <- ordinal
+
+                line (sprintf "    private static ReadOnlySpan<short> Table%A%A_%d_%d =>" st dir lo hi)
+                line (sprintf "        [%s];" (table |> Seq.map string |> String.concat ", "))
+                line ""
+
+        line (sprintf "    private static ReadOnlySpan<short> Table(%s phase, %s dir, int pv)" s.PhaseEnum s.DirectionEnum)
+        line "    {"
+        line "        switch (phase, dir)"
+        line "        {"
+
+        for st, dir, slice in slices do
+            let runs = runsFor slice
+
+            if not runs.IsEmpty then
+                line (sprintf "            case (%s.%A, %s.%A):" s.PhaseEnum st s.DirectionEnum dir)
+
+                for lo, hi, _ in runs do
+                    line (sprintf "                if (pv >= %d && pv <= %d) return Table%A%A_%d_%d;" lo hi st dir lo hi)
+
+                line "                return default;"
+
+        line "        }"
+        line ""
+        line "        return default;"
+        line "    }"
+        line ""
+        line (
+            sprintf
+                "    public static bool TryGetOrdinal(int id, int %s, %s phase, %s dir, out ushort ordinal)"
+                s.VersionParam
+                s.PhaseEnum
+                s.DirectionEnum
+        )
+        line "    {"
+        line (sprintf "        var table = Table(phase, dir, %s);" s.VersionParam)
+        line "        if ((uint)id < (uint)table.Length && table[id] >= 0)"
+        line "        {"
+        line "            ordinal = (ushort)table[id];"
+        line "            return true;"
+        line "        }"
+        line ""
+        line "        ordinal = 0;"
+        line "        return false;"
+        line "    }"
+        line ""
+        line (
+            sprintf
+                "    public static bool TryResolve(int id, int %s, %s phase, %s dir, [NotNullWhen(true)] out PacketDescriptor? descriptor)"
+                s.VersionParam
+                s.PhaseEnum
+                s.DirectionEnum
+        )
+        line "    {"
+        line (sprintf "        if (TryGetOrdinal(id, %s, phase, dir, out var ordinal))" s.VersionParam)
+        line "        {"
+        line "            descriptor = Catalog(phase, dir)[ordinal];"
+        line "            return true;"
+        line "        }"
+        line ""
+        line "        descriptor = null;"
+        line "        return false;"
+        line "    }"
+        line ""
+        line (sprintf "    public static ReadOnlySpan<PacketDescriptor> Catalog(%s phase, %s dir)" s.PhaseEnum s.DirectionEnum)
+        line "    {"
+        line "        switch (phase, dir)"
+        line "        {"
+
+        for st, dir, _ in slices do
+            line (sprintf "            case (%s.%A, %s.%A): return Catalog%A%A;" s.PhaseEnum st s.DirectionEnum dir st dir)
+
+        line "        }"
+        line ""
+        line "        return default;"
+        line "    }"
+        line "}"
+        sb.ToString()
+
+    /// `Flow/PacketFlow.g.cs`: one lookup + one ordinal jump table + one constrained call per
+    /// packet. Dispatch is deliberately synchronous: the decode must finish before the next
+    /// transport read (the `InputPacket.Data` window); anything async happens in the facade after.
+    let private renderFlowFile (s: RuntimeSurface) (entries: Registry.CatalogEntry list) : string =
+        let sb = System.Text.StringBuilder()
+        let line (t: string) = sb.AppendLine t |> ignore
+
+        let slices =
+            [
+                for st in allStates do
+                    for dir in allDirs do
+                        let slice =
+                            Registry.slice st dir entries
+                            |> List.filter (fun e -> not (hasReadStub s e.Spec))
+
+                        if not slice.IsEmpty then yield st, dir, slice
+            ]
+
+        line "using McProtoNet.Net;"
+        line (sprintf "using %s;" s.UsingSerialization)
+        line ""
+        line (sprintf "namespace %s;" s.Namespace)
+        line ""
+        line (sprintf "public delegate void TrailingBytesHook(int packetId, int %s, long remainingBytes);" s.VersionParam)
+        line ""
+        line "/// <summary>Generated dispatcher. Packets whose codegen is still stubbed are not"
+        line "/// dispatched — they fall through to <c>Unknown</c> instead of throwing inside the"
+        line "/// receive loop. Trailing bytes raise a hook, not an exception: the packet already"
+        line "/// reached the visitor, but the spec is suspect.</summary>"
+        line "public static partial class PacketFlow"
+        line "{"
+        line "    public static event TrailingBytesHook? OnTrailingBytes;"
+        line ""
+        line (
+            sprintf
+                "    public static void Dispatch<TVisitor>(in InputPacket raw, int %s, %s phase, %s dir, ref TVisitor visitor)"
+                s.VersionParam
+                s.PhaseEnum
+                s.DirectionEnum
+        )
+        line "        where TVisitor : IPacketVisitor"
+        line "    {"
+        line (sprintf "        if (!PacketRegistry.TryGetOrdinal(raw.Id, %s, phase, dir, out var ordinal))" s.VersionParam)
+        line "        {"
+        line "            visitor.Unknown(in raw);"
+        line "            return;"
+        line "        }"
+        line ""
+        line (sprintf "        var %s = new %s(raw.Data);" s.ReaderParam s.ReaderType)
+        line "        bool handled;"
+        line "        switch (phase, dir)"
+        line "        {"
+
+        for st, dir, _ in slices do
+            line (sprintf "            case (%s.%A, %s.%A):" s.PhaseEnum st s.DirectionEnum dir)
+            line (
+                sprintf
+                    "                handled = Dispatch%A%A(ordinal, ref %s, %s, ref visitor);"
+                    st
+                    dir
+                    s.ReaderParam
+                    s.VersionParam
+            )
+            line "                break;"
+
+        line "            default:"
+        line "                handled = false;"
+        line "                break;"
+        line "        }"
+        line ""
+        line "        if (!handled)"
+        line "        {"
+        line "            visitor.Unknown(in raw);"
+        line "            return;"
+        line "        }"
+        line ""
+        line (sprintf "        if (%s.RemainingCount != 0)" s.ReaderParam)
+        line (sprintf "            OnTrailingBytes?.Invoke(raw.Id, %s, %s.RemainingCount);" s.VersionParam s.ReaderParam)
+        line "    }"
+
+        for st, dir, slice in slices do
+            line ""
+            line (
+                sprintf
+                    "    private static bool Dispatch%A%A<TVisitor>(ushort ordinal, ref %s %s, int %s, ref TVisitor visitor)"
+                    st
+                    dir
+                    s.ReaderType
+                    s.ReaderParam
+                    s.VersionParam
+            )
+            line "        where TVisitor : IPacketVisitor"
+            line "    {"
+            line "        switch (ordinal)"
+            line "        {"
+
+            for e in slice do
+                line (sprintf "            case %d:" e.Ordinal)
+                line (
+                    sprintf
+                        "                visitor.Visit(%s.Read(ref %s, %s));"
+                        (relTypeName e.Spec)
+                        s.ReaderParam
+                        s.VersionParam
+                )
+                line "                return true;"
+
+            line "            default:"
+            line "                return false;"
+            line "        }"
+            line "    }"
+
+        line "}"
+        sb.ToString()
+
+    /// Handler method name: bare `On{Short}` while unique across clientbound; on a collision
+    /// Play keeps the bare name and other phases get a phase prefix.
+    let private handlerNames (entries: Registry.CatalogEntry list) : Map<string * string, string> =
+        let counts =
+            entries
+            |> List.map (fun e -> shortName e.Spec)
+            |> List.countBy id
+            |> Map.ofList
+
+        entries
+        |> List.map (fun e ->
+            let short = shortName e.Spec
+
+            let name =
+                if counts.[short] = 1 || e.Spec.State = Play then
+                    sprintf "On%s" short
+                else
+                    sprintf "On%A%s" e.Spec.State short
+
+            (sprintf "%A" e.Spec.State, e.Spec.ClassName), name)
+        |> Map.ofList
+
+    /// `Flow/ClientboundHandler.g.cs`: one base for every clientbound phase, phase slot led by
+    /// the consumer, ValueTask handlers awaited by the facade after the synchronous dispatch.
+    let private renderHandlerFile (s: RuntimeSurface) (entries: Registry.CatalogEntry list) : string =
+        let sb = System.Text.StringBuilder()
+        let line (t: string) = sb.AppendLine t |> ignore
+
+        let clientbound =
+            [
+                for st in allStates do
+                    let slice =
+                        Registry.slice st Clientbound entries
+                        |> List.filter (fun e -> not (hasReadStub s e.Spec))
+
+                    if not slice.IsEmpty then yield st, slice
+            ]
+
+        let names = handlerNames (clientbound |> List.collect snd)
+
+        line "using System.Threading.Tasks;"
+        line "using McProtoNet.Net;"
+        line ""
+        line (sprintf "namespace %s;" s.Namespace)
+        line ""
+        line "/// <summary>Generated handler base over every clientbound phase. The truth about"
+        line "/// the current phase is the consumer's: set <see cref=\"Phase\"/> as the connection"
+        line "/// advances. <c>HandleAsync</c> decodes synchronously (the raw data window must not"
+        line "/// cross an await) and awaits the handler's result after. <c>OnUnknown</c> must not"
+        line "/// hold on to <c>raw</c> beyond the call.</summary>"
+        line "public abstract partial class ClientboundHandler : IPacketVisitor"
+        line "{"
+        line "    private ValueTask _pending;"
+        line ""
+        line (sprintf "    public %s Phase { get; protected set; } = %s.Login;" s.PhaseEnum s.PhaseEnum)
+        line ""
+        line (sprintf "    protected static %s Direction => %s.Clientbound;" s.DirectionEnum s.DirectionEnum)
+        line ""
+        line (sprintf "    public ValueTask HandleAsync(in InputPacket raw, int %s)" s.VersionParam)
+        line "    {"
+        line "        _pending = default;"
+        line "        var self = this;"
+        line (sprintf "        PacketFlow.Dispatch(in raw, %s, Phase, %s.Clientbound, ref self);" s.VersionParam s.DirectionEnum)
+        line "        return _pending;"
+        line "    }"
+        line ""
+        line "    void IPacketVisitor.Visit<T>(T packet)"
+        line "    {"
+        line "        var identity = T.Identity;"
+        line "        switch (identity.Phase)"
+        line "        {"
+
+        for st, slice in clientbound do
+            line (sprintf "            case %s.%A:" s.PhaseEnum st)
+            line "                switch (identity.Ordinal)"
+            line "                {"
+
+            for e in slice do
+                let handler = names.[(sprintf "%A" st, e.Spec.ClassName)]
+
+                line (sprintf "                    case %d:" e.Ordinal)
+                line (
+                    sprintf
+                        "                        _pending = %s((%s)(object)packet);"
+                        handler
+                        (relTypeName e.Spec)
+                )
+                line "                        return;"
+
+            line "                }"
+            line ""
+            line "                return;"
+
+        line "        }"
+        line "    }"
+        line ""
+        line "    void IPacketVisitor.Unknown(in InputPacket raw) => _pending = OnUnknown(in raw);"
+        line ""
+        line "    protected virtual ValueTask OnUnknown(in InputPacket raw) => default;"
+
+        for st, slice in clientbound do
+            line ""
+            line (sprintf "    // --- %A ---" st)
+
+            for e in slice do
+                let handler = names.[(sprintf "%A" st, e.Spec.ClassName)]
+
+                line ""
+                line (
+                    sprintf
+                        "    protected virtual ValueTask %s(%s packet) => default;"
+                        handler
+                        (relTypeName e.Spec)
+                )
+
+        line "}"
+        sb.ToString()
+
+    /// Aggregate outputs under `Flow/`. Excluded from the sandbox (they need the real transport
+    /// types); their real test is the McProtoNet build after delivery.
+    let private renderProtocolExtras (s: RuntimeSurface) (entries: Registry.CatalogEntry list) : GeneratedFile list =
+        [
+            {
+                RelativePath = "Flow/PacketRegistry.g.cs"
+                Contents = renderRawUnit "PacketRegistry" (renderRegistryFile s entries)
+            }
+            {
+                RelativePath = "Flow/PacketFlow.g.cs"
+                Contents = renderRawUnit "PacketFlow" (renderFlowFile s entries)
+            }
+            {
+                RelativePath = "Flow/ClientboundHandler.g.cs"
+                Contents = renderRawUnit "ClientboundHandler" (renderHandlerFile s entries)
+            }
+        ]
+
     // ----- target -----
 
     /// A C# code-generation target bound to a specific runtime surface.
@@ -734,6 +1496,7 @@ module CSharp =
 
             member _.RenderBitflags spec = renderBitflags surface spec
             member _.RenderPacket entry = renderPacket surface entry
+            member _.RenderProtocol entries = renderProtocolExtras surface entries
         }
 
     /// The default C# target: the McProtoNet runtime surface.

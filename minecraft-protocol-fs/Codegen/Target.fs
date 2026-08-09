@@ -27,6 +27,9 @@ type ILanguageTarget =
     abstract RenderBitflags: BitflagsSpec -> string
     /// Render one packet (with its ordinal-catalog entry) into a complete source file body.
     abstract RenderPacket: Registry.CatalogEntry -> string
+    /// Render whole-protocol aggregate outputs (registry tables, dispatcher, handler bases)
+    /// from the full ordinal catalog. A target with no aggregates returns [].
+    abstract RenderProtocol: Registry.CatalogEntry list -> GeneratedFile list
 
 /// Shared version-range helpers targets can lean on.
 module VersionRangeX =

@@ -56,6 +56,8 @@ module CSharpSurface =
             PhaseEnum: string
             DirectionEnum: string
             PacketAttributeName: string
+            PacketFieldAttributeName: string
+            WrongLayerExceptionType: string
             /// C# spellings of api leaf types that are not C# keywords.
             NbtType: string
             UuidType: string
@@ -97,6 +99,8 @@ module CSharpSurface =
             PhaseEnum = "PacketPhase"
             DirectionEnum = "PacketDirection"
             PacketAttributeName = "Packet"
+            PacketFieldAttributeName = "PacketField"
+            WrongLayerExceptionType = "WrongLayerException"
             NbtType = "NbtTag"
             UuidType = "Guid"
             Primitives =

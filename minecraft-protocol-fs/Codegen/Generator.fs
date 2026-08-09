@@ -27,9 +27,13 @@ module Generator =
             Contents = t.RenderPacket e
         }
 
-    /// Generate every named type, bitflags and packet in a protocol. Unions are future work.
-    /// Packets go through the ordinal catalog: identity and ordinals come from there.
+    /// Generate every named type, bitflags and packet in a protocol, plus the target's
+    /// whole-protocol aggregates. Unions are future work. Packets go through the ordinal
+    /// catalog: identity and ordinals come from there.
     let generateProtocol (t: ILanguageTarget) (p: ProtocolSpec) : GeneratedFile list =
+        let catalog = Registry.catalog p.Packets
+
         (p.Types |> List.map (generateType t))
         @ (p.Bitflags |> List.map (generateBitflags t))
-        @ (Registry.catalog p.Packets |> List.map (generatePacket t))
+        @ (catalog |> List.map (generatePacket t))
+        @ t.RenderProtocol catalog

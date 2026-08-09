@@ -117,7 +117,7 @@ Console.WriteLine($"protocol version = {version}\n");
 
 // --- UpdateTimePacket: MULTIVERSION — 2 fields @763, 3 fields @772 ---
 {
-    var pkt = new UpdateTimePacket(6000, 13000, true);
+    var pkt = new UpdateTimePacket(6000, 13000, V768_Last: new(true));
     foreach (var v in new[] { 763, 772 })
     {
         var w = new MinecraftPrimitiveWriter();
@@ -125,22 +125,34 @@ Console.WriteLine($"protocol version = {version}\n");
         var bytes = w.ToArray();
         var r = new MinecraftPrimitiveReader(bytes);
         var back = UpdateTimePacket.Read(ref r, v);
-        Console.WriteLine($"UpdateTimePacket @{v}: {bytes.Length} bytes, age/time ok: {back.Age == 6000 && back.Time == 13000}, tickDayTime={back.TickDayTime}");
+        Console.WriteLine($"UpdateTimePacket @{v}: {bytes.Length} bytes, age/time ok: {back.Age == 6000 && back.Time == 13000}, tickDayTime={back.V768_Last?.TickDayTime}");
     }
     Console.WriteLine();
 }
 
 // --- LoginStartPacket: MULTIVERSION — 5 wire layouts across 758..772 ---
 {
-    var pkt = new LoginStartPacket("Steve", null, Guid.NewGuid());
-    foreach (var v in new[] { 758, 761, 772 })
+    var uuid = Guid.NewGuid();
+    var cases = new (int Version, LoginStartPacket Packet, Guid? ExpectedUuid)[]
+    {
+        (758, new LoginStartPacket("Steve"), null),
+        (761, new LoginStartPacket("Steve", V761_763: new(uuid)), uuid),
+        (772, new LoginStartPacket("Steve", V764_Last: new(uuid)), uuid),
+    };
+    foreach (var (v, pkt, expectedUuid) in cases)
     {
         var w = new MinecraftPrimitiveWriter();
         pkt.Write(w, v);
         var bytes = w.ToArray();
         var r = new MinecraftPrimitiveReader(bytes);
         var back = LoginStartPacket.Read(ref r, v);
-        Console.WriteLine($"LoginStartPacket @{v}: {bytes.Length} bytes, name={back.Username}, uuid roundtrip: {back.PlayerUuid == (v >= 760 ? pkt.PlayerUuid : null)}");
+        Guid? backUuid = v switch
+        {
+            761 => back.V761_763?.PlayerUuid,
+            >= 764 => back.V764_Last!.Value.PlayerUuid,
+            _ => null
+        };
+        Console.WriteLine($"LoginStartPacket @{v}: {bytes.Length} bytes, name={back.Username}, uuid roundtrip: {backUuid == expectedUuid}");
     }
     Console.WriteLine();
 }
@@ -192,7 +204,8 @@ Console.WriteLine($"protocol version = {version}\n");
 {
     var flags = new PositionUpdateRelatives(X: true, Y: false, Z: true, Yaw: false, Pitch: false,
                                             Dx: false, Dy: false, Dz: false, YawDelta: false);
-    var pkt = new PlayerPositionPacket(100.5, 64.0, -200.25, 90f, -10f, flags, 7, false, 0, 0, 0);
+    var pkt = new PlayerPositionPacket(100.5, 64.0, -200.25, 90f, -10f, flags, 7,
+        V755_761: new(false), V768_Last: new(0, 0, 0));
     foreach (var v in new[] { 754, 758, 766, 772 })
     {
         var w = new MinecraftPrimitiveWriter();
@@ -227,7 +240,7 @@ Console.WriteLine($"protocol version = {version}\n");
 
 // --- SetCooldownPacket: api morph — ItemId era vs CooldownGroup era ---
 {
-    var pkt = new SetCooldownPacket(42, "minecraft:ender_pearl", 100);
+    var pkt = new SetCooldownPacket(100, VUntil767: new(42), V768_Last: new("minecraft:ender_pearl"));
     foreach (var v in new[] { 767, 772 })
     {
         var w = new MinecraftPrimitiveWriter();
@@ -235,14 +248,14 @@ Console.WriteLine($"protocol version = {version}\n");
         var bytes = w.ToArray();
         var r = new MinecraftPrimitiveReader(bytes);
         var back = SetCooldownPacket.Read(ref r, v);
-        Console.WriteLine($"SetCooldownPacket @{v}: {bytes.Length} bytes, ticks={back.CooldownTicks}, item={back.ItemId}, group={back.CooldownGroup ?? "-"}");
+        Console.WriteLine($"SetCooldownPacket @{v}: {bytes.Length} bytes, ticks={back.CooldownTicks}, item={back.VUntil767?.ItemId.ToString() ?? "-"}, group={back.V768_Last?.CooldownGroup ?? "-"}");
     }
     Console.WriteLine();
 }
 
 // --- SpawnPositionPacket: MULTIVERSION — position only @754, +angle f32 @755 ---
 {
-    var pkt = new SpawnPositionPacket(new Position(10, 64, -20), 90f);
+    var pkt = new SpawnPositionPacket(new Position(10, 64, -20), V755_Last: new(90f));
     foreach (var v in new[] { 754, 772 })
     {
         var w = new MinecraftPrimitiveWriter();
@@ -250,7 +263,7 @@ Console.WriteLine($"protocol version = {version}\n");
         var bytes = w.ToArray();
         var r = new MinecraftPrimitiveReader(bytes);
         var back = SpawnPositionPacket.Read(ref r, v);
-        var ok = back.Location == pkt.Location && back.Angle == (v >= 755 ? 90f : 0f);
+        var ok = back.Location == pkt.Location && (back.V755_Last?.Angle ?? 0f) == (v >= 755 ? 90f : 0f);
         Console.WriteLine($"SpawnPositionPacket @{v}: {bytes.Length} bytes, roundtrip: {ok}, loc={back.Location}");
     }
     Assert(SpawnPositionPacket.GetPacketId(735) == 0x42);
