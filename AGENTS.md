@@ -41,48 +41,25 @@ before expanding the DSL. Prefer adding one type over broadening the algebra spe
 
 ## Where facts come from — NEVER raw minecraft-data
 
-**Hard rule.** Raw `minecraft-data` `protocol.json` files are the *input dataset*, not the
-inspection surface. Do **not** read them to model a type — they are namespace-sensitive and easy
-to get wrong. Use McProtoFacts' prepared protocol access surfaces instead. (Raw json is only
-for debugging McProtoFacts' own loader/parser — not our concern here.)
+Raw minecraft-data: canon — the workspace AGENTS.md (forbidden always; a surface gap =
+stop and ask the owner). For Claude, any exceptions are physically closed by the deny
+rules in `.claude/settings.json`.
 
 McProtoFacts (formerly PacketGenerator) lives in `./facts` of this repo (merged in 2026-08-04 as a
 subtree). The `scripts\facts.*` wrappers resolve it automatically — no configuration needed.
+The full CLI command and REST/MCP endpoint lists live in [facts/AI_CONTEXT.md](facts/AI_CONTEXT.md).
 
-### One-shot lookup → `scripts\facts.cmd`
-
-Wraps McProtoFacts' CLI; args pass straight through.
-
-```powershell
-scripts\facts.cmd type entityMetadata --format toon
-scripts\facts.cmd packet play.toClient.teams --format toon
-scripts\facts.cmd composition play.toClient.map --format json
-scripts\facts.cmd packets --filter metadata --format json
-scripts\facts.cmd stats --format json
-scripts\facts.cmd order --format toon          # types in dependency build order, simple->complex
-```
+- One-shot lookup → `scripts\facts.cmd`. Wraps McProtoFacts' CLI; args pass straight
+  through, e.g. `scripts\facts.cmd packet play.toClient.teams --format toon`.
+- Many lookups in a session → `scripts\serve-facts.cmd`. Starts McProtoFacts' McpServer
+  **in its own terminal window** (close it to stop): REST + HTTP MCP + UI on
+  `http://localhost:5000`.
+- Rule of thumb: dereferencing **one** thing → `facts.cmd`; a modelling session touching
+  **many** types → start the server once with `serve-facts.cmd`.
 
 Type ids are protodef **camelCase** names (`entityMetadata`, not `entity_metadata`). Packet ids
 are `{state}.{direction}.{snake_name}` (`play.toClient.teams`). If unsure of an id, discover it:
 `scripts\facts.cmd types --filter metadata` / `scripts\facts.cmd packets --filter team`.
-
-### Many lookups in a session → `scripts\serve-facts.cmd`
-
-Starts McProtoFacts' McpServer **in its own terminal window** (close it to stop). Then hit
-REST or HTTP MCP without paying CLI build/startup cost each time:
-
-```text
-REST:  GET http://localhost:5000/api/type/{id}
-       GET http://localhost:5000/api/schema/{id}
-       GET http://localhost:5000/api/composition/{id}
-       GET http://localhost:5000/api/packets
-       GET http://localhost:5000/api/build-order   (type dependency layers, simple->complex)
-MCP:   http://localhost:5000/mcp   (tools: get_type_schema, get_packet_schema, ...)
-UI:    http://localhost:5000/
-```
-
-Rule of thumb: dereferencing **one** thing → `facts.cmd`; a modelling session touching **many**
-types → start the server once with `serve-facts.cmd`.
 
 ## Protocol version numbers
 
@@ -97,7 +74,7 @@ The DSL and the concrete specs are separated:
 
 ```text
 Dsl/     Ast.fs · Builders.fs · Helpers.fs · Printer.fs   — the generic algebra (namespace McProtocol.Dsl)
-Codegen/ Target.fs · Generator.fs · CSharpSurface.fs · CSharp.fs — DSL -> source renderer (namespace McProtocol.Codegen)
+Codegen/ Target.fs · Generator.fs · CSharpSurface.fs · CSharp.fs · Coverage.fs · PacketIds.fs · Registry.fs — DSL -> source renderer (namespace McProtocol.Codegen)
 Spec/    WireAliases.fs · Types|Unions|Bitflags/<Category…>/ · Packets/<State>/<Direction>/<Category…>/ · Protocol.fs  — content (namespace McProtocol.Spec)
 Program.fs                                                — entry point: `dotnet run` prints, `-- gen` generates
 sandbox/ McProtoNet.Sandbox (lib) · McProtoNet.Sandbox.Console  — compile & poke the generated C#
@@ -195,7 +172,9 @@ language-neutral IR; a backend implements `ILanguageTarget` ([Target.fs](minecra
 and `Generator` drives it — one file per type. Adding a language = one new target, nothing else
 changes. Run: `dotnet run -- gen` (whole protocol) or `dotnet run -- gen Vec4f` (one type, echoed to
 stdout). Output goes to `generated-csharp/`, mirroring the spec layout: `Types/`, `Bitflags/`,
-`Packets/<State>/<Direction>/`. Packets render exactly like named types (class/record struct +
+`Packets/<State>/<Direction>/`, plus `Flow/` — the symbiosis layer (PacketRegistry, PacketFlow,
+ClientboundHandler), delivered to McProtoNet with the rest. Delivery into McProtoNet goes only
+through `scripts\deliver-to-mcprotonet.ps1`. Packets render exactly like named types (class/record struct +
 Read/Write); a packet whose wire uses still-unsupported entries comes out as a compiling stub with
 `// TODO(codegen)` markers and `default!` ctor args.
 
@@ -240,8 +219,9 @@ in the sandbox) are excluded in the sandbox csproj until those land.
 
 ## Guardrails
 
-- Never read raw `minecraft-data` json to model a type. Use the facts scripts.
-- This repo may become public: don't hardcode personal absolute paths in committed files —
+- Raw `minecraft-data` is off limits — the canon link is in "Where facts come from" above.
+  Use the facts scripts.
+- This repo is public (github.com/Titlehhhh/minecraft-protocol-fs): don't hardcode personal absolute paths in committed files —
   facts lives in `./facts` of this repo; reach it via the `scripts\facts.*` wrappers, which work
   without configuration.
 - Grow the DSL deliberately: one type at a time, simple → complex, facts-first.

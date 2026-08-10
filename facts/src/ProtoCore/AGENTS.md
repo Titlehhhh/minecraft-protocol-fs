@@ -13,7 +13,5 @@ access layer.
 
 - Keep this layer focused on loading and validation.
 - Do not add packet search, stats, graph, or agent-facing output here.
-- For packet examples, use `McProtoFacts.Protocol` queries or `tools\mcproto-facts.cmd`.
-- Raw file inspection is appropriate here only when the loader or validator is the subject
-  of the task.
+- Raw `minecraft-data`: the rule and its only exceptions live in the facts root `AGENTS.md`.
 

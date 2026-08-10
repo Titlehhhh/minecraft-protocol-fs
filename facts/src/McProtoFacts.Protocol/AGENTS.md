@@ -15,7 +15,7 @@ query behavior, schema serialization, graph data, stats, and complexity scoring 
 ## Rules
 
 - Do not duplicate protocol parsing in CLI, stdio MCP, REST endpoints, or frontend code.
-- Do not inspect raw `minecraft-data` as a substitute for repository/query APIs.
+- Raw `minecraft-data`: the rule and its only exceptions live in the facts root `AGENTS.md`.
 - Keep public APIs deterministic and side-effect free where possible.
 - Preserve both JSON and TOON output paths.
 - When changing packet/type structure handling, test at least one packet, one named type,
