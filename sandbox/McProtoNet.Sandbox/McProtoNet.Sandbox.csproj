@@ -10,7 +10,9 @@
 
     <!-- Generated protocol types, linked from the F# generator's output (the `gen` run).
          Specs that reference not-yet-modelled C# types (Particle, Slot, unions, ...) are
-         excluded until those types land. -->
+         excluded until those types land. The second group below is excluded for one reason
+         only: the sandbox runtime has no NbtTag, so every packet carrying nbt/anonymousNbt
+         cannot compile here. -->
     <ItemGroup>
         <Compile Include="..\..\generated-csharp\**\*.cs"
                  Exclude="..\..\generated-csharp\Flow\**\*.cs;
@@ -21,7 +23,20 @@
                           ..\..\generated-csharp\Packets\Play\Clientbound\MapPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\RespawnPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Serverbound\WindowClickPacket.cs;
-                          ..\..\generated-csharp\Packets\Configuration\Clientbound\DisconnectPacket.cs"
+                          ..\..\generated-csharp\Packets\Configuration\Clientbound\DisconnectPacket.cs;
+                          ..\..\generated-csharp\Packets\Configuration\Clientbound\ShowDialogPacket.cs;
+                          ..\..\generated-csharp\Packets\Configuration\Clientbound\AddResourcePackPacket.cs;
+                          ..\..\generated-csharp\Packets\Configuration\Serverbound\CustomClickActionPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\ActionBarPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\AddResourcePackPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\KickDisconnectPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\NbtQueryResponsePacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\OpenWindowPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\SetTitleSubtitlePacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\SetTitleTextPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\SystemChatPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\TestInstanceBlockStatusPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Serverbound\CustomClickActionPacket.cs"
                  Link="Generated\%(RecursiveDir)%(Filename)%(Extension)"/>
     </ItemGroup>
 
