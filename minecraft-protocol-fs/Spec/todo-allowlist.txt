@@ -1,9 +1,15 @@
 # Generated files allowed to contain TODO(codegen) stub branches (known codegen
-# gaps: unions, entity metadata, map columns). `gen` fails when any file outside
-# this list gains a stub; remove entries as the gaps close. Paths are relative
-# to the generation root, as printed by `dotnet run -- gen`.
+# gaps: unions, entity metadata, map columns, FixedBytes, nested arrays). `gen`
+# fails when any file outside this list gains a stub; remove entries as the gaps
+# close. Paths are relative to the generation root, as printed by
+# `dotnet run -- gen`.
 Packets/Login/Serverbound/EncryptionResponsePacket.cs
 Packets/Play/Clientbound/EntityMetadataPacket.cs
 Packets/Play/Clientbound/MapPacket.cs
 Packets/Play/Clientbound/TeamsPacket.cs
 Types/EntityMetadataEntry.cs
+# FixedBytes n is in the AST but has no renderer yet
+Packets/Play/Serverbound/ChatCommandSignedPacket.cs
+Types/ArgumentSignature.cs
+# Array of Array has no renderer yet
+Packets/Play/Clientbound/UpdateLightPacket.cs

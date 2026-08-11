@@ -36,7 +36,13 @@
                           ..\..\generated-csharp\Packets\Play\Clientbound\SetTitleTextPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\SystemChatPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\TestInstanceBlockStatusPacket.cs;
-                          ..\..\generated-csharp\Packets\Play\Serverbound\CustomClickActionPacket.cs"
+                          ..\..\generated-csharp\Packets\Play\Serverbound\CustomClickActionPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\DeathCombatEventPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\PlayerlistHeaderPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\ServerDataPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\TabCompletePacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\TileEntityDataPacket.cs;
+                          ..\..\generated-csharp\Types\TabCompleteMatch.cs"
                  Link="Generated\%(RecursiveDir)%(Filename)%(Extension)"/>
     </ItemGroup>
 
