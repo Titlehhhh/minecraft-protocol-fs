@@ -63,6 +63,15 @@ namespace McProtoNet.Protocol
     public readonly record struct PacketIdentity(
         string Key, string Name, PacketPhase Phase, PacketDirection Direction, ushort Ordinal);
 
+    // Sandbox mirror of the real non-generic IPacket: what a decoded packet answers once its
+    // static type is gone. Generated packets implement it explicitly
+    // (`PacketIdentity IPacket.Identity => Identity;`), which is why it does not clash with the
+    // static abstract member on the generic one below — and why the generic one must not inherit it.
+    public interface IPacket
+    {
+        PacketIdentity Identity { get; }
+    }
+
     // Sandbox mirror of the real IPacket: no class constraint, so it serves both the current
     // record-struct packets and the form-A classes.
     public interface IPacket<TSelf> : IProtocolType<TSelf> where TSelf : IPacket<TSelf>

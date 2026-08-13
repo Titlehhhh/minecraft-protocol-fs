@@ -18,6 +18,10 @@ module CSharpSurface =
         {
             ReadCall: string
             WriteMethod: string
+            /// Fixed arguments appended after the value on the write call, leading comma included
+            /// (""  for the usual one-argument writers). NBT needs it: the root-name flag must
+            /// travel on the write side too, not only on the read side.
+            WriteExtraArgs: string
             CsType: string
         }
 
@@ -51,6 +55,11 @@ module CSharpSurface =
             ProtocolInterface: string option
             /// Interface packets implement instead of `ProtocolInterface` (adds identity + ids).
             PacketInterface: string option
+            /// Non-generic interface every packet implements *in addition* to `PacketInterface`,
+            /// so a decoded packet held by a plain reference still has a common type. Carries one
+            /// instance member, emitted as an explicit implementation over the static identity:
+            /// `PacketIdentity IPacket.Identity => Identity;`. None to skip.
+            PacketBaseInterface: string option
             /// Identity value type, phase/direction enums and the declarative packet attribute.
             IdentityType: string
             PhaseEnum: string
@@ -69,6 +78,16 @@ module CSharpSurface =
         {
             ReadCall = readCall
             WriteMethod = writeMethod
+            WriteExtraArgs = ""
+            CsType = csType
+        }
+
+    /// Same as `prim`, for a writer call that carries fixed arguments after the value.
+    let private primWith readCall writeMethod writeExtraArgs csType =
+        {
+            ReadCall = readCall
+            WriteMethod = writeMethod
+            WriteExtraArgs = writeExtraArgs
             CsType = csType
         }
 
@@ -95,6 +114,7 @@ module CSharpSurface =
             WriteMethodName = "Write"
             ProtocolInterface = Some "IProtocolType"
             PacketInterface = Some "IPacket"
+            PacketBaseInterface = Some "IPacket"
             IdentityType = "PacketIdentity"
             PhaseEnum = "PacketPhase"
             DirectionEnum = "PacketDirection"
@@ -121,8 +141,11 @@ module CSharpSurface =
                         F64, prim "ReadDouble()" "WriteDouble" "double"
                         Str, prim "ReadString()" "WriteString" "string"
                         Uuid, prim "ReadUUID()" "WriteUUID" "Guid"
-                        Nbt, prim "ReadNbtTag(false)!" "WriteNbt" "NbtTag"
-                        AnonNbt, prim "ReadNbtTag(true)!" "WriteNbt" "NbtTag"
+                        // The runtime flag means "the root tag carries a name": true for the
+                        // classic named root, false for the nameless network root. Both sides
+                        // must agree, or a round-trip silently shifts by the name field.
+                        Nbt, primWith "ReadNbtTag(true)!" "WriteNbt" ", true" "NbtTag"
+                        AnonNbt, prim "ReadNbtTag(false)!" "WriteNbt" "NbtTag"
                         ByteArray, prim "ReadByteArray()" "WriteByteArray" "byte[]"
                         RestBytes, prim "ReadRestBytes()" "WriteRestBytes" "byte[]"
                     ]
@@ -169,7 +192,7 @@ module CSharpSurface =
         | Named n -> Ok(sprintf "%s.%s<%s>(%s, %s)" s.WriterParam s.WriteNamedMethod n v s.VersionParam)
         | _ ->
             match s.Primitives.TryFind w with
-            | Some p -> Ok(sprintf "%s.%s(%s)" s.WriterParam p.WriteMethod v)
+            | Some p -> Ok(sprintf "%s.%s(%s%s)" s.WriterParam p.WriteMethod v p.WriteExtraArgs)
             | None -> Error(sprintf "%A" w)
 
     /// The primitive for a bitflags backing integer — integral wire types only.

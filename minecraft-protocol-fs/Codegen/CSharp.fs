@@ -691,10 +691,13 @@ module CSharp =
                 }
         ]
 
-    /// `public sealed partial record Name(TCommon A, V759Layer? V759 = null, ...) : IPacket<Name>`
-    /// with one nested `readonly record struct {G}Layer(...)` per group.
+    /// `public sealed partial record Name(TCommon A, V759Layer? V759 = null, ...) : IPacket<Name>, IPacket`
+    /// with one nested `readonly record struct {G}Layer(...)` per group. The second, non-generic
+    /// interface (`baseIface`) is what a decoded packet answers to once its static type is gone;
+    /// nested named types never get it — this shell is packets only.
     let private packetRecordShell
         (iface: string option)
+        (baseIface: string option)
         (name: string)
         (common: (string * string) list)
         (layers: PacketLayer list)
@@ -740,6 +743,11 @@ module CSharp =
             )
             .AddParameterListParameters(List.toArray ps)
             .AddBaseListTypes(baseTypesFor iface name)
+            .AddBaseListTypes(
+                [|
+                    for i in Option.toList baseIface -> SimpleBaseType(ParseTypeName i) :> BaseTypeSyntax
+                |]
+            )
             .WithOpenBraceToken(Token SyntaxKind.OpenBraceToken)
             .WithCloseBraceToken(Token SyntaxKind.CloseBraceToken)
             .AddMembers(List.toArray nested)
@@ -847,6 +855,13 @@ module CSharp =
                 p.Direction
                 e.Ordinal
         )
+
+    /// `PacketIdentity IPacket.Identity => Identity;` — the same value the type answers statically,
+    /// reachable through a plain reference. Explicit on purpose: an explicit implementation is not a
+    /// named member of the class, so the instance property and the static one coexist, and the bare
+    /// `Identity` inside the body binds to the static one (no recursion).
+    let private identityBaseMember (s: RuntimeSurface) (baseIface: string) : MemberDeclarationSyntax =
+        ParseMemberDeclaration(sprintf "%s %s.Identity => Identity;" s.IdentityType baseIface)
 
     /// `[Packet("key", PacketPhase.X, PacketDirection.Y)]` — declarative identity for third-party
     /// Roslyn source generators; the runtime never reads it.
@@ -960,13 +975,17 @@ module CSharp =
                     for l in layers -> l.Layout.Range, formAWriteLines s p.ClassName apiTypes l
                 ]
 
+        let identityMembers =
+            identityMember s e
+            :: [ for i in Option.toList s.PacketBaseInterface -> identityBaseMember s i ]
+
         let shell =
-            (packetRecordShell s.PacketInterface p.ClassName commonPos layers)
+            (packetRecordShell s.PacketInterface s.PacketBaseInterface p.ClassName commonPos layers)
                 .AddMembers(
                     readMethod s p.ClassName (parseBody readBody),
                     writeMethod s false (parseBody writeBody)
                 )
-                .AddMembers(identityMember s e :: packetIdMethods s p.Ids |> List.toArray)
+                .AddMembers(identityMembers @ packetIdMethods s p.Ids |> List.toArray)
                 .AddAttributeLists(supportAttr s (p.Layouts |> List.map (fun l -> l.Range)))
                 .AddAttributeLists(
                     packetAttr s e :: packetFieldAttrs s commonFields (if multi then layers else [])
@@ -1349,6 +1368,14 @@ module CSharp =
                         if not slice.IsEmpty then yield st, dir, slice
             ]
 
+        // A `.g.cs` file is auto-generated as far as the compiler is concerned, so the project's
+        // `<Nullable>enable</Nullable>` does not reach it and every `?` here would be both a
+        // CS8669 warning and a dead annotation. The Try doors depend on the annotation being
+        // live: `[NotNullWhen(true)] out IPacket?` is what makes a caller who reads the packet
+        // after a false return get a warning instead of a null.
+        line "#nullable enable"
+        line ""
+        line (sprintf "using %s;" s.UsingSystem)
         line "using McProtoNet.Net;"
         line (sprintf "using %s;" s.UsingSerialization)
         line ""
@@ -1359,7 +1386,10 @@ module CSharp =
         line "/// <summary>Generated dispatcher. Packets whose codegen is still stubbed are not"
         line "/// dispatched — they fall through to <c>Unknown</c> instead of throwing inside the"
         line "/// receive loop. Trailing bytes raise a hook, not an exception: the packet already"
-        line "/// reached the visitor, but the spec is suspect.</summary>"
+        line "/// reached the visitor, but the spec is suspect."
+        line "/// Three doors onto the same table: <c>Dispatch</c> (throws on a malformed body),"
+        line "/// <c>TryDispatch</c> (same visitor, a false + reason instead of the throw) and"
+        line "/// <c>TryDecode</c> (visitor-free — hands back the decoded packet itself).</summary>"
         line "public static partial class PacketFlow"
         line "{"
         line "    public static event TrailingBytesHook? OnTrailingBytes;"
@@ -1381,6 +1411,11 @@ module CSharp =
         line ""
         line (sprintf "        var %s = new %s(raw.Data);" s.ReaderParam s.ReaderType)
         line "        bool handled;"
+        line "        // The jump table is shared with the Try door, which must tell a failed body read"
+        line "        // from an exception thrown by the visitor: the table lowers this flag once the"
+        line "        // body is decoded, right before it calls the visitor. Dispatch converts nothing,"
+        line "        // so here the flag is written and never read."
+        line "        bool reading = true;"
         line "        switch (phase, dir)"
         line "        {"
 
@@ -1388,7 +1423,7 @@ module CSharp =
             line (sprintf "            case (%s.%A, %s.%A):" s.PhaseEnum st s.DirectionEnum dir)
             line (
                 sprintf
-                    "                handled = Dispatch%A%A(ordinal, ref %s, %s, ref visitor);"
+                    "                handled = Dispatch%A%A(ordinal, ref %s, %s, ref visitor, ref reading);"
                     st
                     dir
                     s.ReaderParam
@@ -1411,11 +1446,199 @@ module CSharp =
         line (sprintf "            OnTrailingBytes?.Invoke(raw.Id, %s, %s.RemainingCount);" s.VersionParam s.ReaderParam)
         line "    }"
 
+        // ----- TryDispatch: the same table, a reason instead of a throw -----
+        line ""
+        line "    /// <summary>Dispatch that survives a malformed body: returns false with"
+        line "    /// <paramref name=\"error\" /> filled where <see cref=\"Dispatch\" /> would let the"
+        line "    /// exception out. True means the packet reached the visitor — including the normal"
+        line "    /// stream condition of an id this (phase, direction) has no mapping for, which"
+        line "    /// reaches <c>Unknown</c> exactly as in <see cref=\"Dispatch\" />. Trailing bytes stay"
+        line "    /// a hook, not a failure. Only a failure of the body read is converted, and only the"
+        line "    /// kinds a decoder may swallow (see <c>TryClassify</c>): cancellation, a stubbed"
+        line "    /// decoder and out-of-memory still propagate. An exception thrown by the visitor"
+        line "    /// itself is never converted — the table lowers <c>reading</c> before it calls the"
+        line "    /// visitor, so the consumer's own bugs come out as themselves.</summary>"
+        line (
+            sprintf
+                "    public static bool TryDispatch<TVisitor>(in InputPacket raw, int %s, %s phase, %s direction, ref TVisitor visitor, out DecodeError error)"
+                s.VersionParam
+                s.PhaseEnum
+                s.DirectionEnum
+        )
+        line "        where TVisitor : IPacketVisitor"
+        line "    {"
+        line "        error = DecodeError.None;"
+        line ""
+        line (
+            sprintf
+                "        if (!PacketRegistry.TryGetOrdinal(raw.Id, %s, phase, direction, out var ordinal))"
+                s.VersionParam
+        )
+        line "        {"
+        line "            visitor.Unknown(in raw);"
+        line "            return true;"
+        line "        }"
+        line ""
+        line (sprintf "        var %s = new %s(raw.Data);" s.ReaderParam s.ReaderType)
+        line "        bool handled;"
+        line "        // True while the body is being read; the table lowers it right before it hands the"
+        line "        // packet to the visitor. The filter below tests it, so an exception out of the"
+        line "        // visitor is not mistaken for a malformed packet."
+        line "        bool reading = true;"
+        line "        try"
+        line "        {"
+        line "            switch (phase, direction)"
+        line "            {"
+
+        for st, dir, _ in slices do
+            line (sprintf "                case (%s.%A, %s.%A):" s.PhaseEnum st s.DirectionEnum dir)
+            line (
+                sprintf
+                    "                    handled = Dispatch%A%A(ordinal, ref %s, %s, ref visitor, ref reading);"
+                    st
+                    dir
+                    s.ReaderParam
+                    s.VersionParam
+            )
+            line "                    break;"
+
+        line "                default:"
+        line "                    handled = false;"
+        line "                    break;"
+        line "            }"
+        line "        }"
+        line "        catch (Exception ex) when (reading && TryClassify(ex, out var reason))"
+        line "        {"
+        line "            error = reason;"
+        line "            return false;"
+        line "        }"
+        line ""
+        line "        if (!handled)"
+        line "        {"
+        line "            visitor.Unknown(in raw);"
+        line "            return true;"
+        line "        }"
+        line ""
+        line (sprintf "        if (%s.RemainingCount != 0)" s.ReaderParam)
+        line (sprintf "            OnTrailingBytes?.Invoke(raw.Id, %s, %s.RemainingCount);" s.VersionParam s.ReaderParam)
+        line ""
+        line "        return true;"
+        line "    }"
+
+        // ----- TryDecode: the visitor-free door, only when packets carry a non-generic type -----
+        match s.PacketBaseInterface with
+        | Some baseIface ->
+            line ""
+            line "    /// <summary>One raw packet in, one decoded packet out — no visitor to write."
+            line (
+                sprintf
+                    "    /// An id this (phase, direction) cannot map yields an <see cref=\"UnknownPacket\" />"
+            )
+            line "    /// and still returns true: an unmapped id is a normal stream condition, not an error."
+            line "    /// A malformed body returns false with <paramref name=\"error\" /> filled and"
+            line "    /// <paramref name=\"packet\" /> null. The allocation-free hot path is"
+            line "    /// <see cref=\"Dispatch\" /> / <see cref=\"TryDispatch\" />; this door costs nothing"
+            line "    /// extra either — packets are classes, so the capture is a reference, not a box.</summary>"
+            line (
+                sprintf
+                    "    public static bool TryDecode(in InputPacket raw, int %s, %s phase, %s direction, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out %s? packet, out DecodeError error)"
+                    s.VersionParam
+                    s.PhaseEnum
+                    s.DirectionEnum
+                    baseIface
+            )
+            line "    {"
+            line "        var capture = new Capture(phase, direction);"
+            line ""
+            line (
+                sprintf
+                    "        if (!TryDispatch(in raw, %s, phase, direction, ref capture, out error))"
+                    s.VersionParam
+            )
+            line "        {"
+            line "            packet = null;"
+            line "            return false;"
+            line "        }"
+            line ""
+            line "        packet = capture.Result!;"
+            line "        return true;"
+            line "    }"
+            line ""
+            line (
+                sprintf
+                    "    /// <summary>Keeps the decoded packet as <see cref=\"%s\" />. The assignment is a"
+                    baseIface
+            )
+            line "    /// reference conversion (every packet is a class that implements it), so there is no"
+            line "    /// boxing and no adapter object — the same jump table, one field write.</summary>"
+            line "    private struct Capture : IPacketVisitor"
+            line "    {"
+            line (sprintf "        private readonly %s _phase;" s.PhaseEnum)
+            line (sprintf "        private readonly %s _direction;" s.DirectionEnum)
+            line ""
+            line (sprintf "        public %s? Result;" baseIface)
+            line ""
+            line (sprintf "        public Capture(%s phase, %s direction)" s.PhaseEnum s.DirectionEnum)
+            line "        {"
+            line "            _phase = phase;"
+            line "            _direction = direction;"
+            line "            Result = null;"
+            line "        }"
+            line ""
+            line (
+                sprintf
+                    "        public void Visit<T>(T packet) where T : class, %s<T> => Result = (%s)packet;"
+                    (s.PacketInterface |> Option.defaultValue baseIface)
+                    baseIface
+            )
+            line ""
+            line "        public void Unknown(in InputPacket raw) => Result = new UnknownPacket(raw.Id, _phase, _direction);"
+            line "    }"
+        | None -> ()
+
+        // ----- the one place that decides what a Try door is allowed to swallow -----
+        line ""
+        line "    /// <summary>Maps an exception raised while reading a packet body onto a"
+        line "    /// <see cref=\"DecodeError\" />. Returns false for exceptions a decoder must never"
+        line "    /// swallow — used as an exception filter, so those propagate without unwinding."
+        line "    /// <para>"
+        line "    /// <c>ArgumentException</c> is deliberately NOT on the propagate list. Bytes off the"
+        line "    /// wire reach it: a compound with a duplicate key ends in <c>Dictionary.Add</c> inside"
+        line "    /// <c>NbtCompound.Add</c>, and an unnamed tag in a compound throws there too. Those are"
+        line "    /// data errors, so they are <c>Malformed</c>. Only an exception the caller's own code"
+        line "    /// raised should escape a Try door, and that case is handled before the filter runs:"
+        line "    /// the jump table lowers <c>reading</c> before it calls the visitor."
+        line "    /// </para></summary>"
+        line "    private static bool TryClassify(Exception ex, out DecodeError error)"
+        line "    {"
+        line "        switch (ex)"
+        line "        {"
+        line "            case ProtocolNotSupportException _:"
+        line "            case NotSupportedException _:"
+        line "                error = DecodeError.UnsupportedVersion;"
+        line "                return true;"
+        line "            case OperationCanceledException _:"
+        line "            case NotImplementedException _:"
+        line "            case OutOfMemoryException _:"
+        line "                error = DecodeError.None;"
+        line "                return false;"
+        line "            default:"
+        line "                error = DecodeError.Malformed;"
+        line "                return true;"
+        line "        }"
+        line "    }"
+
         for st, dir, slice in slices do
             line ""
             line (
                 sprintf
-                    "    private static bool Dispatch%A%A<TVisitor>(ushort ordinal, ref %s %s, int %s, ref TVisitor visitor)"
+                    "    /// <summary>One ordinal, one read, one constrained call. <paramref name=\"reading\" />"
+            )
+            line "    /// goes false between the two: above it the exception is the packet's fault, below it"
+            line "    /// the visitor's. Only the Try door reads it.</summary>"
+            line (
+                sprintf
+                    "    private static bool Dispatch%A%A<TVisitor>(ushort ordinal, ref %s %s, int %s, ref TVisitor visitor, ref bool reading)"
                     st
                     dir
                     s.ReaderType
@@ -1429,14 +1652,19 @@ module CSharp =
 
             for e in slice do
                 line (sprintf "            case %d:" e.Ordinal)
+                line "            {"
                 line (
                     sprintf
-                        "                visitor.Visit(%s.Read(ref %s, %s));"
+                        "                var packet = %s.Read(ref %s, %s);"
                         (relTypeName e.Spec)
                         s.ReaderParam
                         s.VersionParam
                 )
+                line "                reading = false;"
+                line "                visitor.Visit(packet);"
                 line "                return true;"
+                line "            }"
+                line ""
 
             line "            default:"
             line "                return false;"
