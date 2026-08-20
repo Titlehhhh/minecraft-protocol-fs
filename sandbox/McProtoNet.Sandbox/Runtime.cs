@@ -91,7 +91,7 @@ namespace McProtoNet.Protocol
     public static class MinecraftVersion
     {
         public const int StartProtocol = 735;   // 1.16
-        public const int LatestProtocol = 772;  // 1.21.7 / 1.21.8
+        public const int LatestProtocol = 776;  // 26.2
     }
 
     public static class ThrowHelper
@@ -131,10 +131,116 @@ namespace McProtoNet.Protocol
             writer.WriteSignedLong(v);
         }
     }
+
+    // Hand-written runtime primitive (mirrors McProtoNet): quantized velocity vector, protocol 773+.
+    // 1 byte for zero; otherwise 48 bits carrying scale (2 low bits), a continuation flag and three
+    // 15-bit components, with the rest of the scale following as a VarInt when the flag is set.
+    // Referenced from specs as Named "LpVec3", never generated.
+    public readonly partial record struct LpVec3(double X, double Y, double Z) : IProtocolType<LpVec3>
+    {
+        private const double MaxQuantized = 32766.0;
+        private const double AbsMax = 1.7179869183E10;
+        private const double AbsMin = 3.051944088384301E-5;
+
+        public static LpVec3 Read(ref MinecraftPrimitiveReader reader, int protocolVersion)
+        {
+            uint first = reader.ReadUnsignedByte();
+            if (first == 0) return new LpVec3(0d, 0d, 0d);
+
+            uint second = reader.ReadUnsignedByte();
+            ulong packed = ((ulong)reader.ReadUnsignedInt() << 16) | ((ulong)second << 8) | first;
+
+            long scale = (long)(first & 3);
+            if ((first & 4) != 0) scale |= (long)(uint)reader.ReadVarInt() << 2;
+
+            return new LpVec3(
+                Unpack(packed >> 3) * scale,
+                Unpack(packed >> 18) * scale,
+                Unpack(packed >> 33) * scale);
+        }
+
+        public readonly void Write(MinecraftPrimitiveWriter writer, int protocolVersion)
+        {
+            double x = Clamp(X), y = Clamp(Y), z = Clamp(Z);
+            double max = Math.Max(Math.Abs(x), Math.Max(Math.Abs(y), Math.Abs(z)));
+
+            if (max < AbsMin)
+            {
+                writer.WriteUnsignedByte(0);
+                return;
+            }
+
+            long scale = (long)Math.Ceiling(max);
+            double inv = 1d / scale;
+            bool continued = (scale & 3) != scale;
+
+            ulong packed =
+                (ulong)(scale & 3)
+                | (continued ? 4UL : 0UL)
+                | (Pack(x * inv) << 3)
+                | (Pack(y * inv) << 18)
+                | (Pack(z * inv) << 33);
+
+            writer.WriteUnsignedByte((byte)(packed & 0xFF));
+            writer.WriteUnsignedByte((byte)((packed >> 8) & 0xFF));
+            writer.WriteUnsignedInt((uint)(packed >> 16));
+
+            if (continued) writer.WriteVarInt((int)(scale >> 2));
+        }
+
+        private static double Unpack(ulong packed) =>
+            Math.Min(packed & 0x7FFF, MaxQuantized) * 2d / MaxQuantized - 1d;
+
+        // Java's Math.round is floor(v + 0.5); C# Math.Round would bank on .5 and shift bytes.
+        private static ulong Pack(double value) =>
+            (ulong)(long)Math.Floor((value * 0.5d + 0.5d) * MaxQuantized + 0.5d);
+
+        private static double Clamp(double value) =>
+            double.IsNaN(value) ? 0d : Math.Clamp(value, -AbsMax, AbsMax);
+    }
+}
+
+namespace McProtoNet.NBT
+{
+    // Sandbox model of McProtoNet's NBT surface. It exists so generated types that carry
+    // nbt/anonymousNbt (TeamAction from 771 is the first union that does) can compile and
+    // round-trip here at all. Only the scalar tags and compounds are modelled; a tag id outside
+    // that set throws, because a half-read tag would shift every following field on the wire.
+    public abstract record NbtTag
+    {
+        public string? Name { get; init; }
+    }
+
+    public sealed record NbtByte(sbyte Value) : NbtTag;
+
+    public sealed record NbtShort(short Value) : NbtTag;
+
+    public sealed record NbtInt(int Value) : NbtTag;
+
+    public sealed record NbtLong(long Value) : NbtTag;
+
+    public sealed record NbtFloat(float Value) : NbtTag;
+
+    public sealed record NbtDouble(double Value) : NbtTag;
+
+    public sealed record NbtString(string Value) : NbtTag;
+
+    public sealed record NbtCompound(Dictionary<string, NbtTag> Items) : NbtTag
+    {
+        public NbtCompound() : this(new Dictionary<string, NbtTag>()) { }
+
+        public NbtCompound With(string name, NbtTag tag)
+        {
+            Items[name] = tag;
+            return this;
+        }
+    }
 }
 
 namespace McProtoNet.Serialization
 {
+    using McProtoNet.NBT;
+
     // Contract every generated protocol type implements. Static abstract members give
     // ReadType<T>/WriteType<T> zero-reflection dispatch: `T.Read(...)` compiles to a direct
     // (devirtualized for structs) call.
@@ -249,6 +355,51 @@ namespace McProtoNet.Serialization
             return b;
         }
 
+        // NBT. `readRootTag` says the root tag carries a name (classic root) — false is the
+        // nameless network root. A TAG_End id means "no tag at all", which is how an absent root
+        // travels. Signature copied from the real MinecraftPrimitiveReader.
+        public NbtTag? ReadNbtTag(bool readRootTag)
+        {
+            byte id = Next();
+            if (id == 0) return null;
+            string? name = readRootTag ? ReadNbtName() : null;
+            return ReadNbtPayload(id) with { Name = name };
+        }
+
+        // Tag names are length-prefixed by a big-endian ushort, unlike protocol strings.
+        private string ReadNbtName()
+        {
+            int len = ReadUnsignedShort();
+            var s = Encoding.UTF8.GetString(_data, _pos, len);
+            _pos += len;
+            return s;
+        }
+
+        private NbtTag ReadNbtPayload(byte id) => id switch
+        {
+            1 => new NbtByte(ReadSignedByte()),
+            2 => new NbtShort(ReadSignedShort()),
+            3 => new NbtInt(ReadSignedInt()),
+            4 => new NbtLong(ReadSignedLong()),
+            5 => new NbtFloat(ReadFloat()),
+            6 => new NbtDouble(ReadDouble()),
+            8 => new NbtString(ReadNbtName()),
+            10 => ReadNbtCompound(),
+            _ => throw new NotSupportedException($"sandbox NBT: tag id {id} is not modelled.")
+        };
+
+        private NbtTag ReadNbtCompound()
+        {
+            var items = new Dictionary<string, NbtTag>();
+            while (true)
+            {
+                byte id = Next();
+                if (id == 0) return new NbtCompound(items);
+                string name = ReadNbtName();
+                items[name] = ReadNbtPayload(id) with { Name = name };
+            }
+        }
+
         // Nested named-type dispatch without reflection: static abstract interface member.
         public T ReadType<T>(int protocolVersion) where T : IProtocolType<T>
             => T.Read(ref this, protocolVersion);
@@ -329,6 +480,64 @@ namespace McProtoNet.Serialization
         }
 
         public void WriteRestBytes(byte[] v) => _buf.AddRange(v);
+
+        // Signature copied from the real MinecraftPrimitiveWriter, null rejection included: the
+        // sandbox only answers "does the generated code compile and round-trip against the real
+        // surface" while it accepts exactly what the real surface accepts. The default keeps both
+        // generated call shapes working: `WriteNbt(tag)` for the nameless network root,
+        // `WriteNbt(tag, true)` for the named one.
+        public void WriteNbt(NbtTag value, bool writeRootTag = false)
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            _buf.Add(NbtId(value));
+            if (writeRootTag) WriteNbtName(value.Name ?? "");
+            WriteNbtPayload(value);
+        }
+
+        private static byte NbtId(NbtTag tag) => tag switch
+        {
+            NbtByte => 1,
+            NbtShort => 2,
+            NbtInt => 3,
+            NbtLong => 4,
+            NbtFloat => 5,
+            NbtDouble => 6,
+            NbtString => 8,
+            NbtCompound => 10,
+            _ => throw new NotSupportedException($"sandbox NBT: {tag.GetType().Name} is not modelled.")
+        };
+
+        private void WriteNbtName(string s)
+        {
+            var bytes = Encoding.UTF8.GetBytes(s);
+            WriteUnsignedShort((ushort)bytes.Length);
+            _buf.AddRange(bytes);
+        }
+
+        private void WriteNbtPayload(NbtTag tag)
+        {
+            switch (tag)
+            {
+                case NbtByte v: WriteSignedByte(v.Value); break;
+                case NbtShort v: WriteSignedShort(v.Value); break;
+                case NbtInt v: WriteSignedInt(v.Value); break;
+                case NbtLong v: WriteSignedLong(v.Value); break;
+                case NbtFloat v: WriteFloat(v.Value); break;
+                case NbtDouble v: WriteDouble(v.Value); break;
+                case NbtString v: WriteNbtName(v.Value); break;
+                case NbtCompound c:
+                    foreach (var (name, child) in c.Items)
+                    {
+                        _buf.Add(NbtId(child));
+                        WriteNbtName(name);
+                        WriteNbtPayload(child);
+                    }
+
+                    _buf.Add(0);
+                    break;
+                default: throw new NotSupportedException($"sandbox NBT: {tag.GetType().Name} is not modelled.");
+            }
+        }
 
         // Mirror of MinecraftPrimitiveReader.ReadType<T>: direct interface dispatch, no reflection.
         public void WriteType<T>(T value, int protocolVersion) where T : IProtocolType<T>

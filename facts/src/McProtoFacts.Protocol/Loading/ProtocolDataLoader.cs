@@ -5,7 +5,7 @@ using ProtoCore;
 
 namespace McProtoFacts.Protocol.Loading;
 
-public sealed record ProtocolDataOptions(int FromProtocol = 735, int ToProtocol = 772);
+public sealed record ProtocolDataOptions(int FromProtocol = 735, int ToProtocol = 776);
 
 public static class ProtocolDataLoader
 {

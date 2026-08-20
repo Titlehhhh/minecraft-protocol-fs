@@ -87,6 +87,13 @@ public class ProtocolRepository : IProtocolRepository
         return _range;
     }
 
+    public IReadOnlyList<ProtocolVersionEntry> GetVersions()
+    {
+        return _map.Protocols
+            .Select(kv => new ProtocolVersionEntry(kv.Key, kv.Value.MinecraftVersions.ToArray()))
+            .ToArray();
+    }
+
     public IEnumerable<string> GetTypes()
     {
         return

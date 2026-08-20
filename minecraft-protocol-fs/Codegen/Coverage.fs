@@ -11,7 +11,7 @@ open McProtocol.Dsl
 /// gaps / stubs / missing — per release protocol version. See `dotnet run -- coverage`.
 module Coverage =
 
-    /// Release protocol versions the library targets (735–772), with display names.
+    /// Release protocol versions the library targets (735–776), with display names.
     /// Mirrors McProtoNet's `MinecraftVersion` table; snapshot/pre/rc protocols
     /// (737–750, 752) are left out on purpose — nobody ships against them.
     let knownVersions =
@@ -39,11 +39,17 @@ module Coverage =
             770, "1.21.5"
             771, "1.21.6"
             772, "1.21.7–1.21.8"
+            773, "1.21.9–1.21.10"
+            774, "1.21.11"
+            775, "26.1–26.1.2"
+            776, "26.2"
         ]
 
     let private contains pv range =
         let lo, hi = VersionRangeX.bounds range
-        (lo |> Option.forall (fun l -> pv >= l)) && (hi |> Option.forall (fun h -> pv <= h))
+
+        (lo |> Option.forall (fun l -> pv >= l))
+        && (hi |> Option.forall (fun h -> pv <= h))
 
     /// Compress a set of pvs into "a, b–c" chunks. Adjacency follows the known-version
     /// ordering, not integer succession (753 and 754 are neighbours; so are 736 and 751).
@@ -90,8 +96,7 @@ module Coverage =
 
         [
             for p in doc.RootElement.GetProperty("Packets").EnumerateArray() ->
-                p.GetProperty("Id").GetString(),
-                (p.GetProperty("Score").GetInt32(), p.GetProperty("Tier").GetString())
+                p.GetProperty("Id").GetString(), (p.GetProperty("Score").GetInt32(), p.GetProperty("Tier").GetString())
         ]
         |> Map.ofList
 
@@ -112,7 +117,8 @@ module Coverage =
         (allowlistPath: string)
         (statsPath: string option)
         (packets: PacketSpec list)
-        : string * string =
+        : string * string
+        =
         let manifest = readManifest manifestPath
         let stats = statsPath |> Option.map readStats
         let stubs = readStubs allowlistPath
@@ -142,8 +148,7 @@ module Coverage =
             ]
 
         let orphanSpecs =
-            packets
-            |> List.filter (fun p -> not (manifestKeys.Contains(PacketIds.key p)))
+            packets |> List.filter (fun p -> not (manifestKeys.Contains(PacketIds.key p)))
 
         let sb = StringBuilder()
         let line (s: string) = sb.AppendLine s |> ignore
@@ -153,17 +158,13 @@ module Coverage =
         line "Автогенерат: `dotnet run -- coverage` — не править руками."
         line ""
 
-        line
-            "Вселенная пакетов — `Spec/protocol-ids.json` (манифест из McProtoFacts), спеки — то,"
+        line "Вселенная пакетов — `Spec/protocol-ids.json` (манифест из McProtoFacts), спеки — то,"
 
-        line
-            "что реально лежит в `Spec/Packets/**`. «Покрыто» на версии значит: спек есть, версия"
+        line "что реально лежит в `Spec/Packets/**`. «Покрыто» на версии значит: спек есть, версия"
 
-        line
-            "внутри его диапазона поддержки и есть wire-layout на неё. «Стаб» — спек есть, но"
+        line "внутри его диапазона поддержки и есть wire-layout на неё. «Стаб» — спек есть, но"
 
-        line
-            "генерат в `Spec/todo-allowlist.txt`: компилируется, работать не будет. Снапшоты"
+        line "генерат в `Spec/todo-allowlist.txt`: компилируется, работать не будет. Снапшоты"
 
         line "(pv 737–750, 752) не считаются."
         line ""
@@ -215,8 +216,7 @@ module Coverage =
         // ---- stubs ------------------------------------------------------------------
         let stubRows =
             rows
-            |> List.choose (fun (_, spec, _, _) ->
-                spec |> Option.filter (fun p -> stubs.Contains p.ClassName))
+            |> List.choose (fun (_, spec, _, _) -> spec |> Option.filter (fun p -> stubs.Contains p.ClassName))
 
         if not (List.isEmpty stubRows) then
             line "## Стабы (todo-allowlist)"
@@ -301,7 +301,8 @@ module Coverage =
         let latestPv = pvs |> List.max
 
         let latestCovered =
-            rows |> List.sumBy (fun (_, _, _, cov) -> if cov.Contains latestPv then 1 else 0)
+            rows
+            |> List.sumBy (fun (_, _, _, cov) -> if cov.Contains latestPv then 1 else 0)
 
         let latestTotal =
             rows |> List.sumBy (fun (_, _, ex, _) -> if ex.Contains latestPv then 1 else 0)

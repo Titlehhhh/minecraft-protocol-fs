@@ -110,6 +110,10 @@ static async Task<int> RunAsync(string[] args)
                 Write(query.GetStats(), format);
                 return Ok;
 
+            case "versions":
+                Write(query.GetVersions(), format);
+                return Ok;
+
             case "order":
             case "build-order":
                 Write(query.GetBuildOrder(), format);
@@ -265,6 +269,7 @@ mcproto-facts commands:
   ids --pv <N> [--ns play] [--direction toClient|toServer] [--format json|toon]
   chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
   stats [--format json|toon]
+  versions [--format json|toon]              (protocol number -> Minecraft releases)
   order [--format json|toon]                 (type build order, simple -> complex)
   graph [--ns play] [--direction toClient] [--include-types false] [--format json|toon]
 

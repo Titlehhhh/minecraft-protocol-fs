@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 using McProtoFacts.Protocol.Loading;
 
 var start = 735;
-var end = 772;
+var end = 776;
 
 Console.WriteLine($"[McpServer] Loading protocols {start}-{end}...");
 var repository = await ProtocolDataLoader.LoadRepositoryAsync(new ProtocolDataOptions(start, end));

@@ -85,6 +85,11 @@ public static class McProtoFactsMcpTools
     public static string GetProtocolStats(ProtocolQueryService query, string format = "json") =>
         Serialize(query.GetStats(), format);
 
+    [McpServerTool(Name = "get_protocol_versions")]
+    [Description("Returns loaded protocol numbers with the Minecraft releases that speak them.")]
+    public static string GetProtocolVersions(ProtocolQueryService query, string format = "toon") =>
+        Serialize(query.GetVersions(), format);
+
     [McpServerTool(Name = "get_protocol_graph")]
     [Description("Returns protocol graph nodes/edges for packets, named types, native types, and protodef shapes.")]
     public static string GetProtocolGraph(

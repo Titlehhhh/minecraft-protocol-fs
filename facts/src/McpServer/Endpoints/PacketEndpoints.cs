@@ -66,6 +66,24 @@ public static class PacketEndpoints
             });
         });
 
+        app.MapGet("/api/versions", (ProtocolQueryService query) =>
+        {
+            var versions = query.GetVersions();
+
+            return Results.Ok(new
+            {
+                count = versions.Count,
+                from = versions.From,
+                to = versions.To,
+                protocols = versions.Protocols.Select(entry => new
+                {
+                    protocol = entry.Protocol,
+                    versions = entry.Versions,
+                    display = entry.Display
+                }).ToArray()
+            });
+        });
+
         app.MapGet("/api/types", (ProtocolQueryService query) =>
         {
             return Results.Ok(query.GetTypes());
