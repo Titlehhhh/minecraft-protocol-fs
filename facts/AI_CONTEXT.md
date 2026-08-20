@@ -88,6 +88,7 @@ ids <packet-id> [--format json|toon]
 ids --pv <N> [--ns namespace] [--direction toClient|toServer] [--format json|toon]
 chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
 stats [--format json|toon]
+versions [--format json|toon]
 order [--format json|toon]
 graph [--ns play] [--direction toClient] [--include-types false] [--format json|toon]
 ```
@@ -117,6 +118,7 @@ get_protocol_usage
 get_protocol_users
 get_protocol_dependencies
 get_protocol_stats
+get_protocol_versions
 get_protocol_graph
 ```
 
@@ -129,6 +131,7 @@ endpoints are useful when another process is already running the server:
 GET /api/packets
 GET /api/packets/{ns}/{dir}
 GET /api/stats
+GET /api/versions
 GET /api/types
 GET /api/native-types
 GET /api/types-by-kind

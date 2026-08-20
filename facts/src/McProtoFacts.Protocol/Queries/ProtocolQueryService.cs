@@ -154,6 +154,21 @@ public sealed class ProtocolQueryService
                 .ToArray());
     }
 
+    /// <summary>Loaded protocol numbers with the Minecraft releases that speak them.</summary>
+    public ProtocolVersionsResult GetVersions()
+    {
+        var entries = _repository.GetVersions()
+            .OrderBy(entry => entry.Protocol)
+            .Select(entry => new ProtocolVersionEntryResult(
+                entry.Protocol,
+                entry.Versions.ToArray(),
+                string.Join(", ", entry.Versions)))
+            .ToArray();
+
+        var supported = _repository.GetSupportedProtocols();
+        return new ProtocolVersionsResult(entries.Length, supported.From, supported.To, entries);
+    }
+
     public PacketIdMapResult GetPacketIdMap(int protocolVersion, string? ns = null, string? direction = null)
     {
         var supported = _repository.GetSupportedProtocols();
@@ -427,6 +442,17 @@ public sealed record PacketIdsResult(
     string Id,
     string Name,
     IReadOnlyList<PacketIdRangeEntry> Ranges);
+
+public sealed record ProtocolVersionEntryResult(
+    int Protocol,
+    IReadOnlyList<string> Versions,
+    string Display);
+
+public sealed record ProtocolVersionsResult(
+    int Count,
+    int From,
+    int To,
+    IReadOnlyList<ProtocolVersionEntryResult> Protocols);
 
 public sealed record PacketIdMapEntry(string Id, string Hex, int Dec);
 
