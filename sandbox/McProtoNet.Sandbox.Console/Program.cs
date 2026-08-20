@@ -6,6 +6,7 @@ using McProtoNet.Protocol.Packets.Play.Clientbound;
 using McProtoNet.Protocol.Packets.Status.Clientbound;
 using McProtoNet.Protocol.Packets.Status.Serverbound;
 using McProtoNet.Serialization;
+using UseEntityPacket = McProtoNet.Protocol.Packets.Play.Serverbound.UseEntityPacket;
 using McProtoNet.NBT;
 
 int version = MinecraftVersion.LatestProtocol;
@@ -339,6 +340,37 @@ Console.WriteLine($"protocol version = {version}\n");
     }
     Assert(SpawnPositionPacket.GetPacketId(735) == 0x42);
     Assert(SpawnPositionPacket.GetPacketId(772) == 0x5A);
+    Console.WriteLine();
+}
+
+// --- UseEntityPacket: union era @774 (interact_at arm), flat era @776 (LpVec3) ---
+{
+    var w764 = new MinecraftPrimitiveWriter();
+    var atPacket = new UseEntityPacket(42, true, VUntil774: new(new InteractAction.InteractAt(0.5f, 1.25f, -0.75f, 1)));
+    atPacket.Write(w764, 774);
+    var bytes764 = w764.ToArray();
+    var r764 = new MinecraftPrimitiveReader(bytes764);
+    var back764 = UseEntityPacket.Read(ref r764, 774);
+    var at = back764.VUntil774!.Value.Action as InteractAction.InteractAt;
+    Assert(back764.Target == 42 && back764.Sneaking);
+    Assert(at is not null && at.X == 0.5f && at.Y == 1.25f && at.Z == -0.75f && at.Hand == 1);
+    Assert(bytes764[1] == 2);
+
+    var again = new MinecraftPrimitiveWriter();
+    back764.Write(again, 774);
+    Assert(Hex(again.ToArray()) == Hex(bytes764));
+
+    var w776 = new MinecraftPrimitiveWriter();
+    var flat = new UseEntityPacket(42, false, V775_Last: new(0, new LpVec3(0.25d, -0.5d, 1.0d)));
+    flat.Write(w776, 776);
+    var bytes776 = w776.ToArray();
+    var r776 = new MinecraftPrimitiveReader(bytes776);
+    var back776 = UseEntityPacket.Read(ref r776, 776);
+    var loc = back776.V775_Last!.Value.Location;
+    Assert(back776.VUntil774 is null && Math.Abs(loc.Z - 1.0d) <= 2d / 32766d);
+
+    Console.WriteLine($"UseEntityPacket @774: {bytes764.Length} bytes, discriminator={bytes764[1]}, case={at!.GetType().Name}");
+    Console.WriteLine($"UseEntityPacket @776: {bytes776.Length} bytes, location={loc}");
     Console.WriteLine();
 }
 
