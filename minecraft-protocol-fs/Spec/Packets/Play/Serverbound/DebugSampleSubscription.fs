@@ -6,12 +6,8 @@ open McProtocol.Dsl
 module DebugSampleSubscription =
 
     let debugSampleSubscription =
-        packet "DebugSampleSubscriptionPacket" Play Serverbound (Since 766) {
-            api [
-                field "Type" TInt All
-            ]
+        packet "DebugSampleSubscriptionPacket" Play Serverbound (Between(766, 772)) {
+            api [ field "Type" TInt All ]
 
-            wire (Since 766) [
-                read "type" VarInt "Type"
-            ]
+            wire (Between(766, 772)) [ read "type" VarInt "Type" ]
         }
