@@ -11,7 +11,7 @@ open McProtocol.Dsl
 /// gaps / stubs / missing — per release protocol version. See `dotnet run -- coverage`.
 module Coverage =
 
-    /// Release protocol versions the library targets (735–772), with display names.
+    /// Release protocol versions the library targets (735–776), with display names.
     /// Mirrors McProtoNet's `MinecraftVersion` table; snapshot/pre/rc protocols
     /// (737–750, 752) are left out on purpose — nobody ships against them.
     let knownVersions =
@@ -39,6 +39,10 @@ module Coverage =
             770, "1.21.5"
             771, "1.21.6"
             772, "1.21.7–1.21.8"
+            773, "1.21.9"
+            774, "1.21.11"
+            775, "26.1"
+            776, "26.2"
         ]
 
     let private contains pv range =
