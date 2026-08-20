@@ -31,6 +31,61 @@ Console.WriteLine($"protocol version = {version}\n");
     Console.WriteLine($"  read  {back}   round-trips: {v == back}\n");
 }
 
+// --- LpVec3: hand-written runtime primitive, quantized with a transmitted scale (773+) ---
+{
+    var zero = new LpVec3(0d, 0d, 0d);
+    var wz = new MinecraftPrimitiveWriter();
+    zero.Write(wz, version);
+    var zeroBytes = wz.ToArray();
+    Assert(Hex(zeroBytes) == "00");
+
+    // Both vectors and their wire bytes come from the protocol documentation's own samples.
+    foreach (var (v, expected) in new[]
+             {
+                 (new LpVec3(1.0d, 0.0d, -1.0d), "F1FF0000FFFF"),
+                 (new LpVec3(10.0d, 0.2d, -5.0d), "F6FF4001051F02"),
+             })
+    {
+        var w = new MinecraftPrimitiveWriter();
+        v.Write(w, version);
+        var bytes = w.ToArray();
+        Assert(Hex(bytes) == expected);
+
+        var r = new MinecraftPrimitiveReader(bytes);
+        var back = LpVec3.Read(ref r, version);
+        double step = Math.Ceiling(Math.Max(Math.Abs(v.X), Math.Max(Math.Abs(v.Y), Math.Abs(v.Z)))) * 2d / 32766d;
+        Assert(Math.Abs(back.X - v.X) <= step && Math.Abs(back.Y - v.Y) <= step && Math.Abs(back.Z - v.Z) <= step);
+
+        Console.WriteLine($"LpVec3  {v}");
+        Console.WriteLine($"  wire  {Hex(bytes)}  ({bytes.Length} bytes)");
+        Console.WriteLine($"  read  {back}");
+        Console.WriteLine();
+    }
+
+    var rng = new Random(776);
+    for (int i = 0; i < 2000; i++)
+    {
+        var v = new LpVec3(
+            (rng.NextDouble() - 0.5d) * Math.Pow(10d, rng.Next(-4, 6)),
+            (rng.NextDouble() - 0.5d) * Math.Pow(10d, rng.Next(-4, 6)),
+            (rng.NextDouble() - 0.5d) * Math.Pow(10d, rng.Next(-4, 6)));
+
+        var w = new MinecraftPrimitiveWriter();
+        v.Write(w, version);
+        var bytes = w.ToArray();
+        Assert(bytes.Length == 1 || bytes.Length >= 6);
+
+        var r = new MinecraftPrimitiveReader(bytes);
+        var back = LpVec3.Read(ref r, version);
+        double scale = Math.Ceiling(Math.Max(Math.Abs(v.X), Math.Max(Math.Abs(v.Y), Math.Abs(v.Z))));
+        double step = Math.Max(scale, 1d) * 2d / 32766d;
+        Assert(Math.Abs(back.X - v.X) <= step && Math.Abs(back.Y - v.Y) <= step && Math.Abs(back.Z - v.Z) <= step);
+    }
+
+    Console.WriteLine("LpVec3  2000 random vectors round-trip within one quantization step");
+    Console.WriteLine();
+}
+
 // --- Vec3i: varint-encoded ---
 {
     var v = new Vec3i(300, -1, 42);
@@ -115,17 +170,24 @@ Console.WriteLine($"protocol version = {version}\n");
     Console.WriteLine($"  wire  {Hex(bytes)}  ({bytes.Length} bytes)   round-trips: {same}\n");
 }
 
-// --- UpdateTimePacket: MULTIVERSION — 2 fields @763, 3 fields @772 ---
+// --- UpdateTimePacket: MULTIVERSION - time+tickDayTime through 774, clock list from 775 ---
 {
-    var pkt = new UpdateTimePacket(6000, 13000, V768_Last: new(true));
-    foreach (var v in new[] { 763, 772 })
+    var cases = new (int Version, UpdateTimePacket Packet)[]
+    {
+        (763, new UpdateTimePacket(6000, VUntil767: new(13000))),
+        (772, new UpdateTimePacket(6000, V768_774: new(13000, true))),
+        (776, new UpdateTimePacket(6000, V775_Last: new(new[] { new ClockUpdate(0, 13000, 0.25f, 1f) }))),
+    };
+
+    foreach (var (v, pkt) in cases)
     {
         var w = new MinecraftPrimitiveWriter();
         pkt.Write(w, v);
         var bytes = w.ToArray();
         var r = new MinecraftPrimitiveReader(bytes);
         var back = UpdateTimePacket.Read(ref r, v);
-        Console.WriteLine($"UpdateTimePacket @{v}: {bytes.Length} bytes, age/time ok: {back.Age == 6000 && back.Time == 13000}, tickDayTime={back.V768_Last?.TickDayTime}");
+        Assert(back.Age == 6000);
+        Console.WriteLine($"UpdateTimePacket @{v}: {bytes.Length} bytes, clocks={back.V775_Last?.ClockUpdates.Length.ToString() ?? "-"}, tickDayTime={back.V768_774?.TickDayTime.ToString() ?? "-"}");
     }
     Console.WriteLine();
 }
@@ -253,18 +315,26 @@ Console.WriteLine($"protocol version = {version}\n");
     Console.WriteLine();
 }
 
-// --- SpawnPositionPacket: MULTIVERSION — position only @754, +angle f32 @755 ---
+// --- SpawnPositionPacket: MULTIVERSION - position @754, +angle @755, RespawnData @773 ---
 {
-    var pkt = new SpawnPositionPacket(new Position(10, 64, -20), V755_Last: new(90f));
-    foreach (var v in new[] { 754, 772 })
+    var loc = new Position(10, 64, -20);
+    var cases = new (int Version, SpawnPositionPacket Packet)[]
+    {
+        (754, new SpawnPositionPacket(VUntil754: new(loc))),
+        (772, new SpawnPositionPacket(V755_772: new(loc, 90f))),
+        (776, new SpawnPositionPacket(V773_Last: new(new RespawnData(new GlobalPos("minecraft:overworld", loc), 90f, -12.5f)))),
+    };
+
+    foreach (var (v, pkt) in cases)
     {
         var w = new MinecraftPrimitiveWriter();
         pkt.Write(w, v);
         var bytes = w.ToArray();
         var r = new MinecraftPrimitiveReader(bytes);
         var back = SpawnPositionPacket.Read(ref r, v);
-        var ok = back.Location == pkt.Location && (back.V755_Last?.Angle ?? 0f) == (v >= 755 ? 90f : 0f);
-        Console.WriteLine($"SpawnPositionPacket @{v}: {bytes.Length} bytes, roundtrip: {ok}, loc={back.Location}");
+        var readLoc = back.VUntil754?.Location ?? back.V755_772?.Location ?? back.V773_Last!.Value.RespawnData.GlobalPos.Location;
+        Assert(readLoc == loc);
+        Console.WriteLine($"SpawnPositionPacket @{v}: {bytes.Length} bytes, loc={readLoc}");
     }
     Assert(SpawnPositionPacket.GetPacketId(735) == 0x42);
     Assert(SpawnPositionPacket.GetPacketId(772) == 0x5A);

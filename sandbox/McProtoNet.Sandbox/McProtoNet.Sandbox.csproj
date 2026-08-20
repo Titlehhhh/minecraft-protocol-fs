@@ -17,11 +17,14 @@
         <Compile Include="..\..\generated-csharp\**\*.cs"
                  Exclude="..\..\generated-csharp\Flow\**\*.cs;
                           ..\..\generated-csharp\Types\EntityMetadataEntry.cs;
+                          ..\..\generated-csharp\Types\ExplosionParticleEntry.cs;
+                          ..\..\generated-csharp\Types\ExplosionParticleInfo.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\TeamsPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\ExplosionPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\EntityMetadataPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\MapPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\RespawnPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\LoginPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Serverbound\WindowClickPacket.cs;
                           ..\..\generated-csharp\Packets\Configuration\Clientbound\DisconnectPacket.cs;
                           ..\..\generated-csharp\Packets\Configuration\Clientbound\ShowDialogPacket.cs;
