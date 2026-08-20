@@ -16,18 +16,21 @@ $staging = Join-Path ([IO.Path]::GetTempPath()) "mcproto-gen-$([guid]::NewGuid()
 # the sandbox's NBT-only excludes (RespawnPacket, Configuration DisconnectPacket) are NOT
 # carried over here — real McProtoNet has NBT support, so those are deliverable.
 #
-# Unions/*.cs are held back until McProtoNet references Dunet: the generated union carries
-# [Union], which that package's generator turns into the case hierarchy. The reference must be
-# plain — since Dunet 1.11 the package ships a real runtime assembly holding the attribute, so
-# PrivateAssets="all" starves it and anything reflecting over the type fails at run time. Once it is referenced, drop TeamAction.cs,
+# Unions ship now: McProtoNet.Protocol references Dunet, and its version gate is source-generated
+# (McProtoNet.SourceGenerator emits IsSupportedVersion per type), so nothing reflects over the
+# union marker at run time and PrivateAssets="all" there is safe. The sandbox is the opposite case:
+# its ThrowHelper reflects, so its Dunet reference must stay plain.
+# EntityMetadataValue.cs and its entry stay held back until Slot, Particle and the registry
+# variants are modelled; ExplosionParticleEntry/Info join them because they carry Particle.
+# UnionShapeProbe.cs is a codegen fixture, not protocol, and is never delivered. Once it is referenced, drop TeamAction.cs,
 # TeamsPacket.cs and EntityMetadataEntry.cs from this list — they compile in the sandbox today.
 # EntityMetadataValue.cs stays until Slot, Particle and the registry variants are modelled.
 # UnionShapeProbe.cs is a codegen fixture, not protocol: it exists so the sandbox compiles the
 # union shapes EntityMetadataValue is built from. It is never delivered.
 $exclude = @(
-    'TeamsPacket.cs', 'EntityMetadataPacket.cs', 'ExplosionPacket.cs',
-    'MapPacket.cs', 'WindowClickPacket.cs', 'EntityMetadataEntry.cs',
-    'TeamAction.cs', 'EntityMetadataValue.cs', 'UnionShapeProbe.cs'
+    'EntityMetadataPacket.cs', 'ExplosionPacket.cs', 'ExplosionParticleEntry.cs',
+    'ExplosionParticleInfo.cs', 'MapPacket.cs', 'WindowClickPacket.cs',
+    'EntityMetadataEntry.cs', 'EntityMetadataValue.cs', 'UnionShapeProbe.cs'
 )
 
 # One generated file declares one type, named after the file, so an excluded file name is the
