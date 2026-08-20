@@ -25,6 +25,8 @@ type ILanguageTarget =
     abstract RenderType: NamedTypeSpec -> string
     /// Render one bitflags type into a complete source file body.
     abstract RenderBitflags: BitflagsSpec -> string
+    /// Render one union type into a complete source file body.
+    abstract RenderUnion: UnionTypeSpec -> string
     /// Render one packet (with its ordinal-catalog entry) into a complete source file body.
     abstract RenderPacket: Registry.CatalogEntry -> string
     /// Render whole-protocol aggregate outputs (registry tables, dispatcher, handler bases).

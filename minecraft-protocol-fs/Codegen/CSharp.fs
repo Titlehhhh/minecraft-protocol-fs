@@ -30,17 +30,86 @@ module CSharp =
     /// C# reserved keywords; a camel-cased identifier that collides with one must be verbatim
     /// (`@namespace`), else Roslyn emits the bare keyword and the file fails to parse.
     let private csharpKeywords =
-        set [
-            "abstract"; "as"; "base"; "bool"; "break"; "byte"; "case"; "catch"; "char"; "checked"
-            "class"; "const"; "continue"; "decimal"; "default"; "delegate"; "do"; "double"; "else"
-            "enum"; "event"; "explicit"; "extern"; "false"; "finally"; "fixed"; "float"; "for"
-            "foreach"; "goto"; "if"; "implicit"; "in"; "int"; "interface"; "internal"; "is"; "lock"
-            "long"; "namespace"; "new"; "null"; "object"; "operator"; "out"; "override"; "params"
-            "private"; "protected"; "public"; "readonly"; "ref"; "return"; "sbyte"; "sealed"
-            "short"; "sizeof"; "stackalloc"; "static"; "string"; "struct"; "switch"; "this"; "throw"
-            "true"; "try"; "typeof"; "uint"; "ulong"; "unchecked"; "unsafe"; "ushort"; "using"
-            "virtual"; "void"; "volatile"; "while"
-        ]
+        set
+            [
+                "abstract"
+                "as"
+                "base"
+                "bool"
+                "break"
+                "byte"
+                "case"
+                "catch"
+                "char"
+                "checked"
+                "class"
+                "const"
+                "continue"
+                "decimal"
+                "default"
+                "delegate"
+                "do"
+                "double"
+                "else"
+                "enum"
+                "event"
+                "explicit"
+                "extern"
+                "false"
+                "finally"
+                "fixed"
+                "float"
+                "for"
+                "foreach"
+                "goto"
+                "if"
+                "implicit"
+                "in"
+                "int"
+                "interface"
+                "internal"
+                "is"
+                "lock"
+                "long"
+                "namespace"
+                "new"
+                "null"
+                "object"
+                "operator"
+                "out"
+                "override"
+                "params"
+                "private"
+                "protected"
+                "public"
+                "readonly"
+                "ref"
+                "return"
+                "sbyte"
+                "sealed"
+                "short"
+                "sizeof"
+                "stackalloc"
+                "static"
+                "string"
+                "struct"
+                "switch"
+                "this"
+                "throw"
+                "true"
+                "try"
+                "typeof"
+                "uint"
+                "ulong"
+                "unchecked"
+                "unsafe"
+                "ushort"
+                "using"
+                "virtual"
+                "void"
+                "volatile"
+                "while"
+            ]
 
     let private camel (s: string) =
         let n =
@@ -95,6 +164,22 @@ module CSharp =
     let private throwNoLayoutLine (s: RuntimeSurface) (typeName: string) =
         sprintf
             "throw new System.NotSupportedException($\"%s has no wire layout for protocol version {%s}.\");"
+            typeName
+            s.VersionParam
+
+    /// A discriminator the layer has no arm for: a stream condition, not a codegen gap.
+    let private throwNoCaseLine (s: RuntimeSurface) (typeName: string) =
+        sprintf
+            "throw new System.NotSupportedException($\"%s has no case for discriminator {%s} at protocol version {%s}.\");"
+            typeName
+            s.DiscriminatorParam
+            s.VersionParam
+
+    /// A case whose layer does not cover the version being written: the model holds a shape this
+    /// version cannot carry, so the write must fail rather than invent one.
+    let private throwNoCaseLayerLine (s: RuntimeSurface) (typeName: string) =
+        sprintf
+            "throw new System.NotSupportedException($\"%s case {GetType().Name} has no wire layout for protocol version {%s}.\");"
             typeName
             s.VersionParam
 
@@ -263,6 +348,14 @@ module CSharp =
         | Named n -> Some n
         | _ -> s.Primitives.TryFind w |> Option.map (fun p -> p.CsType)
 
+    /// C# type of a whole wire field, wrappers included — what a union case declares as a
+    /// positional parameter. `None` means the shape has no renderer yet.
+    let rec private wireCsType (s: RuntimeSurface) (w: WireType) : string option =
+        match w with
+        | Option inner -> wireCsType s inner |> Option.map (fun t -> t + "?")
+        | Array(item, _) -> wireCsType s item |> Option.map (fun t -> t + "[]")
+        | _ -> itemCsType s w
+
     /// Count-prefix read: setup lines + the count expression.
     let private countRead (s: RuntimeSurface) (cnt: ArrayCount) (ln: string) : (string list * string) option =
         match cnt with
@@ -282,8 +375,14 @@ module CSharp =
             s.Primitives.TryFind w
             |> Option.map (fun p -> [ sprintf "%s.%s((%s)%s.Length);" s.WriterParam p.WriteMethod p.CsType value ])
 
-    /// One wire entry -> read statement lines.
-    let private readEntryLines (s: RuntimeSurface) (entry: WireEntry) : Result<string list, string> =
+    /// One wire entry -> read statement lines. `bound` are the api names the entries before this
+    /// one in the same layout already read into locals — the only names an entry may address.
+    let private readEntryLines
+        (s: RuntimeSurface)
+        (bound: Set<string>)
+        (entry: WireEntry)
+        : Result<string list, string>
+        =
         match entry with
         | Read(_, Option inner, api) ->
             let ln = localName s api
@@ -327,20 +426,90 @@ module CSharp =
             match readExpr s wt with
             | Ok call -> Ok [ sprintf "%s;" call ]
             | Error e -> Error(sprintf "discard '%s' (%s)" wire e)
+        | ReadUnion(disc, _, api) when not (bound.Contains disc) ->
+            // Nothing read '%s' yet, so the emitted call would name a local that does not exist:
+            // valid-looking C# that cannot compile. A stub is the honest answer.
+            Error(sprintf "read union '%s' (discriminator '%s' is not read by an earlier entry)" api disc)
+        | ReadUnion(disc, unionName, api) ->
+            // the discriminator is a plain wire field an earlier entry already read into a local;
+            // the cast normalizes whatever integer it was to the union's `int discriminator`
+            Ok
+                [
+                    sprintf
+                        "var %s = %s.%s(ref %s, %s, (int)%s);"
+                        (localName s api)
+                        unionName
+                        s.ReadMethodName
+                        s.ReaderParam
+                        s.VersionParam
+                        (localName s disc)
+                ]
         | other -> Error(sprintf "%A" other)
 
-    /// One wire entry -> write statement lines. `apiTypes` drives narrowing casts.
+    /// Read entries in layout order, pairing each with its rendered lines. The fold is what makes
+    /// "an earlier entry bound this" checkable: an entry only ever sees the api names before it.
+    let private readEntriesLines
+        (s: RuntimeSurface)
+        (entries: WireEntry list)
+        : (WireEntry * Result<string list, string>) list
+        =
+        entries
+        |> List.mapFold
+            (fun bound e ->
+                let rendered = readEntryLines s bound e
+
+                let bound =
+                    match e with
+                    | Read(_, _, api) -> Set.add api bound
+                    | _ -> bound
+
+                (e, rendered), bound)
+            Set.empty
+        |> fst
+
+    let private hasReadError (results: (WireEntry * Result<string list, string>) list) =
+        results
+        |> List.exists (function
+            | _, Error _ -> true
+            | _ -> false)
+
+    /// Wire-only discriminator -> the api field of the union that consumes it. The write side has
+    /// no such wire field in the model, so the union's own `Discriminator(pv)` is its only source.
+    let private discriminatorUnions (entries: WireEntry list) : Map<string, string> =
+        entries
+        |> List.choose (function
+            | ReadUnion(disc, _, api) -> Some(disc, api)
+            | _ -> None)
+        |> Map.ofList
+
+    /// One wire entry -> write statement lines. `apiTypes` drives narrowing casts; `discUnions`
+    /// pairs a wire-only discriminator with the union field that derives its value.
     let private writeEntryLines
         (s: RuntimeSurface)
         (apiTypes: Map<string, ApiType>)
+        (discUnions: Map<string, string>)
         (entry: WireEntry)
         : Result<string list, string>
         =
         match entry with
-        | Read(_, _, api) when api.StartsWith "_" ->
-            // wire-only discriminator: its value must be derived from the model, which needs the
-            // union/conditional entry that consumes it to be generated first
-            Error(sprintf "write wire-only '%s' (derive from model)" api)
+        | Read(_, wt, api) when api.StartsWith "_" ->
+            // wire-only field: the model carries no such field, so the value must be derived. Only
+            // a union consumer knows how — anything else stays a gap.
+            match discUnions.TryFind api with
+            | None -> Error(sprintf "write wire-only '%s' (derive from model)" api)
+            | Some unionApi ->
+                let disc = sprintf "%s.%s(%s)" unionApi s.DiscriminatorMethodName s.VersionParam
+
+                // `Discriminator` hands back the api-level integer; a narrower wire primitive must
+                // report a key it cannot carry instead of wrapping it (same rule as `countRead`).
+                let value =
+                    match s.Primitives.TryFind wt with
+                    | Some p when p.CsType <> csType s TInt -> sprintf "checked((%s)%s)" p.CsType disc
+                    | _ -> disc
+
+                match writeExpr s wt None value with
+                | Ok call -> Ok [ sprintf "%s;" call ]
+                | Error e -> Error(sprintf "write discriminator '%s' (%s)" api e)
         | Read(_, Option inner, api) ->
             let v = camel api + "Value"
 
@@ -402,6 +571,7 @@ module CSharp =
             match writeExpr s wt None value with
             | Ok call -> Ok [ sprintf "%s;" call ]
             | Error e -> Error(sprintf "discard '%s' (%s)" wire e)
+        | ReadUnion(_, _, api) -> Ok [ sprintf "%s.%s(%s, %s);" api s.WriteMethodName s.WriterParam s.VersionParam ]
         | other -> Error(sprintf "%A" other)
 
     // ----- per-layout bodies + version branching -----
@@ -413,9 +583,13 @@ module CSharp =
         (l: WireLayout)
         : string list
         =
-        let results = l.Entries |> List.map (fun e -> e, readEntryLines s e)
+        let results = readEntriesLines s l.Entries
 
-        let errors = results |> List.choose (function _, Error e -> Some e | _ -> None)
+        let errors =
+            results
+            |> List.choose (function
+                | _, Error e -> Some e
+                | _ -> None)
 
         if not (List.isEmpty errors) then
             (errors |> List.map todoLine) @ [ throwTodoLine name ]
@@ -423,11 +597,16 @@ module CSharp =
             let bound =
                 results
                 |> List.choose (function
-                    | Read(_, _, api), Ok _ -> Some(localName s api)
+                    | Read(_, _, api), Ok _
+                    | ReadUnion(_, _, api), Ok _ -> Some(localName s api)
                     | _ -> None)
                 |> Set.ofList
 
-            let lines = results |> List.collect (function _, Ok ls -> ls | _, Error _ -> [])
+            let lines =
+                results
+                |> List.collect (function
+                    | _, Ok ls -> ls
+                    | _, Error _ -> [])
 
             let ctorArgs =
                 apiFields
@@ -447,14 +626,23 @@ module CSharp =
         (l: WireLayout)
         : string list
         =
-        let results = l.Entries |> List.map (writeEntryLines s apiTypes)
+        let results =
+            l.Entries
+            |> List.map (writeEntryLines s apiTypes (discriminatorUnions l.Entries))
 
-        let errors = results |> List.choose (function Error e -> Some e | _ -> None)
+        let errors =
+            results
+            |> List.choose (function
+                | Error e -> Some e
+                | _ -> None)
 
         if not (List.isEmpty errors) then
             (errors |> List.map todoLine) @ [ throwTodoLine name ]
         else
-            results |> List.collect (function Ok ls -> ls | Error _ -> [])
+            results
+            |> List.collect (function
+                | Ok ls -> ls
+                | Error _ -> [])
 
     /// One guarded branch per layout. A single unconditional layout stays flat (the support
     /// attribute already gates its span); with several layouts, a version that matches none throws.
@@ -476,7 +664,11 @@ module CSharp =
                     let endsWithThrow =
                         body |> List.tryLast |> Option.exists (fun (l: string) -> l.StartsWith "throw")
 
-                    let body = if isWrite && not endsWithThrow then body @ [ "return;" ] else body
+                    let body =
+                        if isWrite && not endsWithThrow then
+                            body @ [ "return;" ]
+                        else
+                            body
 
                     match guardCondition s r with
                     | Some c -> yield! [ sprintf "if (%s)" c; "{" ] @ body @ [ "}" ]
@@ -527,9 +719,7 @@ module CSharp =
                 s
                 spec.Name
                 true
-                [
-                    for l in spec.Layouts -> l.Range, layoutWriteLines s spec.Name apiTypes l
-                ]
+                [ for l in spec.Layouts -> l.Range, layoutWriteLines s spec.Name apiTypes l ]
 
         let shell =
             if value then
@@ -589,18 +779,14 @@ module CSharp =
                 .AddModifiers(Token SyntaxKind.PublicKeyword, Token SyntaxKind.StaticKeyword)
                 .AddParameterListParameters(
                     Parameter(Identifier s.VersionParam).WithType(ParseTypeName "int"),
-                    Parameter(Identifier "id")
-                        .WithType(ParseTypeName "int")
-                        .AddModifiers(Token SyntaxKind.OutKeyword)
+                    Parameter(Identifier "id").WithType(ParseTypeName "int").AddModifiers(Token SyntaxKind.OutKeyword)
                 )
                 .WithBody(parseBody tryBody)
 
         let getBody =
             [
                 sprintf "if (TryGetPacketId(%s, out var id)) return id;" s.VersionParam
-                sprintf
-                    "throw new System.NotSupportedException($\"No packet id for protocol {%s}.\");"
-                    s.VersionParam
+                sprintf "throw new System.NotSupportedException($\"No packet id for protocol {%s}.\");" s.VersionParam
             ]
 
         let getDecl =
@@ -624,14 +810,15 @@ module CSharp =
             Fields: (string * string) list
         }
 
-    /// Mechanical group name from a layout range: `V759`, `V761_763`, `V764_Last`.
-    let private layerName (allLayouts: WireLayout list) (r: VersionRange) : string =
+    /// Mechanical group name from a layout range: `V759`, `V761_763`, `V764_Last`. Shared with the
+    /// union backend, which labels its per-layer cases the same way — one naming scheme, not two.
+    let private layerName (allRanges: VersionRange list) (r: VersionRange) : string =
         match VersionRangeX.bounds r with
         | Some a, Some b when a = b -> sprintf "V%d" a
         | Some a, Some b -> sprintf "V%d_%d" a b
         | Some a, None -> sprintf "V%d_Last" a
         | None, Some b ->
-            match VersionRangeX.span (allLayouts |> List.map (fun l -> l.Range)) |> fst with
+            match VersionRangeX.span allRanges |> fst with
             | Some lo -> sprintf "V%d_%d" lo b
             | None -> sprintf "VUntil%d" b
         | None, None -> "VAll"
@@ -686,7 +873,11 @@ module CSharp =
 
                 {
                     Layout = l
-                    GroupName = (if fields.IsEmpty then None else Some(layerName p.Layouts l.Range))
+                    GroupName =
+                        (if fields.IsEmpty then
+                             None
+                         else
+                             Some(layerName (p.Layouts |> List.map (fun l -> l.Range)) l.Range))
                     Fields = fields
                 }
         ]
@@ -728,9 +919,7 @@ module CSharp =
                             sprintf
                                 "public readonly record struct %sLayer(%s);"
                                 g
-                                (l.Fields
-                                 |> List.map (fun (t, n) -> sprintf "%s %s" t n)
-                                 |> String.concat ", ")
+                                (l.Fields |> List.map (fun (t, n) -> sprintf "%s %s" t n) |> String.concat ", ")
                         )
                     | None -> ()
             ]
@@ -762,9 +951,13 @@ module CSharp =
         (layer: PacketLayer)
         : string list
         =
-        let results = layer.Layout.Entries |> List.map (fun e -> e, readEntryLines s e)
+        let results = readEntriesLines s layer.Layout.Entries
 
-        let errors = results |> List.choose (function _, Error e -> Some e | _ -> None)
+        let errors =
+            results
+            |> List.choose (function
+                | _, Error e -> Some e
+                | _ -> None)
 
         if not (List.isEmpty errors) then
             (errors |> List.map todoLine) @ [ throwTodoLine name ]
@@ -772,11 +965,16 @@ module CSharp =
             let bound =
                 results
                 |> List.choose (function
-                    | Read(_, _, api), Ok _ -> Some(localName s api)
+                    | Read(_, _, api), Ok _
+                    | ReadUnion(_, _, api), Ok _ -> Some(localName s api)
                     | _ -> None)
                 |> Set.ofList
 
-            let lines = results |> List.collect (function _, Ok ls -> ls | _, Error _ -> [])
+            let lines =
+                results
+                |> List.collect (function
+                    | _, Ok ls -> ls
+                    | _, Error _ -> [])
 
             let commonArgs =
                 common
@@ -793,7 +991,10 @@ module CSharp =
                     [ sprintf "%s: new %sLayer(%s)" g g (String.concat ", " args) ]
                 | None -> []
 
-            lines @ [ sprintf "return new %s(%s);" name (String.concat ", " (commonArgs @ groupArg)) ]
+            lines
+            @ [
+                sprintf "return new %s(%s);" name (String.concat ", " (commonArgs @ groupArg))
+            ]
 
     /// Write body of one layer. A layer with a group first demands it (`WrongLayerException`),
     /// then aliases each group field as a local with the *api-level* type (keeps the `?? throw`
@@ -805,9 +1006,15 @@ module CSharp =
         (layer: PacketLayer)
         : string list
         =
-        let results = layer.Layout.Entries |> List.map (writeEntryLines s apiTypes)
+        let results =
+            layer.Layout.Entries
+            |> List.map (writeEntryLines s apiTypes (discriminatorUnions layer.Layout.Entries))
 
-        let errors = results |> List.choose (function Error e -> Some e | _ -> None)
+        let errors =
+            results
+            |> List.choose (function
+                | Error e -> Some e
+                | _ -> None)
 
         if not (List.isEmpty errors) then
             (errors |> List.map todoLine) @ [ throwTodoLine name ]
@@ -824,14 +1031,17 @@ module CSharp =
                         g
                     :: [
                         for _, n in layer.Fields ->
-                            let apiT =
-                                apiTypes.TryFind n |> Option.map (csType s) |> Option.defaultValue "var"
+                            let apiT = apiTypes.TryFind n |> Option.map (csType s) |> Option.defaultValue "var"
 
                             sprintf "%s %s = layer.%s;" apiT n n
                     ]
                 | None -> []
 
-            unpack @ (results |> List.collect (function Ok ls -> ls | Error _ -> []))
+            unpack
+            @ (results
+               |> List.collect (function
+                   | Ok ls -> ls
+                   | Error _ -> []))
 
     /// `public static PacketIdentity Identity => new(...)` — identity as a value, from the catalog.
     let private identityMember (s: RuntimeSurface) (e: Registry.CatalogEntry) : MemberDeclarationSyntax =
@@ -907,8 +1117,7 @@ module CSharp =
                     | None -> ()
                 ]
 
-            let args =
-                String.concat ", " (sprintf "\"%s\", \"%s\"" name typeName :: named)
+            let args = String.concat ", " (sprintf "\"%s\", \"%s\"" name typeName :: named)
 
             AttributeList(
                 SingletonSeparatedList(
@@ -937,7 +1146,10 @@ module CSharp =
         let multi = List.length p.Layouts > 1
 
         let commonFields =
-            if multi then p.ApiFields |> List.filter isCommon else p.ApiFields
+            if multi then
+                p.ApiFields |> List.filter isCommon
+            else
+                p.ApiFields
 
         let layers =
             if multi then
@@ -971,9 +1183,7 @@ module CSharp =
                 s
                 p.ClassName
                 true
-                [
-                    for l in layers -> l.Layout.Range, formAWriteLines s p.ClassName apiTypes l
-                ]
+                [ for l in layers -> l.Layout.Range, formAWriteLines s p.ClassName apiTypes l ]
 
         let identityMembers =
             identityMember s e
@@ -981,10 +1191,7 @@ module CSharp =
 
         let shell =
             (packetRecordShell s.PacketInterface s.PacketBaseInterface p.ClassName commonPos layers)
-                .AddMembers(
-                    readMethod s p.ClassName (parseBody readBody),
-                    writeMethod s false (parseBody writeBody)
-                )
+                .AddMembers(readMethod s p.ClassName (parseBody readBody), writeMethod s false (parseBody writeBody))
                 .AddMembers(identityMembers @ packetIdMethods s p.Ids |> List.toArray)
                 .AddAttributeLists(supportAttr s (p.Layouts |> List.map (fun l -> l.Range)))
                 .AddAttributeLists(
@@ -1042,6 +1249,290 @@ module CSharp =
 
         renderUnit s s.Namespace name [ s.UsingAttributes; s.UsingSerialization ] shell
 
+    // ----- unions -----
+
+    /// One case of a rendered union: the nested record's name and its positional parameters.
+    type private UnionCase =
+        {
+            CaseName: string
+            Params: (string * string) list
+        }
+
+    /// Positional parameters of an arm, in wire order. The parameter is named by the api name
+    /// verbatim, because `writeEntryLines` addresses a value by that same string: any second
+    /// spelling here (Pascal-casing, say) generates a write body that references a local nobody
+    /// declared. The packet path aliases layer fields under the api name for the same reason.
+    /// An entry whose shape has no renderer drops out here — the same entry also fails
+    /// `readEntryLines`, so that arm's bodies become stubs while the case still declares and the
+    /// file still compiles.
+    let private armParams (s: RuntimeSurface) (arm: UnionArm) : (string * string) list =
+        arm.Entries
+        |> List.choose (function
+            | Read(_, w, api) when not (api.StartsWith "_") -> wireCsType s w |> Option.map (fun t -> t, api)
+            | _ -> None)
+
+    /// Case name of an arm inside one layer: the DSL name while the arm's parameter list is the
+    /// same in every layer that carries it, else the name plus the layer label. TeamAction's
+    /// `Created` is string-typed until 764 and NBT-typed from 771 — one record cannot be both,
+    /// so both shapes exist as separate cases.
+    let private unionCaseName (s: RuntimeSurface) (spec: UnionTypeSpec) (l: UnionLayout) (arm: UnionArm) : string =
+        let shapes =
+            spec.Layouts
+            |> List.choose (fun other -> other.Arms |> List.tryFind (fun a -> a.Name = arm.Name))
+            |> List.map (armParams s)
+            |> List.distinct
+
+        if List.length shapes <= 1 then
+            arm.Name
+        else
+            arm.Name + layerName (spec.Layouts |> List.map (fun x -> x.Range)) l.Range
+
+    /// Every case the union declares, across all layers, deduplicated by name.
+    let private unionCases (s: RuntimeSurface) (spec: UnionTypeSpec) : UnionCase list =
+        [
+            for l in spec.Layouts do
+                for a in l.Arms ->
+                    {
+                        CaseName = unionCaseName s spec l a
+                        Params = armParams s a
+                    }
+        ]
+        |> List.distinctBy (fun c -> c.CaseName)
+
+    /// Read body of one layer: switch on the discriminator the container already took off the
+    /// wire, read that arm's entries into locals, construct its case. Each arm gets its own block
+    /// so two arms may bind the same local name.
+    let private unionReadLines (s: RuntimeSurface) (spec: UnionTypeSpec) (l: UnionLayout) : string list =
+        [
+            yield sprintf "switch (%s)" s.DiscriminatorParam
+            yield "{"
+
+            for arm in l.Arms do
+                for k in arm.Keys do
+                    yield sprintf "case %d:" k
+
+                yield "{"
+
+                let results = readEntriesLines s arm.Entries
+
+                let errors =
+                    results
+                    |> List.choose (function
+                        | _, Error e -> Some e
+                        | _ -> None)
+
+                if not (List.isEmpty errors) then
+                    yield! errors |> List.map todoLine
+                    yield throwTodoLine spec.Name
+                else
+                    yield!
+                        results
+                        |> List.collect (function
+                            | _, Ok ls -> ls
+                            | _, Error _ -> [])
+
+                    let args =
+                        arm.Entries
+                        |> List.choose (function
+                            | Read(_, _, api) when not (api.StartsWith "_") -> Some(localName s api)
+                            | _ -> None)
+
+                    yield sprintf "return new %s(%s);" (unionCaseName s spec l arm) (String.concat ", " args)
+
+                yield "}"
+
+            yield "}"
+            yield throwNoCaseLine s spec.Name
+        ]
+
+    /// Write body of one layer: switch on the concrete case, then write that arm's entries. The
+    /// entry renderer addresses values by their api name, so each case property is aliased to a
+    /// local of exactly that name (the same trick form-A layers use).
+    let private unionWriteLines (s: RuntimeSurface) (spec: UnionTypeSpec) (l: UnionLayout) : string list =
+        [
+            yield "switch (this)"
+            yield "{"
+
+            for arm in l.Arms do
+                let ps = armParams s arm
+
+                yield sprintf "case %s %s:" (unionCaseName s spec l arm) (if ps.IsEmpty then "_" else "arm")
+                yield "{"
+
+                let results = arm.Entries |> List.map (writeEntryLines s Map.empty Map.empty)
+
+                let errors =
+                    results
+                    |> List.choose (function
+                        | Error e -> Some e
+                        | _ -> None)
+
+                if not (List.isEmpty errors) then
+                    yield! errors |> List.map todoLine
+                    yield throwTodoLine spec.Name
+                else
+                    for t, n in ps do
+                        yield sprintf "%s %s = arm.%s;" t n n
+
+                    yield!
+                        results
+                        |> List.collect (function
+                            | Ok ls -> ls
+                            | Error _ -> [])
+
+                    yield "return;"
+
+                yield "}"
+
+            yield "}"
+            yield throwNoCaseLayerLine s spec.Name
+        ]
+
+    /// `Discriminator` body of one layer: the case picks the key. An arm that reads under several
+    /// keys (`case [3; 4] "PlayersChanged"`) writes the first one.
+    let private unionDiscriminatorLines (s: RuntimeSurface) (spec: UnionTypeSpec) (l: UnionLayout) : string list =
+        [
+            yield "switch (this)"
+            yield "{"
+
+            for arm in l.Arms do
+                match arm.Keys with
+                | key :: _ -> yield sprintf "case %s _: return %d;" (unionCaseName s spec l arm) key
+                | [] -> ()
+
+            yield "}"
+            yield throwNoCaseLayerLine s spec.Name
+        ]
+
+    /// `[Union] public partial record Name { ... }`. Not sealed and not an `IProtocolType`: the
+    /// source generator derives the case records from the nested partials, and the read needs the
+    /// discriminator the containing layout already consumed, which that interface has no room for.
+    let private unionShell (name: string) : TypeDeclarationSyntax =
+        RecordDeclaration(SyntaxKind.RecordDeclaration, Token SyntaxKind.RecordKeyword, Identifier name)
+            .AddModifiers(Token SyntaxKind.PublicKeyword, Token SyntaxKind.PartialKeyword)
+            .WithOpenBraceToken(Token SyntaxKind.OpenBraceToken)
+            .WithCloseBraceToken(Token SyntaxKind.CloseBraceToken)
+        :> TypeDeclarationSyntax
+
+    let private unionAttr (s: RuntimeSurface) : AttributeListSyntax =
+        AttributeList(SingletonSeparatedList(Attribute(ParseName s.UnionAttribute)))
+
+    /// `public static T Read(ref Reader reader, int protocolVersion, int discriminator)`.
+    let private unionReadMethod (s: RuntimeSurface) (typeName: string) (body: BlockSyntax) : MemberDeclarationSyntax =
+        MethodDeclaration(ParseTypeName typeName, s.ReadMethodName)
+            .AddModifiers(Token SyntaxKind.PublicKeyword, Token SyntaxKind.StaticKeyword)
+            .AddParameterListParameters(
+                Parameter(Identifier s.ReaderParam)
+                    .WithType(ParseTypeName s.ReaderType)
+                    .AddModifiers(Token SyntaxKind.RefKeyword),
+                Parameter(Identifier s.VersionParam).WithType(ParseTypeName "int"),
+                Parameter(Identifier s.DiscriminatorParam).WithType(ParseTypeName "int")
+            )
+            .WithBody(body)
+
+    /// `public int Discriminator(int protocolVersion)` — the key the containing layout writes
+    /// ahead of the union body, derived from the case the model holds.
+    let private discriminatorMethod (s: RuntimeSurface) (body: BlockSyntax) : MemberDeclarationSyntax =
+        MethodDeclaration(PredefinedType(Token SyntaxKind.IntKeyword), s.DiscriminatorMethodName)
+            .AddModifiers(Token SyntaxKind.PublicKeyword)
+            .AddParameterListParameters(Parameter(Identifier s.VersionParam).WithType(ParseTypeName "int"))
+            .WithBody(body)
+
+    let private unionUsings (s: RuntimeSurface) (cases: UnionCase list) =
+        let text =
+            cases |> List.collect (fun c -> c.Params |> List.map fst) |> String.concat " "
+
+        [
+            yield s.UsingUnion
+            yield s.UsingAttributes
+            yield s.UsingSerialization
+            if text.Contains s.NbtType then
+                yield s.UsingNbt
+            if text.Contains s.UuidType then
+                yield s.UsingSystem
+        ]
+
+    /// A case record shadows a same-named type for the whole union body: read as written,
+    /// `Rotations(Rotations Value)` binds the parameter to the case, not to the type. Rewriting
+    /// the wire's named references to namespace-qualified ones fixes every use at once — the case
+    /// declarations, the `ReadType<T>` calls and the write-side locals all come from these entries.
+    /// The shadow set is every arm name, whether or not the layer label ends up suffixed to it: an
+    /// unnecessary qualification is only longer, a missing one is wrong code.
+    let private qualifyShadowed (s: RuntimeSurface) (spec: UnionTypeSpec) : UnionTypeSpec =
+        let shadowed =
+            spec.Layouts
+            |> List.collect (fun l -> l.Arms |> List.map (fun a -> a.Name))
+            |> Set.ofList
+
+        let rec wire w =
+            match w with
+            | Named n when shadowed.Contains n -> Named(sprintf "%s.%s" s.Namespace n)
+            | Array(item, cnt) -> Array(wire item, cnt)
+            | Option inner -> Option(wire inner)
+            | SentinelArray(item, e) -> SentinelArray(wire item, e)
+            | other -> other
+
+        let entry e =
+            match e with
+            | Read(w, t, api) -> Read(w, wire t, api)
+            | Discard(w, t) -> Discard(w, wire t)
+            | other -> other
+
+        { spec with
+            Layouts =
+                [
+                    for l in spec.Layouts ->
+                        { l with
+                            Arms =
+                                [
+                                    for a in l.Arms ->
+                                        { a with
+                                            Entries = a.Entries |> List.map entry
+                                        }
+                                ]
+                        }
+                ]
+        }
+
+    let private renderUnion (s: RuntimeSurface) (spec: UnionTypeSpec) : string =
+        let spec = qualifyShadowed s spec
+        let cases = unionCases s spec
+
+        let caseDecls: MemberDeclarationSyntax list =
+            [
+                for c in cases ->
+                    ParseMemberDeclaration(
+                        sprintf
+                            "partial record %s(%s);"
+                            c.CaseName
+                            (c.Params |> List.map (fun (t, n) -> sprintf "%s %s" t n) |> String.concat ", ")
+                    )
+            ]
+
+        let readBody =
+            gateLine s spec.Name
+            :: versionedBody s spec.Name false [ for l in spec.Layouts -> l.Range, unionReadLines s spec l ]
+
+        let writeBody =
+            gateLine s spec.Name
+            :: versionedBody s spec.Name true [ for l in spec.Layouts -> l.Range, unionWriteLines s spec l ]
+
+        let discBody =
+            versionedBody s spec.Name false [ for l in spec.Layouts -> l.Range, unionDiscriminatorLines s spec l ]
+
+        let shell =
+            (unionShell spec.Name)
+                .AddMembers(List.toArray caseDecls)
+                .AddMembers(
+                    unionReadMethod s spec.Name (parseBody readBody),
+                    writeMethod s false (parseBody writeBody),
+                    discriminatorMethod s (parseBody discBody)
+                )
+                .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
+                .AddAttributeLists(unionAttr s)
+
+        renderUnit s s.Namespace spec.Name (unionUsings s cases) shell
+
     // ----- whole-protocol aggregates: registry tables, dispatcher, handler base -----
 
     /// Validate + format a hand-assembled aggregate source file (several top-level types per
@@ -1071,13 +1562,7 @@ module CSharp =
     /// dispatch and the handler base: its ordinal falls through to `Unknown`, so a stub `Read`
     /// throw can never take down the receive loop.
     let private hasReadStub (s: RuntimeSurface) (p: PacketSpec) =
-        p.Layouts
-        |> List.exists (fun l ->
-            l.Entries
-            |> List.exists (fun e ->
-                match readEntryLines s e with
-                | Error _ -> true
-                | Ok _ -> false))
+        p.Layouts |> List.exists (fun l -> readEntriesLines s l.Entries |> hasReadError)
 
     let rec private wireNamedRefs (w: WireType) : string list =
         match w with
@@ -1111,19 +1596,14 @@ module CSharp =
         | _ -> []
 
     /// Named types the delivered output can resolve: runtime-provided primitives plus generated
-    /// named/bitflags types that are themselves stub-free and reference only resolvable types
-    /// (fixpoint). Unions are not generated yet, so a union reference is unresolvable.
+    /// named/bitflags/union types that are themselves stub-free and reference only resolvable
+    /// types (fixpoint). A union is a candidate like any other type — it is generated now, so a
+    /// union reference resolves as soon as every type its arms read does.
     let private resolvableTypes (s: RuntimeSurface) (protocol: ProtocolSpec) : Set<string> =
         let runtimeProvided = Set.ofList [ "Position" ]
 
-        let stubFree (t: NamedTypeSpec) =
-            t.Layouts
-            |> List.forall (fun l ->
-                l.Entries
-                |> List.forall (fun e ->
-                    match readEntryLines s e with
-                    | Ok _ -> true
-                    | Error _ -> false))
+        let stubFreeEntries (entries: WireEntry list) =
+            readEntriesLines s entries |> hasReadError |> not
 
         let candidates =
             [
@@ -1132,7 +1612,13 @@ module CSharp =
                         (t.ApiFields |> List.collect (fun f -> apiNamedRefs f.Type))
                         @ (t.Layouts |> List.collect (fun l -> l.Entries |> List.collect entryNamedRefs))
 
-                    t.Name, refs, stubFree t
+                    t.Name, refs, t.Layouts |> List.forall (fun l -> stubFreeEntries l.Entries)
+                for u in protocol.Unions ->
+                    let arms = u.Layouts |> List.collect (fun l -> l.Arms)
+
+                    let refs = arms |> List.collect (fun a -> a.Entries |> List.collect entryNamedRefs)
+
+                    u.Name, refs, arms |> List.forall (fun a -> stubFreeEntries a.Entries)
             ]
 
         let mutable known =
@@ -1180,7 +1666,9 @@ module CSharp =
                 for st in allStates do
                     for dir in allDirs do
                         let slice = Registry.slice st dir entries
-                        if not slice.IsEmpty then yield st, dir, slice
+
+                        if not slice.IsEmpty then
+                            yield st, dir, slice
             ]
 
         // pv runs with an identical id -> ordinal layout, per slice
@@ -1272,7 +1760,10 @@ module CSharp =
                 line (sprintf "        [%s];" (table |> Seq.map string |> String.concat ", "))
                 line ""
 
-        line (sprintf "    private static ReadOnlySpan<short> Table(%s phase, %s dir, int pv)" s.PhaseEnum s.DirectionEnum)
+        line (
+            sprintf "    private static ReadOnlySpan<short> Table(%s phase, %s dir, int pv)" s.PhaseEnum s.DirectionEnum
+        )
+
         line "    {"
         line "        switch (phase, dir)"
         line "        {"
@@ -1284,7 +1775,9 @@ module CSharp =
                 line (sprintf "            case (%s.%A, %s.%A):" s.PhaseEnum st s.DirectionEnum dir)
 
                 for lo, hi, _ in runs do
-                    line (sprintf "                if (pv >= %d && pv <= %d) return Table%A%A_%d_%d;" lo hi st dir lo hi)
+                    line (
+                        sprintf "                if (pv >= %d && pv <= %d) return Table%A%A_%d_%d;" lo hi st dir lo hi
+                    )
 
                 line "                return default;"
 
@@ -1293,6 +1786,7 @@ module CSharp =
         line "        return default;"
         line "    }"
         line ""
+
         line (
             sprintf
                 "    public static bool TryGetOrdinal(int id, int %s, %s phase, %s dir, out ushort ordinal)"
@@ -1300,6 +1794,7 @@ module CSharp =
                 s.PhaseEnum
                 s.DirectionEnum
         )
+
         line "    {"
         line (sprintf "        var table = Table(phase, dir, %s);" s.VersionParam)
         line "        if ((uint)id < (uint)table.Length && table[id] >= 0)"
@@ -1312,6 +1807,7 @@ module CSharp =
         line "        return false;"
         line "    }"
         line ""
+
         line (
             sprintf
                 "    public static bool TryResolve(int id, int %s, %s phase, %s dir, [NotNullWhen(true)] out PacketDescriptor? descriptor)"
@@ -1319,6 +1815,7 @@ module CSharp =
                 s.PhaseEnum
                 s.DirectionEnum
         )
+
         line "    {"
         line (sprintf "        if (TryGetOrdinal(id, %s, phase, dir, out var ordinal))" s.VersionParam)
         line "        {"
@@ -1330,13 +1827,22 @@ module CSharp =
         line "        return false;"
         line "    }"
         line ""
-        line (sprintf "    public static ReadOnlySpan<PacketDescriptor> Catalog(%s phase, %s dir)" s.PhaseEnum s.DirectionEnum)
+
+        line (
+            sprintf
+                "    public static ReadOnlySpan<PacketDescriptor> Catalog(%s phase, %s dir)"
+                s.PhaseEnum
+                s.DirectionEnum
+        )
+
         line "    {"
         line "        switch (phase, dir)"
         line "        {"
 
         for st, dir, _ in slices do
-            line (sprintf "            case (%s.%A, %s.%A): return Catalog%A%A;" s.PhaseEnum st s.DirectionEnum dir st dir)
+            line (
+                sprintf "            case (%s.%A, %s.%A): return Catalog%A%A;" s.PhaseEnum st s.DirectionEnum dir st dir
+            )
 
         line "        }"
         line ""
@@ -1362,10 +1868,10 @@ module CSharp =
                 for st in allStates do
                     for dir in allDirs do
                         let slice =
-                            Registry.slice st dir entries
-                            |> List.filter (fun e -> dispatchable e.Spec)
+                            Registry.slice st dir entries |> List.filter (fun e -> dispatchable e.Spec)
 
-                        if not slice.IsEmpty then yield st, dir, slice
+                        if not slice.IsEmpty then
+                            yield st, dir, slice
             ]
 
         // A `.g.cs` file is auto-generated as far as the compiler is concerned, so the project's
@@ -1381,7 +1887,11 @@ module CSharp =
         line ""
         line (sprintf "namespace %s;" s.Namespace)
         line ""
-        line (sprintf "public delegate void TrailingBytesHook(int packetId, int %s, long remainingBytes);" s.VersionParam)
+
+        line (
+            sprintf "public delegate void TrailingBytesHook(int packetId, int %s, long remainingBytes);" s.VersionParam
+        )
+
         line ""
         line "/// <summary>Generated dispatcher. Packets whose codegen is still stubbed are not"
         line "/// dispatched — they fall through to <c>Unknown</c> instead of throwing inside the"
@@ -1394,6 +1904,7 @@ module CSharp =
         line "{"
         line "    public static event TrailingBytesHook? OnTrailingBytes;"
         line ""
+
         line (
             sprintf
                 "    public static void Dispatch<TVisitor>(in InputPacket raw, int %s, %s phase, %s dir, ref TVisitor visitor)"
@@ -1401,9 +1912,14 @@ module CSharp =
                 s.PhaseEnum
                 s.DirectionEnum
         )
+
         line "        where TVisitor : IPacketVisitor"
         line "    {"
-        line (sprintf "        if (!PacketRegistry.TryGetOrdinal(raw.Id, %s, phase, dir, out var ordinal))" s.VersionParam)
+
+        line (
+            sprintf "        if (!PacketRegistry.TryGetOrdinal(raw.Id, %s, phase, dir, out var ordinal))" s.VersionParam
+        )
+
         line "        {"
         line "            visitor.Unknown(in raw);"
         line "            return;"
@@ -1421,6 +1937,7 @@ module CSharp =
 
         for st, dir, _ in slices do
             line (sprintf "            case (%s.%A, %s.%A):" s.PhaseEnum st s.DirectionEnum dir)
+
             line (
                 sprintf
                     "                handled = Dispatch%A%A(ordinal, ref %s, %s, ref visitor, ref reading);"
@@ -1429,6 +1946,7 @@ module CSharp =
                     s.ReaderParam
                     s.VersionParam
             )
+
             line "                break;"
 
         line "            default:"
@@ -1443,7 +1961,11 @@ module CSharp =
         line "        }"
         line ""
         line (sprintf "        if (%s.RemainingCount != 0)" s.ReaderParam)
-        line (sprintf "            OnTrailingBytes?.Invoke(raw.Id, %s, %s.RemainingCount);" s.VersionParam s.ReaderParam)
+
+        line (
+            sprintf "            OnTrailingBytes?.Invoke(raw.Id, %s, %s.RemainingCount);" s.VersionParam s.ReaderParam
+        )
+
         line "    }"
 
         // ----- TryDispatch: the same table, a reason instead of a throw -----
@@ -1458,6 +1980,7 @@ module CSharp =
         line "    /// decoder and out-of-memory still propagate. An exception thrown by the visitor"
         line "    /// itself is never converted — the table lowers <c>reading</c> before it calls the"
         line "    /// visitor, so the consumer's own bugs come out as themselves.</summary>"
+
         line (
             sprintf
                 "    public static bool TryDispatch<TVisitor>(in InputPacket raw, int %s, %s phase, %s direction, ref TVisitor visitor, out DecodeError error)"
@@ -1465,15 +1988,18 @@ module CSharp =
                 s.PhaseEnum
                 s.DirectionEnum
         )
+
         line "        where TVisitor : IPacketVisitor"
         line "    {"
         line "        error = DecodeError.None;"
         line ""
+
         line (
             sprintf
                 "        if (!PacketRegistry.TryGetOrdinal(raw.Id, %s, phase, direction, out var ordinal))"
                 s.VersionParam
         )
+
         line "        {"
         line "            visitor.Unknown(in raw);"
         line "            return true;"
@@ -1492,6 +2018,7 @@ module CSharp =
 
         for st, dir, _ in slices do
             line (sprintf "                case (%s.%A, %s.%A):" s.PhaseEnum st s.DirectionEnum dir)
+
             line (
                 sprintf
                     "                    handled = Dispatch%A%A(ordinal, ref %s, %s, ref visitor, ref reading);"
@@ -1500,6 +2027,7 @@ module CSharp =
                     s.ReaderParam
                     s.VersionParam
             )
+
             line "                    break;"
 
         line "                default:"
@@ -1520,7 +2048,11 @@ module CSharp =
         line "        }"
         line ""
         line (sprintf "        if (%s.RemainingCount != 0)" s.ReaderParam)
-        line (sprintf "            OnTrailingBytes?.Invoke(raw.Id, %s, %s.RemainingCount);" s.VersionParam s.ReaderParam)
+
+        line (
+            sprintf "            OnTrailingBytes?.Invoke(raw.Id, %s, %s.RemainingCount);" s.VersionParam s.ReaderParam
+        )
+
         line ""
         line "        return true;"
         line "    }"
@@ -1530,15 +2062,13 @@ module CSharp =
         | Some baseIface ->
             line ""
             line "    /// <summary>One raw packet in, one decoded packet out — no visitor to write."
-            line (
-                sprintf
-                    "    /// An id this (phase, direction) cannot map yields an <see cref=\"UnknownPacket\" />"
-            )
+            line (sprintf "    /// An id this (phase, direction) cannot map yields an <see cref=\"UnknownPacket\" />")
             line "    /// and still returns true: an unmapped id is a normal stream condition, not an error."
             line "    /// A malformed body returns false with <paramref name=\"error\" /> filled and"
             line "    /// <paramref name=\"packet\" /> null. The allocation-free hot path is"
             line "    /// <see cref=\"Dispatch\" /> / <see cref=\"TryDispatch\" />; this door costs nothing"
             line "    /// extra either — packets are classes, so the capture is a reference, not a box.</summary>"
+
             line (
                 sprintf
                     "    public static bool TryDecode(in InputPacket raw, int %s, %s phase, %s direction, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out %s? packet, out DecodeError error)"
@@ -1547,14 +2077,15 @@ module CSharp =
                     s.DirectionEnum
                     baseIface
             )
+
             line "    {"
             line "        var capture = new Capture(phase, direction);"
             line ""
+
             line (
-                sprintf
-                    "        if (!TryDispatch(in raw, %s, phase, direction, ref capture, out error))"
-                    s.VersionParam
+                sprintf "        if (!TryDispatch(in raw, %s, phase, direction, ref capture, out error))" s.VersionParam
             )
+
             line "        {"
             line "            packet = null;"
             line "            return false;"
@@ -1564,11 +2095,13 @@ module CSharp =
             line "        return true;"
             line "    }"
             line ""
+
             line (
                 sprintf
                     "    /// <summary>Keeps the decoded packet as <see cref=\"%s\" />. The assignment is a"
                     baseIface
             )
+
             line "    /// reference conversion (every packet is a class that implements it), so there is no"
             line "    /// boxing and no adapter object — the same jump table, one field write.</summary>"
             line "    private struct Capture : IPacketVisitor"
@@ -1585,14 +2118,19 @@ module CSharp =
             line "            Result = null;"
             line "        }"
             line ""
+
             line (
                 sprintf
                     "        public void Visit<T>(T packet) where T : class, %s<T> => Result = (%s)packet;"
                     (s.PacketInterface |> Option.defaultValue baseIface)
                     baseIface
             )
+
             line ""
-            line "        public void Unknown(in InputPacket raw) => Result = new UnknownPacket(raw.Id, _phase, _direction);"
+
+            line
+                "        public void Unknown(in InputPacket raw) => Result = new UnknownPacket(raw.Id, _phase, _direction);"
+
             line "    }"
         | None -> ()
 
@@ -1630,12 +2168,10 @@ module CSharp =
 
         for st, dir, slice in slices do
             line ""
-            line (
-                sprintf
-                    "    /// <summary>One ordinal, one read, one constrained call. <paramref name=\"reading\" />"
-            )
+            line (sprintf "    /// <summary>One ordinal, one read, one constrained call. <paramref name=\"reading\" />")
             line "    /// goes false between the two: above it the exception is the packet's fault, below it"
             line "    /// the visitor's. Only the Try door reads it.</summary>"
+
             line (
                 sprintf
                     "    private static bool Dispatch%A%A<TVisitor>(ushort ordinal, ref %s %s, int %s, ref TVisitor visitor, ref bool reading)"
@@ -1645,6 +2181,7 @@ module CSharp =
                     s.ReaderParam
                     s.VersionParam
             )
+
             line "        where TVisitor : IPacketVisitor"
             line "    {"
             line "        switch (ordinal)"
@@ -1653,6 +2190,7 @@ module CSharp =
             for e in slice do
                 line (sprintf "            case %d:" e.Ordinal)
                 line "            {"
+
                 line (
                     sprintf
                         "                var packet = %s.Read(ref %s, %s);"
@@ -1660,6 +2198,7 @@ module CSharp =
                         s.ReaderParam
                         s.VersionParam
                 )
+
                 line "                reading = false;"
                 line "                visitor.Visit(packet);"
                 line "                return true;"
@@ -1678,10 +2217,7 @@ module CSharp =
     /// Play keeps the bare name and other phases get a phase prefix.
     let private handlerNames (entries: Registry.CatalogEntry list) : Map<string * string, string> =
         let counts =
-            entries
-            |> List.map (fun e -> shortName e.Spec)
-            |> List.countBy id
-            |> Map.ofList
+            entries |> List.map (fun e -> shortName e.Spec) |> List.countBy id |> Map.ofList
 
         entries
         |> List.map (fun e ->
@@ -1714,7 +2250,8 @@ module CSharp =
                         Registry.slice st Clientbound entries
                         |> List.filter (fun e -> dispatchable e.Spec)
 
-                    if not slice.IsEmpty then yield st, slice
+                    if not slice.IsEmpty then
+                        yield st, slice
             ]
 
         let names = handlerNames (clientbound |> List.collect snd)
@@ -1741,7 +2278,14 @@ module CSharp =
         line "    {"
         line "        _pending = default;"
         line "        var self = this;"
-        line (sprintf "        PacketFlow.Dispatch(in raw, %s, Phase, %s.Clientbound, ref self);" s.VersionParam s.DirectionEnum)
+
+        line (
+            sprintf
+                "        PacketFlow.Dispatch(in raw, %s, Phase, %s.Clientbound, ref self);"
+                s.VersionParam
+                s.DirectionEnum
+        )
+
         line "        return _pending;"
         line "    }"
         line ""
@@ -1760,12 +2304,7 @@ module CSharp =
                 let handler = names.[(sprintf "%A" st, e.Spec.ClassName)]
 
                 line (sprintf "                    case %d:" e.Ordinal)
-                line (
-                    sprintf
-                        "                        _pending = %s((%s)(object)packet);"
-                        handler
-                        (relTypeName e.Spec)
-                )
+                line (sprintf "                        _pending = %s((%s)(object)packet);" handler (relTypeName e.Spec))
                 line "                        return;"
 
             line "                }"
@@ -1787,12 +2326,7 @@ module CSharp =
                 let handler = names.[(sprintf "%A" st, e.Spec.ClassName)]
 
                 line ""
-                line (
-                    sprintf
-                        "    protected virtual ValueTask %s(%s packet) => default;"
-                        handler
-                        (relTypeName e.Spec)
-                )
+                line (sprintf "    protected virtual ValueTask %s(%s packet) => default;" handler (relTypeName e.Spec))
 
         line "}"
         sb.ToString()
@@ -1833,6 +2367,7 @@ module CSharp =
                 renderType surface surface.Namespace surface.ProtocolInterface spec [] []
 
             member _.RenderBitflags spec = renderBitflags surface spec
+            member _.RenderUnion spec = renderUnion surface spec
             member _.RenderPacket entry = renderPacket surface entry
             member _.RenderProtocol entries = renderProtocolExtras surface entries
         }

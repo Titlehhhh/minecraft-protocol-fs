@@ -6,6 +6,7 @@ using McProtoNet.Protocol.Packets.Play.Clientbound;
 using McProtoNet.Protocol.Packets.Status.Clientbound;
 using McProtoNet.Protocol.Packets.Status.Serverbound;
 using McProtoNet.Serialization;
+using McProtoNet.NBT;
 
 int version = MinecraftVersion.LatestProtocol;
 
@@ -339,6 +340,138 @@ Console.WriteLine($"protocol version = {version}\n");
     Assert(SpawnPositionPacket.GetPacketId(735) == 0x42);
     Assert(SpawnPositionPacket.GetPacketId(772) == 0x5A);
     Console.WriteLine();
+}
+
+// --- TeamAction: a dunet union behind TeamsPacket — string era @764, nbt era @772 ---
+{
+    // the mode field is wire-only: the model carries the case, the packet derives the byte
+    var created = new TeamAction.CreatedVUntil764(
+        "Reds", 1, "always", "never", 4, "[", "]", new[] { "Steve", "Alex" });
+    Assert(created.Discriminator(764) == 0);
+
+    var w = new MinecraftPrimitiveWriter();
+    new TeamsPacket("reds", created).Write(w, 764);
+    var bytes = w.ToArray();
+    // "reds" is one length byte plus four chars, so the mode byte sits at index 5
+    Assert(bytes[5] == 0x00);
+
+    var r = new MinecraftPrimitiveReader(bytes);
+    var back = TeamsPacket.Read(ref r, 764);
+    Assert(back.TeamName == "reds");
+    var backCreated = back.Action as TeamAction.CreatedVUntil764;
+    Assert(backCreated is not null);
+    Assert(backCreated!.Name == "Reds" && backCreated.FriendlyFire == 1 && backCreated.Prefix == "["
+           && backCreated.Players.Length == 2 && backCreated.Players[1] == "Alex");
+    Console.WriteLine($"TeamsPacket @764: {bytes.Length} bytes, mode={bytes[5]}, case={back.Action.GetType().Name}");
+
+    // one arm, two keys: the read accepts 3 and 4, the write picks the first
+    var changed = new TeamAction.PlayersChanged(new[] { "Steve" });
+    Assert(changed.Discriminator(772) == 3);
+    var w2 = new MinecraftPrimitiveWriter();
+    new TeamsPacket("reds", changed).Write(w2, 772);
+    var changedBytes = w2.ToArray();
+    Assert(changedBytes[5] == 0x03);
+    changedBytes[5] = 0x04;
+    var r2 = new MinecraftPrimitiveReader(changedBytes);
+    var back2 = TeamsPacket.Read(ref r2, 772);
+    Assert(back2.Action is TeamAction.PlayersChanged { Players.Length: 1 });
+    Console.WriteLine($"TeamsPacket @772: modes 3 and 4 both read as {back2.Action.GetType().Name}");
+
+    // the 771 layer swaps the text fields to nbt, so Created is a second case, not the same one
+    var teamFlags = new TeamFlags(FriendlyFire: true, SeeFriendlyInvisible: false);
+    var created772 = new TeamAction.CreatedV771_Last(
+        new NbtCompound().With("text", new NbtString("Reds")), teamFlags, 0, 1, 4,
+        new NbtCompound().With("text", new NbtString("[")),
+        new NbtCompound().With("text", new NbtString("]")), new[] { "Steve" });
+    var w3 = new MinecraftPrimitiveWriter();
+    new TeamsPacket("reds", created772).Write(w3, 772);
+    var nbtBytes = w3.ToArray();
+    var r3 = new MinecraftPrimitiveReader(nbtBytes);
+    var back3 = TeamsPacket.Read(ref r3, 772);
+    var backNbt = back3.Action as TeamAction.CreatedV771_Last;
+    Assert(backNbt is not null);
+    Assert(((NbtCompound)backNbt!.Name).Items["text"] is NbtString { Value: "Reds" });
+    Assert(backNbt.Flags == teamFlags);
+    var w4 = new MinecraftPrimitiveWriter();
+    back3.Write(w4, 772);
+    Assert(Hex(w4.ToArray()) == Hex(nbtBytes));
+    Console.WriteLine($"TeamsPacket @772: {nbtBytes.Length} bytes, re-write byte-identical, case={back3.Action.GetType().Name}");
+
+    // the flags bits are one u8 either way, so modelling them moved no wire byte: clearing both
+    // keeps the length and changes exactly the byte the old spec used to write as zero
+    var w5 = new MinecraftPrimitiveWriter();
+    new TeamsPacket("reds", created772 with { Flags = new TeamFlags(false, false) }).Write(w5, 772);
+    var clearedBytes = w5.ToArray();
+    Assert(clearedBytes.Length == nbtBytes.Length);
+    Assert(clearedBytes.Zip(nbtBytes).Count(p => p.First != p.Second) == 1);
+    Console.WriteLine($"TeamAction @772: flags travel as one u8 (friendly_fire, see_friendly_invisible)");
+
+    // a case whose layer does not cover the version must fail, not invent a shape
+    try
+    {
+        new TeamsPacket("reds", created).Write(new MinecraftPrimitiveWriter(), 772);
+        Assert(false);
+    }
+    catch (NotSupportedException)
+    {
+    }
+
+    var kind = back3.Action.Match(
+        createdVUntil764: _ => "created", removed: _ => "removed", updatedVUntil764: _ => "updated",
+        playersAdded: _ => "playersAdded", playersRemoved: _ => "playersRemoved",
+        createdV771_Last: _ => "created", updatedV771_Last: _ => "updated",
+        playersChanged: _ => "playersChanged");
+    Assert(kind == "created");
+    Console.WriteLine($"TeamAction.Match -> {kind}\n");
+}
+
+// --- UnionShapeProbe: the union shapes EntityMetadataValue is built from ---
+// EntityMetadataValue itself cannot compile here yet (its arms read Slot, Particle and the
+// registry variants, none of them modelled), so its three risky shapes are compiled and
+// round-tripped through a probe union instead: keyword-named cases (Byte/Int/String), a case
+// carrying a same-named type (Rotations), and a case carrying an array of one (Vec3f).
+{
+    var probes = new UnionShapeProbe[]
+    {
+        new UnionShapeProbe.Byte(-3),
+        new UnionShapeProbe.Int(300),
+        new UnionShapeProbe.String("hello"),
+        new UnionShapeProbe.Rotations(new Rotations(1f, 2f, 3f)),
+        new UnionShapeProbe.Vec3f(new[] { new Vec3f(1f, 2f, 3f), new Vec3f(-1f, 0f, 0.5f) }),
+    };
+
+    foreach (var probe in probes)
+    {
+        var w = new MinecraftPrimitiveWriter();
+        probe.Write(w, version);
+        var bytes = w.ToArray();
+        var r = new MinecraftPrimitiveReader(bytes);
+        var back = UnionShapeProbe.Read(ref r, version, probe.Discriminator(version));
+        Assert(back.GetType() == probe.GetType());
+
+        // record equality compares array references, so the wire is the equality check
+        var w2 = new MinecraftPrimitiveWriter();
+        back.Write(w2, version);
+        Assert(Hex(w2.ToArray()) == Hex(bytes));
+    }
+
+    var arrayWire = WireOf(probes[4]);
+    var arrayReader = new MinecraftPrimitiveReader(arrayWire);
+    var arrayBack = (UnionShapeProbe.Vec3f)UnionShapeProbe.Read(ref arrayReader, version, 4);
+    Assert(arrayBack.Value.Length == 2 && arrayBack.Value[1] == new Vec3f(-1f, 0f, 0.5f));
+
+    var kinds = probes.Select(p => p.Match(
+        @byte: _ => "byte", @int: _ => "int", @string: _ => "string",
+        @rotations: _ => "rotations", @vec3f: _ => "vec3f"));
+    Assert(string.Join(",", kinds) == "byte,int,string,rotations,vec3f");
+    Console.WriteLine($"UnionShapeProbe: {probes.Length} cases round-trip byte-identical, Match binds every case\n");
+
+    static byte[] WireOf(UnionShapeProbe probe)
+    {
+        var w = new MinecraftPrimitiveWriter();
+        probe.Write(w, MinecraftVersion.LatestProtocol);
+        return w.ToArray();
+    }
 }
 
 // --- GetPacketId: numeric ids from the McProtoFacts manifest ---

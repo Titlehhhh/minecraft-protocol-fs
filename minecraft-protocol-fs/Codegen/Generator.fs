@@ -20,6 +20,13 @@ module Generator =
             Contents = t.RenderBitflags spec
         }
 
+    /// Generate one union type as a source file for the target language.
+    let generateUnion (t: ILanguageTarget) (spec: UnionTypeSpec) : GeneratedFile =
+        {
+            RelativePath = sprintf "Unions/%s%s" spec.Name t.Extension
+            Contents = t.RenderUnion spec
+        }
+
     /// Generate one packet as a source file for the target language.
     let generatePacket (t: ILanguageTarget) (e: Registry.CatalogEntry) : GeneratedFile =
         {
@@ -27,13 +34,14 @@ module Generator =
             Contents = t.RenderPacket e
         }
 
-    /// Generate every named type, bitflags and packet in a protocol, plus the target's
-    /// whole-protocol aggregates. Unions are future work. Packets go through the ordinal
-    /// catalog: identity and ordinals come from there.
+    /// Generate every named type, bitflags, union and packet in a protocol, plus the target's
+    /// whole-protocol aggregates. Packets go through the ordinal catalog: identity and ordinals
+    /// come from there.
     let generateProtocol (t: ILanguageTarget) (p: ProtocolSpec) : GeneratedFile list =
         let catalog = Registry.catalog p.Packets
 
         (p.Types |> List.map (generateType t))
         @ (p.Bitflags |> List.map (generateBitflags t))
+        @ (p.Unions |> List.map (generateUnion t))
         @ (catalog |> List.map (generatePacket t))
         @ t.RenderProtocol p

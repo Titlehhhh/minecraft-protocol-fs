@@ -34,12 +34,20 @@ module CSharpSurface =
             UsingSerialization: string
             UsingNbt: string
             UsingSystem: string
+            /// Namespace of the discriminated-union source generator the union backend leans on.
+            UsingUnion: string
             /// Reader / writer types and the parameter names used in generated signatures.
             ReaderType: string
             WriterType: string
             ReaderParam: string
             WriterParam: string
             VersionParam: string
+            /// Union surface: the marker attribute the generator reads, the extra read parameter
+            /// carrying the discriminator the container already consumed, and the method that
+            /// gives that value back on the write side.
+            UnionAttribute: string
+            DiscriminatorParam: string
+            DiscriminatorMethodName: string
             /// Version gate: attribute name, throw helper, open-range bound constants.
             SupportAttribute: string
             ThrowIfNotSupported: string
@@ -99,11 +107,15 @@ module CSharpSurface =
             UsingSerialization = "McProtoNet.Serialization"
             UsingNbt = "McProtoNet.NBT"
             UsingSystem = "System"
+            UsingUnion = "Dunet"
             ReaderType = "MinecraftPrimitiveReader"
             WriterType = "MinecraftPrimitiveWriter"
             ReaderParam = "reader"
             WriterParam = "writer"
             VersionParam = "protocolVersion"
+            UnionAttribute = "Union"
+            DiscriminatorParam = "discriminator"
+            DiscriminatorMethodName = "Discriminator"
             SupportAttribute = "ProtocolSupport"
             ThrowIfNotSupported = "ThrowHelper.ThrowIfProtocolNotSupported"
             StartProtocolConst = "MinecraftVersion.StartProtocol"
