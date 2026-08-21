@@ -5,7 +5,7 @@ using McProtoNet.Protocol.Packets.Login.Serverbound;
 using McProtoNet.Protocol.Packets.Play.Clientbound;
 using McProtoNet.Protocol.Packets.Status.Clientbound;
 using McProtoNet.Protocol.Packets.Status.Serverbound;
-using McProtoNet.Serialization;
+using McProtoNet.Primitives;
 using UseEntityPacket = McProtoNet.Protocol.Packets.Play.Serverbound.UseEntityPacket;
 using McProtoNet.NBT;
 

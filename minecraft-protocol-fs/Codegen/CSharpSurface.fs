@@ -104,7 +104,7 @@ module CSharpSurface =
         {
             Namespace = "McProtoNet.Protocol"
             UsingAttributes = "McProtoNet.Protocol.Attributes"
-            UsingSerialization = "McProtoNet.Serialization"
+            UsingSerialization = "McProtoNet.Primitives"
             UsingNbt = "McProtoNet.NBT"
             UsingSystem = "System"
             UsingUnion = "Dunet"

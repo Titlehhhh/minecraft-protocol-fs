@@ -1853,7 +1853,7 @@ module CSharp =
 
     /// `Flow/PacketFlow.g.cs`: one lookup + one ordinal jump table + one constrained call per
     /// packet. Dispatch is deliberately synchronous: the decode must finish before the next
-    /// transport read (the `InputPacket.Data` window); anything async happens in the facade after.
+    /// transport read (the `IncomingPacket.Data` window); anything async happens in the facade after.
     let private renderFlowFile
         (s: RuntimeSurface)
         (dispatchable: PacketSpec -> bool)
@@ -1882,7 +1882,6 @@ module CSharp =
         line "#nullable enable"
         line ""
         line (sprintf "using %s;" s.UsingSystem)
-        line "using McProtoNet.Net;"
         line (sprintf "using %s;" s.UsingSerialization)
         line ""
         line (sprintf "namespace %s;" s.Namespace)
@@ -1907,7 +1906,7 @@ module CSharp =
 
         line (
             sprintf
-                "    public static void Dispatch<TVisitor>(in InputPacket raw, int %s, %s phase, %s dir, ref TVisitor visitor)"
+                "    public static void Dispatch<TVisitor>(in IncomingPacket raw, int %s, %s phase, %s dir, ref TVisitor visitor)"
                 s.VersionParam
                 s.PhaseEnum
                 s.DirectionEnum
@@ -1983,7 +1982,7 @@ module CSharp =
 
         line (
             sprintf
-                "    public static bool TryDispatch<TVisitor>(in InputPacket raw, int %s, %s phase, %s direction, ref TVisitor visitor, out DecodeError error)"
+                "    public static bool TryDispatch<TVisitor>(in IncomingPacket raw, int %s, %s phase, %s direction, ref TVisitor visitor, out DecodeError error)"
                 s.VersionParam
                 s.PhaseEnum
                 s.DirectionEnum
@@ -2071,7 +2070,7 @@ module CSharp =
 
             line (
                 sprintf
-                    "    public static bool TryDecode(in InputPacket raw, int %s, %s phase, %s direction, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out %s? packet, out DecodeError error)"
+                    "    public static bool TryDecode(in IncomingPacket raw, int %s, %s phase, %s direction, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out %s? packet, out DecodeError error)"
                     s.VersionParam
                     s.PhaseEnum
                     s.DirectionEnum
@@ -2129,7 +2128,7 @@ module CSharp =
             line ""
 
             line
-                "        public void Unknown(in InputPacket raw) => Result = new UnknownPacket(raw.Id, _phase, _direction);"
+                "        public void Unknown(in IncomingPacket raw) => Result = new UnknownPacket(raw.Id, _phase, _direction);"
 
             line "    }"
         | None -> ()
@@ -2257,7 +2256,7 @@ module CSharp =
         let names = handlerNames (clientbound |> List.collect snd)
 
         line "using System.Threading.Tasks;"
-        line "using McProtoNet.Net;"
+        line (sprintf "using %s;" s.UsingSerialization)
         line ""
         line (sprintf "namespace %s;" s.Namespace)
         line ""
@@ -2274,7 +2273,7 @@ module CSharp =
         line ""
         line (sprintf "    protected static %s Direction => %s.Clientbound;" s.DirectionEnum s.DirectionEnum)
         line ""
-        line (sprintf "    public ValueTask HandleAsync(in InputPacket raw, int %s)" s.VersionParam)
+        line (sprintf "    public ValueTask HandleAsync(in IncomingPacket raw, int %s)" s.VersionParam)
         line "    {"
         line "        _pending = default;"
         line "        var self = this;"
@@ -2314,9 +2313,9 @@ module CSharp =
         line "        }"
         line "    }"
         line ""
-        line "    void IPacketVisitor.Unknown(in InputPacket raw) => _pending = OnUnknown(in raw);"
+        line "    void IPacketVisitor.Unknown(in IncomingPacket raw) => _pending = OnUnknown(in raw);"
         line ""
-        line "    protected virtual ValueTask OnUnknown(in InputPacket raw) => default;"
+        line "    protected virtual ValueTask OnUnknown(in IncomingPacket raw) => default;"
 
         for st, slice in clientbound do
             line ""

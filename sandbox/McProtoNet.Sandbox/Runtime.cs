@@ -54,7 +54,7 @@ namespace McProtoNet.Protocol.Attributes
 
 namespace McProtoNet.Protocol
 {
-    using McProtoNet.Serialization;
+    using McProtoNet.Primitives;
 
     public enum PacketPhase : byte { Handshaking, Status, Login, Configuration, Play }
 
@@ -110,7 +110,7 @@ namespace McProtoNet.Protocol
 
 namespace McProtoNet.Protocol
 {
-    using McProtoNet.Serialization;
+    using McProtoNet.Primitives;
 
     // Hand-written runtime primitive (mirrors McProtoNet): block position packed into one long
     // (x: 26 bits, z: 26 bits, y: 12 bits). Referenced from specs as Named "Position", never generated.
@@ -237,7 +237,7 @@ namespace McProtoNet.NBT
     }
 }
 
-namespace McProtoNet.Serialization
+namespace McProtoNet.Primitives
 {
     using McProtoNet.NBT;
 

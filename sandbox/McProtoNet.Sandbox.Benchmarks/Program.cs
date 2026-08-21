@@ -12,7 +12,7 @@ using System.Reflection;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using McProtoNet.Protocol;
-using McProtoNet.Serialization;
+using McProtoNet.Primitives;
 
 BenchmarkRunner.Run<DispatchBench>();
 
