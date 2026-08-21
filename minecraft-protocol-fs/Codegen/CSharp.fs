@@ -1853,7 +1853,7 @@ module CSharp =
 
     /// `Flow/PacketFlow.g.cs`: one lookup + one ordinal jump table + one constrained call per
     /// packet. Dispatch is deliberately synchronous: the decode must finish before the next
-    /// transport read (the `IncomingPacket.Data` window); anything async happens in the facade after.
+    /// transport read (the `IncomingPacket.Body` window); anything async happens in the facade after.
     let private renderFlowFile
         (s: RuntimeSurface)
         (dispatchable: PacketSpec -> bool)
@@ -1924,7 +1924,7 @@ module CSharp =
         line "            return;"
         line "        }"
         line ""
-        line (sprintf "        var %s = new %s(raw.Data);" s.ReaderParam s.ReaderType)
+        line (sprintf "        var %s = new %s(raw.Body);" s.ReaderParam s.ReaderType)
         line "        bool handled;"
         line "        // The jump table is shared with the Try door, which must tell a failed body read"
         line "        // from an exception thrown by the visitor: the table lowers this flag once the"
@@ -2004,7 +2004,7 @@ module CSharp =
         line "            return true;"
         line "        }"
         line ""
-        line (sprintf "        var %s = new %s(raw.Data);" s.ReaderParam s.ReaderType)
+        line (sprintf "        var %s = new %s(raw.Body);" s.ReaderParam s.ReaderType)
         line "        bool handled;"
         line "        // True while the body is being read; the table lowers it right before it hands the"
         line "        // packet to the visitor. The filter below tests it, so an exception out of the"
