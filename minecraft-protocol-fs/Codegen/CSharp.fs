@@ -346,6 +346,7 @@ module CSharp =
     let private itemCsType (s: RuntimeSurface) (w: WireType) : string option =
         match w with
         | Named n -> Some n
+        | FixedBytes _ -> Some "byte[]"
         | _ -> s.Primitives.TryFind w |> Option.map (fun p -> p.CsType)
 
     /// C# type of a whole wire field, wrappers included — what a union case declares as a
@@ -375,17 +376,83 @@ module CSharp =
             s.Primitives.TryFind w
             |> Option.map (fun p -> [ sprintf "%s.%s((%s)%s.Length);" s.WriterParam p.WriteMethod p.CsType value ])
 
-    /// One wire entry -> read statement lines. `bound` are the api names the entries before this
-    /// one in the same layout already read into locals — the only names an entry may address.
-    let private readEntryLines
+    /// `new T[count]` — the count belongs in the *first* pair of brackets, so an item type that is
+    /// itself an array (`byte[]`) becomes `new byte[count][]`, never `new byte[][count]`.
+    let private newArrayExpr (itemType: string) (count: string) =
+        match itemType.IndexOf '[' with
+        | -1 -> sprintf "new %s[%s]" itemType count
+        | i -> sprintf "new %s[%s]%s" (itemType.Substring(0, i)) count (itemType.Substring i)
+
+    /// `T` -> `T?`, idempotent: a conditional group declares its locals nullable so the guard can
+    /// leave them unset, and the api field it feeds is optional for exactly the same reason.
+    let private nullableOf (t: string) = if t.EndsWith "?" then t else t + "?"
+
+    /// The api names a read entry binds, paired with the C# type of the local it declares. A
+    /// conditional group hoists these above its guard; a block passes them to the ctor.
+    let rec private entryBindings (s: RuntimeSurface) (entry: WireEntry) : (string * string) list =
+        let one api w =
+            wireCsType s w |> Option.map (fun t -> [ api, t ]) |> Option.defaultValue []
+
+        match entry with
+        | Read(_, w, api) -> one api w
+        | ReadOpt(_, w, api, _, _) -> one api w |> List.map (fun (a, t) -> a, nullableOf t)
+        | ReadBlock(w, api, _) -> one api w
+        | IfNonZero(_, inner) ->
+            inner
+            |> List.collect (entryBindings s)
+            |> List.map (fun (a, t) -> a, nullableOf t)
+        | Discard _
+        | ReadUnion _
+        | InlineUnion _ -> []
+
+    /// Wire *and* api spellings of every field a layout reads, both pointing at the api name and
+    /// the wire type it travelled as. `ifNonZero`/`readOpt` name their discriminator with either
+    /// spelling (`ifNonZero "columns"` against `read "columns" U8 "Columns"`), so both must
+    /// resolve; the wire type is what lets the write side guard on the *narrowed* value the read
+    /// side will see.
+    let private fieldNames (entries: WireEntry list) : Map<string, string * WireType> =
+        entries
+        |> List.collect (function
+            | Read(wire, wt, api) -> [ wire, (api, wt); api, (api, wt) ]
+            | _ -> [])
+        |> Map.ofList
+
+    /// An entry a conditional group cannot hoist: it would read inside the guard, bind nothing,
+    /// and leave the api field `default!` while the bytes were consumed. A stub is the honest
+    /// answer — `Discard` is the one entry that legitimately binds nothing.
+    let private unbindableInGroup (s: RuntimeSurface) (entries: WireEntry list) =
+        entries
+        |> List.tryFind (function
+            | Discard _ -> false
+            | e -> entryBindings s e |> List.isEmpty)
+
+    /// The natural api types of a block's own entries — a block's fields belong to the nested
+    /// type, not to the packet, so the packet's api map cannot answer narrowing casts for them.
+    let private naturalApiTypes (entries: WireEntry list) : Map<string, ApiType> =
+        entries
+        |> List.choose (function
+            | Read(_, w, api) ->
+                try
+                    Some(api, apiOf w)
+                with _ ->
+                    None
+            | _ -> None)
+        |> Map.ofList
+
+    /// One wire entry -> read statement lines. `bound` maps every name the entries before this one
+    /// in the same layout already read (wire and api spelling) to its api name — the only names an
+    /// entry may address. `nameOf` turns an api name into the local holding it, which is how a
+    /// group renders its body into fresh locals before assigning the hoisted ones.
+    let rec private readEntryLines
         (s: RuntimeSurface)
-        (bound: Set<string>)
+        (nameOf: string -> string)
+        (bound: Map<string, string>)
         (entry: WireEntry)
         : Result<string list, string>
         =
         match entry with
         | Read(_, Option inner, api) ->
-            let ln = localName s api
+            let ln = nameOf api
 
             match readExpr s inner, itemCsType s inner with
             | Ok call, Some t ->
@@ -396,37 +463,45 @@ module CSharp =
                     ]
             | _ -> Error(sprintf "read '%s' (Option %A)" api inner)
         | Read(_, Array(item, cnt), api) ->
-            let ln = localName s api
+            let ln = nameOf api
 
             match readExpr s item, itemCsType s item, countRead s cnt ln with
             | Ok call, Some t, Some(setup, cntExpr) ->
                 Ok(
                     setup
                     @ [
-                        sprintf "var %s = new %s[%s];" ln t cntExpr
+                        sprintf "var %s = %s;" ln (newArrayExpr t cntExpr)
                         sprintf "for (int i = 0; i < %s.Length; i++) %s[i] = %s;" ln ln call
                     ]
                 )
             | _ -> Error(sprintf "read '%s' (Array %A)" api item)
         | Read(_, wt, api) ->
             match readExpr s wt with
-            | Ok call -> Ok [ sprintf "var %s = %s;" (localName s api) call ]
+            | Ok call -> Ok [ sprintf "var %s = %s;" (nameOf api) call ]
             | Error e -> Error(sprintf "read '%s' (%s)" api e)
         | Discard(wire, Option inner) ->
-            match readExpr s inner with
-            | Ok call -> Ok [ sprintf "if (%s.ReadBoolean()) %s;" s.ReaderParam call ]
+            // wrappers nest, so the inner shape is discarded by the same renderer one level down
+            match readEntryLines s nameOf bound (Discard(wire, inner)) with
+            | Ok ls -> Ok([ sprintf "if (%s.ReadBoolean())" s.ReaderParam; "{" ] @ ls @ [ "}" ])
             | Error e -> Error(sprintf "discard '%s' (Option: %s)" wire e)
         | Discard(wire, Array(item, cnt)) ->
             let ln = "skip" + pascal (camel wire)
 
-            match readExpr s item, countRead s cnt ln with
-            | Ok call, Some(setup, cntExpr) -> Ok(setup @ [ sprintf "for (int i = 0; i < %s; i++) %s;" cntExpr call ])
-            | _ -> Error(sprintf "discard '%s' (Array %A)" wire item)
+            match countRead s cnt ln, readEntryLines s nameOf bound (Discard(wire + "Item", item)) with
+            | Some(setup, cntExpr), Ok ls ->
+                Ok(
+                    setup
+                    @ [ sprintf "for (int %sI = 0; %sI < %s; %sI++)" ln ln cntExpr ln; "{" ]
+                    @ ls
+                    @ [ "}" ]
+                )
+            | _, Error e -> Error(sprintf "discard '%s' (Array: %s)" wire e)
+            | None, _ -> Error(sprintf "discard '%s' (Array count %A)" wire cnt)
         | Discard(wire, wt) ->
             match readExpr s wt with
             | Ok call -> Ok [ sprintf "%s;" call ]
             | Error e -> Error(sprintf "discard '%s' (%s)" wire e)
-        | ReadUnion(disc, _, api) when not (bound.Contains disc) ->
+        | ReadUnion(disc, _, api) when (bound.TryFind disc).IsNone ->
             // Nothing read '%s' yet, so the emitted call would name a local that does not exist:
             // valid-looking C# that cannot compile. A stub is the honest answer.
             Error(sprintf "read union '%s' (discriminator '%s' is not read by an earlier entry)" api disc)
@@ -437,35 +512,122 @@ module CSharp =
                 [
                     sprintf
                         "var %s = %s.%s(ref %s, %s, (int)%s);"
-                        (localName s api)
+                        (nameOf api)
                         unionName
                         s.ReadMethodName
                         s.ReaderParam
                         s.VersionParam
-                        (localName s disc)
+                        (nameOf bound.[disc])
                 ]
+        | IfNonZero(field, entries) ->
+            match bound.TryFind field with
+            | None -> Error(sprintf "conditional group (field '%s' is not read by an earlier entry)" field)
+            | Some api -> readGroupLines s nameOf bound (sprintf "%s != 0" (nameOf api)) entries
+        | ReadOpt(wire, wt, api, disc, keys) ->
+            match bound.TryFind disc with
+            | None -> Error(sprintf "read optional '%s' (discriminator '%s' is not read by an earlier entry)" api disc)
+            | Some discApi ->
+                let cond =
+                    keys
+                    |> List.map (fun k -> sprintf "%s == %d" (nameOf discApi) k)
+                    |> String.concat " || "
+
+                readGroupLines s nameOf bound cond [ Read(wire, wt, api) ]
+        | ReadBlock(Named typeName, api, entries) ->
+            let ln = nameOf api
+            let innerName (a: string) = ln + pascal a
+            let results = readEntriesFold s innerName bound entries
+
+            match firstReadError results, unbindableInGroup s entries with
+            | Some e, _ -> Error(sprintf "read block '%s' (%s)" api e)
+            | _, Some e -> Error(sprintf "read block '%s' holds an entry it cannot pass to the ctor: %A" api e)
+            | None, None ->
+                // positional: the ctor parameter *names* differ by shell (positional record struct
+                // keeps the api name, class camel-cases it), so a block's entries must be listed
+                // in the target type's api order — which is how a container is modelled anyway.
+                let args =
+                    entries
+                    |> List.collect (entryBindings s)
+                    |> List.map (fun (a, _) -> innerName a)
+                    |> String.concat ", "
+
+                Ok(readLinesOf results @ [ sprintf "var %s = new %s(%s);" ln typeName args ])
         | other -> Error(sprintf "%A" other)
 
-    /// Read entries in layout order, pairing each with its rendered lines. The fold is what makes
-    /// "an earlier entry bound this" checkable: an entry only ever sees the api names before it.
-    let private readEntriesLines
+    /// A conditional group: every local the body binds is declared (nullable) above the guard, the
+    /// body reads into its own locals inside it, and the hoisted ones are assigned at the end. The
+    /// inner names keep the C# legal — a nested scope may not shadow an outer local.
+    and private readGroupLines
         (s: RuntimeSurface)
+        (nameOf: string -> string)
+        (bound: Map<string, string>)
+        (cond: string)
+        (entries: WireEntry list)
+        : Result<string list, string>
+        =
+        let innerName (a: string) = nameOf a + "Value"
+        let results = readEntriesFold s innerName bound entries
+
+        match firstReadError results, unbindableInGroup s entries with
+        | Some e, _ -> Error e
+        | _, Some e -> Error(sprintf "conditional group holds an entry it cannot hoist: %A" e)
+        | None, None ->
+            let bindings = entries |> List.collect (entryBindings s)
+
+            Ok(
+                [ for a, t in bindings -> sprintf "%s %s = default;" (nullableOf t) (nameOf a) ]
+                @ [ sprintf "if (%s)" cond; "{" ]
+                @ readLinesOf results
+                @ [ for a, _ in bindings -> sprintf "%s = %s;" (nameOf a) (innerName a) ]
+                @ [ "}" ]
+            )
+
+    /// Read entries in layout order, pairing each with its rendered lines. The fold is what makes
+    /// "an earlier entry bound this" checkable: an entry only ever sees the names before it.
+    and private readEntriesFold
+        (s: RuntimeSurface)
+        (nameOf: string -> string)
+        (start: Map<string, string>)
         (entries: WireEntry list)
         : (WireEntry * Result<string list, string>) list
         =
         entries
         |> List.mapFold
             (fun bound e ->
-                let rendered = readEntryLines s bound e
+                let rendered = readEntryLines s nameOf bound e
 
                 let bound =
                     match e with
-                    | Read(_, _, api) -> Set.add api bound
-                    | _ -> bound
+                    | Read(wire, _, api) -> bound |> Map.add wire api |> Map.add api api
+                    | _ -> entryBindings s e |> List.fold (fun m (a, _) -> Map.add a a m) bound
 
                 (e, rendered), bound)
-            Set.empty
+            start
         |> fst
+
+    and private firstReadError (results: (WireEntry * Result<string list, string>) list) : string option =
+        results
+        |> List.tryPick (function
+            | _, Error e -> Some e
+            | _ -> None)
+
+    and private readLinesOf (results: (WireEntry * Result<string list, string>) list) : string list =
+        results
+        |> List.collect (function
+            | _, Ok ls -> ls
+            | _, Error _ -> [])
+
+    let private readEntriesLines (s: RuntimeSurface) (entries: WireEntry list) =
+        readEntriesFold s (localName s) Map.empty entries
+
+    /// Locals a rendered layout leaves behind, by local name — the set a ctor call may draw on.
+    let private boundLocals (s: RuntimeSurface) (results: (WireEntry * Result<string list, string>) list) =
+        results
+        |> List.collect (function
+            | ReadUnion(_, _, api), Ok _ -> [ localName s api ]
+            | e, Ok _ -> entryBindings s e |> List.map (fst >> localName s)
+            | _, Error _ -> [])
+        |> Set.ofList
 
     let private hasReadError (results: (WireEntry * Result<string list, string>) list) =
         results
@@ -482,15 +644,52 @@ module CSharp =
             | _ -> None)
         |> Map.ofList
 
-    /// One wire entry -> write statement lines. `apiTypes` drives narrowing casts; `discUnions`
-    /// pairs a wire-only discriminator with the union field that derives its value.
-    let private writeEntryLines
+    /// What a write body needs beyond the entry itself. `Access` is how a value is spelled in C#:
+    /// the api name at the top level, `block.Field` inside a block — the one place a nested
+    /// container differs from the packet's own fields.
+    type private WriteCtx =
+        {
+            ApiTypes: Map<string, ApiType>
+            DiscUnions: Map<string, string>
+            Fields: Map<string, string * WireType>
+            Access: string -> string
+        }
+
+    let private writeCtxOf (apiTypes: Map<string, ApiType>) (entries: WireEntry list) : WriteCtx =
+        {
+            ApiTypes = apiTypes
+            DiscUnions = discriminatorUnions entries
+            Fields = fieldNames entries
+            Access = id
+        }
+
+    /// The value a conditional guard tests, spelled exactly as the wire will carry it. The read
+    /// side guards on the byte it read back, so a wider api value must be narrowed here too:
+    /// `Flag = 256` over a `U8` wire writes `0`, and an un-narrowed `Flag != 0` would then write a
+    /// block the reader never looks for — a silent stream desync.
+    let private discValue (s: RuntimeSurface) (ctx: WriteCtx) (api: string) (wt: WireType) : string =
+        let acc = ctx.Access api
+
+        let apiT =
+            match ctx.ApiTypes.TryFind api with
+            | Some(TOption t) -> Some t
+            | other -> other
+
+        match s.Primitives.TryFind wt, apiT with
+        | Some p, Some t when csType s t <> p.CsType -> sprintf "(%s)%s" p.CsType acc
+        | _ -> acc
+
+    /// One wire entry -> write statement lines. `ctx.ApiTypes` drives narrowing casts;
+    /// `ctx.DiscUnions` pairs a wire-only discriminator with the union field that derives its value.
+    let rec private writeEntryLines
         (s: RuntimeSurface)
-        (apiTypes: Map<string, ApiType>)
-        (discUnions: Map<string, string>)
+        (ctx: WriteCtx)
         (entry: WireEntry)
         : Result<string list, string>
         =
+        let apiTypes = ctx.ApiTypes
+        let discUnions = ctx.DiscUnions
+
         match entry with
         | Read(_, wt, api) when api.StartsWith "_" ->
             // wire-only field: the model carries no such field, so the value must be derived. Only
@@ -512,20 +711,22 @@ module CSharp =
                 | Error e -> Error(sprintf "write discriminator '%s' (%s)" api e)
         | Read(_, Option inner, api) ->
             let v = camel api + "Value"
+            let acc = ctx.Access api
 
             match writeExpr s inner None v with
             | Ok call ->
                 Ok
                     [
-                        sprintf "%s.WriteBoolean(%s is not null);" s.WriterParam api
-                        sprintf "if (%s is { } %s) %s;" api v call
+                        sprintf "%s.WriteBoolean(%s is not null);" s.WriterParam acc
+                        sprintf "if (%s is { } %s) %s;" acc v call
                     ]
             | Error e -> Error(sprintf "write '%s' (Option: %s)" api e)
         | Read(_, Array(item, cnt), api) ->
             let iv = camel api + "Item"
+            let acc = ctx.Access api
 
-            match writeExpr s item None iv, countWrite s cnt api with
-            | Ok call, Some cw -> Ok(cw @ [ sprintf "foreach (var %s in %s) %s;" iv api call ])
+            match writeExpr s item None iv, countWrite s cnt acc with
+            | Ok call, Some cw -> Ok(cw @ [ sprintf "foreach (var %s in %s) %s;" iv acc call ])
             | _ -> Error(sprintf "write '%s' (Array %A)" api item)
         | Read(_, wt, api) ->
             // an option-typed api field written as a required wire value must be present
@@ -536,14 +737,16 @@ module CSharp =
                 | Some(TOption t) -> Some t
                 | other -> other
 
+            let acc = ctx.Access api
+
             let value =
                 match apiT with
                 | Some(TOption _) ->
                     sprintf
                         "(%s ?? throw new System.InvalidOperationException(\"%s is required at this protocol version.\"))"
+                        acc
                         api
-                        api
-                | _ -> api
+                | _ -> acc
             // narrow explicitly when the api type is wider than the wire primitive (int api, i8 wire)
             let cast =
                 match s.Primitives.TryFind wt, requiredT with
@@ -566,13 +769,117 @@ module CSharp =
             let value =
                 match wt with
                 | Str -> "\"\""
+                | FixedBytes n -> sprintf "new byte[%d]" n
                 | _ -> "default"
 
             match writeExpr s wt None value with
             | Ok call -> Ok [ sprintf "%s;" call ]
             | Error e -> Error(sprintf "discard '%s' (%s)" wire e)
-        | ReadUnion(_, _, api) -> Ok [ sprintf "%s.%s(%s, %s);" api s.WriteMethodName s.WriterParam s.VersionParam ]
+        | ReadUnion(_, _, api) ->
+            Ok
+                [
+                    sprintf "%s.%s(%s, %s);" (ctx.Access api) s.WriteMethodName s.WriterParam s.VersionParam
+                ]
+        | IfNonZero(field, entries) ->
+            match ctx.Fields.TryFind field with
+            | None -> Error(sprintf "write conditional group (field '%s' is not a wire field of this layout)" field)
+            | Some(api, wt) -> writeGroupLines s ctx (sprintf "%s != 0" (discValue s ctx api wt)) entries
+        | ReadOpt(wire, wt, api, disc, keys) ->
+            match ctx.Fields.TryFind disc with
+            | None ->
+                Error(sprintf "write optional '%s' (discriminator '%s' is not a wire field of this layout)" api disc)
+            | Some(discApi, discWt) ->
+                let v = discValue s ctx discApi discWt
+
+                let cond =
+                    keys |> List.map (sprintf "%s == %d" v) |> String.concat " || "
+
+                match writeGroupLines s ctx cond [ Read(wire, wt, api) ] with
+                | Error e -> Error e
+                | Ok lines ->
+                    // the mirror of the `?? throw` inside the guard: a value the discriminator
+                    // says is absent has nowhere to go, and dropping it silently loses data
+                    let elseThrow =
+                        match ctx.ApiTypes.TryFind api with
+                        | Some(TOption _) ->
+                            [
+                                sprintf "else if (%s is not null)" (ctx.Access api)
+                                "{"
+                                sprintf
+                                    "throw new System.InvalidOperationException(\"%s is set, but '%s' does not select it at this protocol version.\");"
+                                    api
+                                    disc
+                                "}"
+                            ]
+                        | _ -> []
+
+                    Ok(lines @ elseThrow)
+        | ReadBlock(Named typeName, api, entries) ->
+            let ln = localName s api
+
+            let inner =
+                {
+                    ApiTypes = naturalApiTypes entries
+                    DiscUnions = Map.empty
+                    Fields = fieldNames entries
+                    Access = fun a -> ln + "." + a
+                }
+
+            let results = entries |> List.map (writeEntryLines s inner)
+
+            match
+                results
+                |> List.tryPick (function
+                    | Error e -> Some e
+                    | _ -> None)
+            with
+            | Some e -> Error(sprintf "write block '%s' (%s)" api e)
+            | None ->
+                let source =
+                    match ctx.ApiTypes.TryFind api with
+                    | Some(TOption _) ->
+                        sprintf
+                            "%s ?? throw new System.InvalidOperationException(\"%s is required at this protocol version.\")"
+                            (ctx.Access api)
+                            api
+                    | _ -> ctx.Access api
+
+                Ok(
+                    [ sprintf "%s %s = %s;" typeName ln source ]
+                    @ (results
+                       |> List.collect (function
+                           | Ok ls -> ls
+                           | Error _ -> []))
+                )
         | other -> Error(sprintf "%A" other)
+
+    /// A conditional group on the write side: the same guard the read side applies, over the api
+    /// value the group's discriminator field carries.
+    and private writeGroupLines
+        (s: RuntimeSurface)
+        (ctx: WriteCtx)
+        (cond: string)
+        (entries: WireEntry list)
+        : Result<string list, string>
+        =
+        let results = entries |> List.map (writeEntryLines s ctx)
+
+        match
+            results
+            |> List.tryPick (function
+                | Error e -> Some e
+                | _ -> None)
+        with
+        | Some e -> Error e
+        | None ->
+            Ok(
+                [ sprintf "if (%s)" cond; "{" ]
+                @ (results
+                   |> List.collect (function
+                       | Ok ls -> ls
+                       | Error _ -> []))
+                @ [ "}" ]
+            )
 
     // ----- per-layout bodies + version branching -----
 
@@ -594,19 +901,8 @@ module CSharp =
         if not (List.isEmpty errors) then
             (errors |> List.map todoLine) @ [ throwTodoLine name ]
         else
-            let bound =
-                results
-                |> List.choose (function
-                    | Read(_, _, api), Ok _
-                    | ReadUnion(_, _, api), Ok _ -> Some(localName s api)
-                    | _ -> None)
-                |> Set.ofList
-
-            let lines =
-                results
-                |> List.collect (function
-                    | _, Ok ls -> ls
-                    | _, Error _ -> [])
+            let bound = boundLocals s results
+            let lines = readLinesOf results
 
             let ctorArgs =
                 apiFields
@@ -627,8 +923,7 @@ module CSharp =
         : string list
         =
         let results =
-            l.Entries
-            |> List.map (writeEntryLines s apiTypes (discriminatorUnions l.Entries))
+            l.Entries |> List.map (writeEntryLines s (writeCtxOf apiTypes l.Entries))
 
         let errors =
             results
@@ -845,12 +1140,17 @@ module CSharp =
             | TOption t -> t
             | t -> t
 
-        let optionalHere =
-            l.Entries
+        // a field bound anywhere under a conditional group is optional in this layer too: the
+        // guard may leave it unset, and the read side hoists exactly such a local as nullable
+        let rec optionalIn (entries: WireEntry list) =
+            entries
             |> List.exists (function
                 | Read(_, Option _, api) -> api = f.Name
                 | ReadOpt(_, _, api, _, _) -> api = f.Name
+                | IfNonZero(_, inner) -> boundApis inner |> List.contains f.Name || optionalIn inner
                 | _ -> false)
+
+        let optionalHere = optionalIn l.Entries
 
         if optionalHere then
             csType s inner + "?"
@@ -962,19 +1262,8 @@ module CSharp =
         if not (List.isEmpty errors) then
             (errors |> List.map todoLine) @ [ throwTodoLine name ]
         else
-            let bound =
-                results
-                |> List.choose (function
-                    | Read(_, _, api), Ok _
-                    | ReadUnion(_, _, api), Ok _ -> Some(localName s api)
-                    | _ -> None)
-                |> Set.ofList
-
-            let lines =
-                results
-                |> List.collect (function
-                    | _, Ok ls -> ls
-                    | _, Error _ -> [])
+            let bound = boundLocals s results
+            let lines = readLinesOf results
 
             let commonArgs =
                 common
@@ -1008,7 +1297,7 @@ module CSharp =
         =
         let results =
             layer.Layout.Entries
-            |> List.map (writeEntryLines s apiTypes (discriminatorUnions layer.Layout.Entries))
+            |> List.map (writeEntryLines s (writeCtxOf apiTypes layer.Layout.Entries))
 
         let errors =
             results
@@ -1359,7 +1648,8 @@ module CSharp =
                 yield sprintf "case %s %s:" (unionCaseName s spec l arm) (if ps.IsEmpty then "_" else "arm")
                 yield "{"
 
-                let results = arm.Entries |> List.map (writeEntryLines s Map.empty Map.empty)
+                let results =
+                    arm.Entries |> List.map (writeEntryLines s (writeCtxOf Map.empty arm.Entries))
 
                 let errors =
                     results

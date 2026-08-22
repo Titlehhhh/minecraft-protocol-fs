@@ -28,3 +28,8 @@ jobs:
 
       - name: Build the sandbox against the generated C#
         run: dotnet build minecraft-protocol-fs.slnx -c Release
+
+      # The console asserts its way through every generated shape and throws on the first
+      # mismatch, so a build alone proves the code compiles, not that it round-trips.
+      - name: Round-trip the generated C#
+        run: dotnet run --project sandbox/McProtoNet.Sandbox.Console -c Release --no-build

@@ -56,6 +56,11 @@ module CSharpSurface =
             /// Generic read/write of a nested named type on the reader/writer.
             ReadNamedMethod: string
             WriteNamedMethod: string
+            /// Exactly-n bytes, no length prefix (`FixedBytes n`). The count is part of the wire
+            /// type, not of the stream, so it cannot live in the `Primitives` map: the read takes
+            /// it as an argument and the write takes it as the length the value must have.
+            ReadFixedBytesMethod: string
+            WriteFixedBytesMethod: string
             /// Names of the generated methods themselves.
             ReadMethodName: string
             WriteMethodName: string
@@ -129,6 +134,8 @@ module CSharpSurface =
             LatestProtocolConst = "MinecraftVersion.LatestProtocol"
             ReadNamedMethod = "ReadType"
             WriteNamedMethod = "WriteType"
+            ReadFixedBytesMethod = "ReadFixedBytes"
+            WriteFixedBytesMethod = "WriteFixedBytes"
             ReadMethodName = "Read"
             WriteMethodName = "Write"
             ProtocolInterface = Some "IProtocolType"
@@ -196,6 +203,7 @@ module CSharpSurface =
     let readExpr (s: RuntimeSurface) (w: WireType) : Result<string, string> =
         match w with
         | Named n -> Ok(sprintf "%s.%s<%s>(%s)" s.ReaderParam s.ReadNamedMethod n s.VersionParam)
+        | FixedBytes n -> Ok(sprintf "%s.%s(%d)" s.ReaderParam s.ReadFixedBytesMethod n)
         | _ ->
             match s.Primitives.TryFind w with
             | Some p -> Ok(sprintf "%s.%s" s.ReaderParam p.ReadCall)
@@ -211,6 +219,7 @@ module CSharpSurface =
 
         match w with
         | Named n -> Ok(sprintf "%s.%s<%s>(%s, %s)" s.WriterParam s.WriteNamedMethod n v s.VersionParam)
+        | FixedBytes n -> Ok(sprintf "%s.%s(%s, %d)" s.WriterParam s.WriteFixedBytesMethod v n)
         | _ ->
             match s.Primitives.TryFind w with
             | Some p -> Ok(sprintf "%s.%s(%s%s)" s.WriterParam p.WriteMethod v p.WriteExtraArgs)

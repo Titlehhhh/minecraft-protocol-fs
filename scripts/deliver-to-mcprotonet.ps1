@@ -27,10 +27,13 @@ $staging = Join-Path ([IO.Path]::GetTempPath()) "mcproto-gen-$([guid]::NewGuid()
 # EntityMetadataValue.cs stays until Slot, Particle and the registry variants are modelled.
 # UnionShapeProbe.cs is a codegen fixture, not protocol: it exists so the sandbox compiles the
 # union shapes EntityMetadataValue is built from. It is never delivered.
+# ConditionalShapeProbe.cs is the same kind of fixture for the conditional-group shapes
+# (readOpt / ifNonZero + readBlock / FixedBytes) and is never delivered either.
 $exclude = @(
     'EntityMetadataPacket.cs', 'ExplosionPacket.cs', 'ExplosionParticleEntry.cs',
     'ExplosionParticleInfo.cs', 'MapPacket.cs', 'WindowClickPacket.cs',
-    'EntityMetadataEntry.cs', 'EntityMetadataValue.cs', 'UnionShapeProbe.cs'
+    'EntityMetadataEntry.cs', 'EntityMetadataValue.cs', 'UnionShapeProbe.cs',
+    'ConditionalShapeProbe.cs'
 )
 
 # One generated file declares one type, named after the file, so an excluded file name is the

@@ -10,7 +10,7 @@
 
     <!-- Generated protocol types, linked from the F# generator's output (the `gen` run).
          What stays excluded references a C# type the sandbox has no model for (Slot, Particle,
-         the registry variants) or a still-stubbed wire shape. Unions compile here now, so
+         the registry variants, MapIcon) or a still-stubbed wire shape. Unions compile here now, so
          TeamAction and its packet are in; EntityMetadataValue is not, because its arms read
          Slot and Particle. Its three risky shapes — keyword-named cases, a case carrying a
          same-named type, a case carrying an array of one — are compiled and round-tripped
