@@ -346,6 +346,7 @@ module CSharp =
     let private itemCsType (s: RuntimeSurface) (w: WireType) : string option =
         match w with
         | Named n -> Some n
+        | RegistryHolder inner -> holderCsType s inner
         | FixedBytes _ -> Some "byte[]"
         | _ -> s.Primitives.TryFind w |> Option.map (fun p -> p.CsType)
 
@@ -791,8 +792,7 @@ module CSharp =
             | Some(discApi, discWt) ->
                 let v = discValue s ctx discApi discWt
 
-                let cond =
-                    keys |> List.map (sprintf "%s == %d" v) |> String.concat " || "
+                let cond = keys |> List.map (sprintf "%s == %d" v) |> String.concat " || "
 
                 match writeGroupLines s ctx cond [ Read(wire, wt, api) ] with
                 | Error e -> Error e
@@ -1760,6 +1760,7 @@ module CSharp =
             | Array(item, cnt) -> Array(wire item, cnt)
             | Option inner -> Option(wire inner)
             | SentinelArray(item, e) -> SentinelArray(wire item, e)
+            | RegistryHolder inner -> RegistryHolder(wire inner)
             | other -> other
 
         let entry e =
@@ -1863,6 +1864,7 @@ module CSharp =
                | TypedCount t -> wireNamedRefs t
                | _ -> [])
         | Option inner -> wireNamedRefs inner
+        | RegistryHolder inner -> wireNamedRefs inner
         | SentinelArray(item, _) -> wireNamedRefs item
         | Switch(_, cases) -> cases |> List.collect (fun c -> wireNamedRefs c.Type)
         | _ -> []
@@ -1880,7 +1882,8 @@ module CSharp =
     let rec private apiNamedRefs (t: ApiType) : string list =
         match t with
         | TArray inner
-        | TOption inner -> apiNamedRefs inner
+        | TOption inner
+        | THolder inner -> apiNamedRefs inner
         | TNamed n -> [ n ]
         | TUnion n -> [ n ]
         | _ -> []

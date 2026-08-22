@@ -204,8 +204,8 @@ namespace McProtoNet.NBT
 {
     // Sandbox model of McProtoNet's NBT surface. It exists so generated types that carry
     // nbt/anonymousNbt (TeamAction from 771 is the first union that does) can compile and
-    // round-trip here at all. Only the scalar tags and compounds are modelled; a tag id outside
-    // that set throws, because a half-read tag would shift every following field on the wire.
+    // round-trip here at all. Tag ids 1-12 are modelled; ids outside that set (13+) throw, because
+    // a half-read tag would shift every following field on the wire.
     public abstract record NbtTag
     {
         public string? Name { get; init; }
@@ -225,6 +225,21 @@ namespace McProtoNet.NBT
 
     public sealed record NbtString(string Value) : NbtTag;
 
+    public sealed record NbtByteArray(byte[] Value) : NbtTag;
+
+    public sealed record NbtIntArray(int[] Value) : NbtTag;
+
+    public sealed record NbtLongArray(long[] Value) : NbtTag;
+
+    // TAG_List carries the element tag id once, before the count, so an empty list still has to
+    // say what it would have held. Vanilla writes TAG_End (0) for the empty case; the id is kept
+    // as read so a re-write is byte-identical.
+    public sealed record NbtList(byte ElementId, IReadOnlyList<NbtTag> Items) : NbtTag
+    {
+        public static NbtList Of(params NbtTag[] items)
+            => new(items.Length == 0 ? (byte)0 : NbtIds.Of(items[0]), items);
+    }
+
     public sealed record NbtCompound(Dictionary<string, NbtTag> Items) : NbtTag
     {
         public NbtCompound() : this(new Dictionary<string, NbtTag>()) { }
@@ -234,6 +249,26 @@ namespace McProtoNet.NBT
             Items[name] = tag;
             return this;
         }
+    }
+
+    public static class NbtIds
+    {
+        public static byte Of(NbtTag tag) => tag switch
+        {
+            NbtByte => 1,
+            NbtShort => 2,
+            NbtInt => 3,
+            NbtLong => 4,
+            NbtFloat => 5,
+            NbtDouble => 6,
+            NbtByteArray => 7,
+            NbtString => 8,
+            NbtList => 9,
+            NbtCompound => 10,
+            NbtIntArray => 11,
+            NbtLongArray => 12,
+            _ => throw new NotSupportedException($"sandbox NBT: {tag.GetType().Name} is not modelled.")
+        };
     }
 }
 
@@ -347,6 +382,14 @@ namespace McProtoNet.Primitives
             return b;
         }
 
+        public byte[] ReadFixedBytes(int length)
+        {
+            var b = new byte[length];
+            Array.Copy(_data, _pos, b, 0, length);
+            _pos += length;
+            return b;
+        }
+
         public byte[] ReadRestBytes()
         {
             var b = new byte[_data.Length - _pos];
@@ -383,10 +426,47 @@ namespace McProtoNet.Primitives
             4 => new NbtLong(ReadSignedLong()),
             5 => new NbtFloat(ReadFloat()),
             6 => new NbtDouble(ReadDouble()),
+            7 => new NbtByteArray(ReadFixedBytes(ReadNbtCount())),
             8 => new NbtString(ReadNbtName()),
+            9 => ReadNbtList(),
             10 => ReadNbtCompound(),
+            11 => ReadNbtIntArray(),
+            12 => ReadNbtLongArray(),
             _ => throw new NotSupportedException($"sandbox NBT: tag id {id} is not modelled.")
         };
+
+        // Array and list lengths are a big-endian signed int, not a varint. Vanilla treats a
+        // negative count as empty; anything past that is a real length.
+        private int ReadNbtCount()
+        {
+            int count = ReadSignedInt();
+            return count < 0 ? 0 : count;
+        }
+
+        private NbtTag ReadNbtList()
+        {
+            byte elementId = Next();
+            int count = ReadNbtCount();
+            if (count == 0) return new NbtList(elementId, Array.Empty<NbtTag>());
+
+            var items = new NbtTag[count];
+            for (int i = 0; i < count; i++) items[i] = ReadNbtPayload(elementId);
+            return new NbtList(elementId, items);
+        }
+
+        private NbtTag ReadNbtIntArray()
+        {
+            var values = new int[ReadNbtCount()];
+            for (int i = 0; i < values.Length; i++) values[i] = ReadSignedInt();
+            return new NbtIntArray(values);
+        }
+
+        private NbtTag ReadNbtLongArray()
+        {
+            var values = new long[ReadNbtCount()];
+            for (int i = 0; i < values.Length; i++) values[i] = ReadSignedLong();
+            return new NbtLongArray(values);
+        }
 
         private NbtTag ReadNbtCompound()
         {
@@ -479,6 +559,17 @@ namespace McProtoNet.Primitives
             _buf.AddRange(v);
         }
 
+        public void WriteFixedBytes(byte[] v, int length)
+        {
+            if (v.Length != length)
+            {
+                throw new ArgumentException(
+                    $"Expected exactly {length} bytes, got {v.Length}.", nameof(v));
+            }
+
+            _buf.AddRange(v);
+        }
+
         public void WriteRestBytes(byte[] v) => _buf.AddRange(v);
 
         // Signature copied from the real MinecraftPrimitiveWriter, null rejection included: the
@@ -494,18 +585,7 @@ namespace McProtoNet.Primitives
             WriteNbtPayload(value);
         }
 
-        private static byte NbtId(NbtTag tag) => tag switch
-        {
-            NbtByte => 1,
-            NbtShort => 2,
-            NbtInt => 3,
-            NbtLong => 4,
-            NbtFloat => 5,
-            NbtDouble => 6,
-            NbtString => 8,
-            NbtCompound => 10,
-            _ => throw new NotSupportedException($"sandbox NBT: {tag.GetType().Name} is not modelled.")
-        };
+        private static byte NbtId(NbtTag tag) => NbtIds.Of(tag);
 
         private void WriteNbtName(string s)
         {
@@ -525,6 +605,33 @@ namespace McProtoNet.Primitives
                 case NbtFloat v: WriteFloat(v.Value); break;
                 case NbtDouble v: WriteDouble(v.Value); break;
                 case NbtString v: WriteNbtName(v.Value); break;
+                case NbtByteArray v:
+                    WriteSignedInt(v.Value.Length);
+                    _buf.AddRange(v.Value);
+                    break;
+                case NbtIntArray v:
+                    WriteSignedInt(v.Value.Length);
+                    foreach (var item in v.Value) WriteSignedInt(item);
+                    break;
+                case NbtLongArray v:
+                    WriteSignedInt(v.Value.Length);
+                    foreach (var item in v.Value) WriteSignedLong(item);
+                    break;
+                case NbtList list:
+                    _buf.Add(list.ElementId);
+                    WriteSignedInt(list.Items.Count);
+                    foreach (var item in list.Items)
+                    {
+                        if (NbtId(item) != list.ElementId)
+                        {
+                            throw new NotSupportedException(
+                                $"sandbox NBT: list declares element id {list.ElementId} but holds {item.GetType().Name}.");
+                        }
+
+                        WriteNbtPayload(item);
+                    }
+
+                    break;
                 case NbtCompound c:
                     foreach (var (name, child) in c.Items)
                     {
@@ -542,5 +649,103 @@ namespace McProtoNet.Primitives
         // Mirror of MinecraftPrimitiveReader.ReadType<T>: direct interface dispatch, no reflection.
         public void WriteType<T>(T value, int protocolVersion) where T : IProtocolType<T>
             => value.Write(this, protocolVersion);
+    }
+}
+
+namespace McProtoNet.Protocol
+{
+    using McProtoNet.Primitives;
+
+    // Mirror of McProtoNet.Protocol.RegistryOrInline<T>: a varint where 0 means an inline payload
+    // follows and n > 0 means registry entry n - 1. Same wire, so generated code that uses it
+    // round-trips here exactly as it does against the real runtime.
+    public readonly record struct RegistryOrInline<T> : IProtocolType<RegistryOrInline<T>>
+        where T : IProtocolType<T>
+    {
+        private readonly int _tag;
+        private readonly T? _value;
+
+        private RegistryOrInline(int tag, T? value)
+        {
+            _tag = tag;
+            _value = value;
+        }
+
+        public static RegistryOrInline<T> FromRegistry(int id)
+        {
+            if (id < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(id), id, "Registry id must not be negative.");
+            }
+
+            return new RegistryOrInline<T>(id + 1, default);
+        }
+
+        public static RegistryOrInline<T> Inline(T value)
+        {
+            if (value is null)
+            {
+                throw new ArgumentNullException(nameof(value));
+            }
+
+            return new RegistryOrInline<T>(0, value);
+        }
+
+        public bool IsInline => _tag == 0;
+
+        public bool IsRegistry => _tag != 0;
+
+        public int Id => _tag != 0
+            ? _tag - 1
+            : throw new InvalidOperationException("RegistryOrInline holds an inline value, not a registry id.");
+
+        public T Value => _tag == 0 && _value is not null
+            ? _value
+            : throw new InvalidOperationException("RegistryOrInline holds a registry id, not an inline value.");
+
+        public bool TryGetId(out int id)
+        {
+            id = _tag - 1;
+            return _tag != 0;
+        }
+
+        public bool TryGetValue(out T? value)
+        {
+            value = _value;
+            return _tag == 0 && _value is not null;
+        }
+
+        public static RegistryOrInline<T> Read(ref MinecraftPrimitiveReader reader, int protocolVersion)
+        {
+            var n = reader.ReadVarInt();
+            if (n == 0)
+            {
+                return new RegistryOrInline<T>(0, T.Read(ref reader, protocolVersion));
+            }
+
+            if (n < 0)
+            {
+                throw new InvalidOperationException($"RegistryOrInline read a negative discriminator {n}.");
+            }
+
+            return new RegistryOrInline<T>(n, default);
+        }
+
+        public void Write(MinecraftPrimitiveWriter writer, int protocolVersion)
+        {
+            if (_tag != 0)
+            {
+                writer.WriteVarInt(_tag);
+                return;
+            }
+
+            if (_value is null)
+            {
+                throw new InvalidOperationException("RegistryOrInline was never initialized: no registry id and no inline value.");
+            }
+
+            writer.WriteVarInt(0);
+            _value.Write(writer, protocolVersion);
+        }
     }
 }

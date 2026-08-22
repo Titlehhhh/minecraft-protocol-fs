@@ -74,6 +74,7 @@ module Helpers =
         | FixedBytes _
         | RestBytes -> TBytes
         | Option t -> TOption(apiOf t)
+        | RegistryHolder t -> THolder(apiOf t)
         | Array(t, _) -> TArray(apiOf t)
         | Named n -> TNamed n
         | other -> failwithf "apiOf: no natural api type for %A - use explicit api+wire" other

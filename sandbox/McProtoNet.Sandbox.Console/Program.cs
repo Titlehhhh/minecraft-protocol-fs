@@ -506,6 +506,280 @@ Console.WriteLine($"protocol version = {version}\n");
     }
 }
 
+// --- FixedBytes: exactly-n bytes, no length prefix ---
+{
+    var packet = new McProtoNet.Protocol.Packets.Play.Serverbound.ChatCommandSignedPacket(
+        "seed", 1234L, 5678L,
+        new[] { new ArgumentSignature("target", Enumerable.Range(0, 256).Select(i => (byte)i).ToArray()) },
+        3, new byte[] { 1, 2, 3 },
+        new McProtoNet.Protocol.Packets.Play.Serverbound.ChatCommandSignedPacket.V770_LastLayer(7));
+
+    var w = new MinecraftPrimitiveWriter();
+    packet.Write(w, version);
+    var bytes = w.ToArray();
+    var r = new MinecraftPrimitiveReader(bytes);
+    var back = McProtoNet.Protocol.Packets.Play.Serverbound.ChatCommandSignedPacket.Read(ref r, version);
+
+    Assert(back.Acknowledged.Length == 3 && Hex(back.Acknowledged) == "010203");
+    Assert(back.ArgumentSignatures[0].Signature.Length == 256);
+    Assert(Hex(back.ArgumentSignatures[0].Signature) == Hex(packet.ArgumentSignatures[0].Signature));
+    Assert(back.V770_Last is { Checksum: 7 });
+
+    var w2 = new MinecraftPrimitiveWriter();
+    back.Write(w2, version);
+    Assert(Hex(w2.ToArray()) == Hex(bytes));
+
+    var wrongLength = packet with { Acknowledged = new byte[] { 1, 2 } };
+    var threw = false;
+    try
+    {
+        wrongLength.Write(new MinecraftPrimitiveWriter(), version);
+    }
+    catch (ArgumentException)
+    {
+        threw = true;
+    }
+
+    Assert(threw);
+    Console.WriteLine($"ChatCommandSignedPacket: FixedBytes round-trips, wrong length rejected ({bytes.Length} bytes)");
+    Console.WriteLine();
+}
+
+// --- Conditional groups: readOpt / ifNonZero + readBlock ---
+{
+    foreach (var probe in new[]
+             {
+                 new ConditionalShapeProbe(0, new byte[] { 9, 8, 7, 6 }, 1, new Rotations(1f, 2f, 3f)),
+                 new ConditionalShapeProbe(0, new byte[] { 0, 0, 0, 0 }, 0, null),
+                 new ConditionalShapeProbe(5, null, 2, new Rotations(-1f, 0f, 0.5f)),
+                 new ConditionalShapeProbe(5, null, 0, null),
+             })
+    {
+        var w = new MinecraftPrimitiveWriter();
+        probe.Write(w, version);
+        var bytes = w.ToArray();
+        var r = new MinecraftPrimitiveReader(bytes);
+        var back = ConditionalShapeProbe.Read(ref r, version);
+
+        Assert(back.Kind == probe.Kind && back.Flag == probe.Flag);
+        Assert((back.Signature is null) == (probe.Signature is null));
+        Assert(back.Signature is null || Hex(back.Signature) == Hex(probe.Signature!));
+        Assert(back.Block.Equals(probe.Block));
+
+        var w2 = new MinecraftPrimitiveWriter();
+        back.Write(w2, version);
+        Assert(Hex(w2.ToArray()) == Hex(bytes));
+    }
+
+    // the guard must test the byte that actually travels: Flag = 256 writes 0 over the u8 wire,
+    // so the reader will not look for the block and the writer must not emit one
+    {
+        var wide = new ConditionalShapeProbe(5, null, 256, new Rotations(1f, 2f, 3f));
+        var w = new MinecraftPrimitiveWriter();
+        wide.Write(w, version);
+        var bytes = w.ToArray();
+        Assert(bytes.Length == 2);
+
+        var r = new MinecraftPrimitiveReader(bytes);
+        var back = ConditionalShapeProbe.Read(ref r, version);
+        Assert(back.Flag == 0 && back.Block is null);
+    }
+
+    // a value the discriminator does not select has nowhere to go on the wire
+    var orphan = new ConditionalShapeProbe(5, new byte[4], 0, null);
+    var orphanThrew = false;
+    try
+    {
+        orphan.Write(new MinecraftPrimitiveWriter(), version);
+    }
+    catch (InvalidOperationException)
+    {
+        orphanThrew = true;
+    }
+
+    Assert(orphanThrew);
+
+    // an absent value the wire demands must fail loudly, not write a hole
+    var missing = new ConditionalShapeProbe(0, null, 1, new Rotations(0f, 0f, 0f));
+    var threw = false;
+    try
+    {
+        missing.Write(new MinecraftPrimitiveWriter(), version);
+    }
+    catch (InvalidOperationException)
+    {
+        threw = true;
+    }
+
+    Assert(threw);
+    Console.WriteLine("ConditionalShapeProbe: 4 shapes round-trip byte-identical, missing required value throws");
+    Console.WriteLine();
+}
+
+// --- NBT: the container tags (byte/int/long arrays, lists), nested and byte-identical ---
+{
+    static byte[] WriteTag(NbtTag tag)
+    {
+        var w = new MinecraftPrimitiveWriter();
+        w.WriteNbt(tag);
+        return w.ToArray();
+    }
+
+    static NbtTag ReadTag(byte[] bytes)
+    {
+        var r = new MinecraftPrimitiveReader(bytes);
+        return r.ReadNbtTag(false)!;
+    }
+
+    var root = new NbtCompound()
+        .With("bytes", new NbtByteArray(new byte[] { 0, 1, 0x7F, 0x80, 0xFF }))
+        .With("ints", new NbtIntArray(new[] { 0, -1, int.MinValue, int.MaxValue }))
+        .With("longs", new NbtLongArray(new[] { 0L, -1L, long.MinValue, long.MaxValue }))
+        .With("empty", new NbtList(0, Array.Empty<NbtTag>()))
+        .With("strings", NbtList.Of(new NbtString("a"), new NbtString("bb")))
+        .With("compounds", NbtList.Of(
+            new NbtCompound().With("id", new NbtInt(1)),
+            new NbtCompound().With("id", new NbtInt(2))))
+        .With("listOfLists", NbtList.Of(
+            NbtList.Of(new NbtByte(1), new NbtByte(2)),
+            NbtList.Of(new NbtByte(3))))
+        .With("nested", new NbtCompound().With("deep", new NbtLongArray(new[] { 42L })));
+
+    var nbtBytes = WriteTag(root);
+    var readBack = (NbtCompound)ReadTag(nbtBytes);
+    Assert(Hex(WriteTag(readBack)) == Hex(nbtBytes));
+
+    Assert(((NbtByteArray)readBack.Items["bytes"]).Value.SequenceEqual(new byte[] { 0, 1, 0x7F, 0x80, 0xFF }));
+    Assert(((NbtIntArray)readBack.Items["ints"]).Value.SequenceEqual(new[] { 0, -1, int.MinValue, int.MaxValue }));
+    Assert(((NbtLongArray)readBack.Items["longs"]).Value.SequenceEqual(new[] { 0L, -1L, long.MinValue, long.MaxValue }));
+    Assert(((NbtList)readBack.Items["empty"]).Items.Count == 0);
+    Assert(((NbtList)readBack.Items["strings"]).ElementId == 8);
+    Assert(((NbtString)((NbtList)readBack.Items["strings"]).Items[1]).Value == "bb");
+    Assert(((NbtList)readBack.Items["compounds"]).ElementId == 10);
+    Assert(((NbtInt)((NbtCompound)((NbtList)readBack.Items["compounds"]).Items[1]).Items["id"]).Value == 2);
+
+    var outer = (NbtList)readBack.Items["listOfLists"];
+    Assert(outer.ElementId == 9 && outer.Items.Count == 2);
+    Assert(((NbtList)outer.Items[0]).Items.Count == 2 && ((NbtList)outer.Items[1]).Items.Count == 1);
+    Assert(((NbtByte)((NbtList)outer.Items[1]).Items[0]).Value == 3);
+
+    // arrays and list counts are a big-endian signed int, not a varint
+    var lenBytes = WriteTag(new NbtIntArray(new[] { 7 }));
+    Assert(Hex(lenBytes) == "0B" + "00000001" + "00000007");
+
+    // a list whose declared element id disagrees with what it holds would shift the wire
+    var mismatchThrew = false;
+    try
+    {
+        WriteTag(new NbtList(1, new NbtTag[] { new NbtString("a") }));
+    }
+    catch (NotSupportedException)
+    {
+        mismatchThrew = true;
+    }
+
+    Assert(mismatchThrew);
+
+    // an unmodelled tag id still throws instead of guessing a payload length
+    var unknownThrew = false;
+    try
+    {
+        ReadTag(new byte[] { 13, 0, 0, 0, 0 });
+    }
+    catch (NotSupportedException)
+    {
+        unknownThrew = true;
+    }
+
+    Assert(unknownThrew);
+    Console.WriteLine("NBT: byte/int/long arrays and nested lists round-trip byte-identical, unknown tag id throws\n");
+}
+
+// --- RegistryOrInline<T>: varint 0 = inline payload, n > 0 = registry entry n - 1 ---
+{
+    var inline = RegistryOrInline<Position>.Inline(new Position(1, 2, 3));
+    var wi = new MinecraftPrimitiveWriter();
+    inline.Write(wi, version);
+    var inlineBytes = wi.ToArray();
+    Assert(inlineBytes.Length == 9 && inlineBytes[0] == 0);
+
+    var ri = new MinecraftPrimitiveReader(inlineBytes);
+    var backInline = RegistryOrInline<Position>.Read(ref ri, version);
+    Assert(backInline.IsInline && backInline.Value == new Position(1, 2, 3));
+
+    foreach (var id in new[] { 0, 1, 127, 128 })
+    {
+        var wr = new MinecraftPrimitiveWriter();
+        RegistryOrInline<Position>.FromRegistry(id).Write(wr, version);
+        var registryBytes = wr.ToArray();
+
+        var rr = new MinecraftPrimitiveReader(registryBytes);
+        var backRegistry = RegistryOrInline<Position>.Read(ref rr, version);
+        Assert(backRegistry.IsRegistry && backRegistry.Id == id);
+        Assert(rr.Position == registryBytes.Length);
+    }
+
+    // registry id 0 travels as 1, so the inline arm keeps 0 to itself
+    var w0 = new MinecraftPrimitiveWriter();
+    RegistryOrInline<Position>.FromRegistry(0).Write(w0, version);
+    Assert(Hex(w0.ToArray()) == "01");
+
+    Console.WriteLine("RegistryOrInline<Position>: both arms round-trip, registry ids offset by one\n");
+}
+
+// --- HolderShapeProbe: generated code reading and writing RegistryHolder fields ---
+{
+    var probe = new HolderShapeProbe(
+        7,
+        RegistryOrInline<ItemSoundEvent>.FromRegistry(42),
+        new[]
+        {
+            RegistryOrInline<ItemSoundEvent>.Inline(new ItemSoundEvent("minecraft:entity.pig.ambient", null)),
+            RegistryOrInline<ItemSoundEvent>.FromRegistry(0),
+            RegistryOrInline<ItemSoundEvent>.Inline(new ItemSoundEvent("minecraft:block.stone.break", 16f)),
+        },
+        9);
+
+    var w = new MinecraftPrimitiveWriter();
+    probe.Write(w, version);
+    var bytes = w.ToArray();
+    var r = new MinecraftPrimitiveReader(bytes);
+    var back = HolderShapeProbe.Read(ref r, version);
+
+    Assert(r.Position == bytes.Length);
+    Assert(back.Before == 7 && back.After == 9);
+    Assert(back.Sound.IsRegistry && back.Sound.Id == 42);
+    Assert(back.Sounds.Length == 3);
+    Assert(back.Sounds[0].IsInline && back.Sounds[0].Value.SoundName == "minecraft:entity.pig.ambient");
+    Assert(back.Sounds[0].Value.FixedRange is null);
+    Assert(back.Sounds[1].IsRegistry && back.Sounds[1].Id == 0);
+    Assert(back.Sounds[2].IsInline && back.Sounds[2].Value.FixedRange == 16f);
+
+    var w2 = new MinecraftPrimitiveWriter();
+    back.Write(w2, version);
+    Assert(Hex(w2.ToArray()) == Hex(bytes));
+
+    // the holder is one varint plus, for the inline arm only, the payload — no wrapper object
+    var wOne = new MinecraftPrimitiveWriter();
+    wOne.WriteType(RegistryOrInline<ItemSoundEvent>.FromRegistry(0), version);
+    Assert(Hex(wOne.ToArray()) == "01");
+
+    // 761 is the first version that has the payload type; 760 must refuse, not invent a shape
+    var tooOldThrew = false;
+    try
+    {
+        var rOld = new MinecraftPrimitiveReader(bytes);
+        HolderShapeProbe.Read(ref rOld, 760);
+    }
+    catch (InvalidOperationException)
+    {
+        tooOldThrew = true;
+    }
+
+    Assert(tooOldThrew);
+    Console.WriteLine($"HolderShapeProbe: {bytes.Length} bytes, both holder arms and an array of them re-write byte-identical\n");
+}
+
 // --- GetPacketId: numeric ids from the McProtoFacts manifest ---
 {
     Assert(SetProtocolPacket.GetPacketId(772) == 0x00);

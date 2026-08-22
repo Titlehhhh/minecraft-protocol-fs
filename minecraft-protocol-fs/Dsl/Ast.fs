@@ -45,6 +45,11 @@ module Ast =
         | Array of WireType * ArrayCount
         | Option of WireType
 
+        // protodef registryEntryHolder: a varint where 0 means the inline payload follows and
+        // n > 0 means registry entry n - 1. A wrapper, not a type of its own — the api side is
+        // a holder over the payload type, never a class wrapping one field.
+        | RegistryHolder of WireType
+
         // read items until sentinel byte/value
         // entityMetadata = SentinelArray(Named "EntityMetadataEntry", 255)
         | SentinelArray of item: WireType * endValue: int
@@ -108,6 +113,7 @@ module Ast =
         | TBytes
         | TArray of ApiType
         | TOption of ApiType
+        | THolder of ApiType
         | TNamed of string
         | TUnion of string
 

@@ -29,11 +29,13 @@ $staging = Join-Path ([IO.Path]::GetTempPath()) "mcproto-gen-$([guid]::NewGuid()
 # union shapes EntityMetadataValue is built from. It is never delivered.
 # ConditionalShapeProbe.cs is the same kind of fixture for the conditional-group shapes
 # (readOpt / ifNonZero + readBlock / FixedBytes) and is never delivered either.
+# HolderShapeProbe.cs is the fixture for RegistryHolder: ExplosionPacket is the only real user
+# and it stays held back for Particle, so the probe is what exercises the shape end to end.
 $exclude = @(
     'EntityMetadataPacket.cs', 'ExplosionPacket.cs', 'ExplosionParticleEntry.cs',
     'ExplosionParticleInfo.cs', 'MapPacket.cs', 'WindowClickPacket.cs',
     'EntityMetadataEntry.cs', 'EntityMetadataValue.cs', 'UnionShapeProbe.cs',
-    'ConditionalShapeProbe.cs'
+    'ConditionalShapeProbe.cs', 'HolderShapeProbe.cs'
 )
 
 # One generated file declares one type, named after the file, so an excluded file name is the

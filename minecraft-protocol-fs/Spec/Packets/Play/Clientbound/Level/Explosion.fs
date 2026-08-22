@@ -20,7 +20,7 @@ module Explosion =
                     field "BlockInteractionType" TInt (Between(765, 767))
                     field "SmallExplosionParticle" (TNamed "Particle") (Between(765, 767))
                     field "LargeExplosionParticle" (TNamed "Particle") (Between(765, 767))
-                    field "Sound" (TNamed "ItemSoundHolder") (Since 765)
+                    field "Sound" (THolder(TNamed "ItemSoundEvent")) (Since 765)
                     field "PlayerKnockback" (TOption(TNamed "Vec3f64")) (Since 768)
                     field "ExplosionParticle" (TNamed "Particle") (Since 768)
                     field "Center" (TNamed "Vec3f64") (Since 773)
@@ -93,7 +93,7 @@ module Explosion =
                     read "block_interaction_type" VarInt "BlockInteractionType"
                     read "small_explosion_particle" (Named "Particle") "SmallExplosionParticle"
                     read "large_explosion_particle" (Named "Particle") "LargeExplosionParticle"
-                    read "sound" (Named "ItemSoundHolder") "Sound"
+                    read "sound" (RegistryHolder(Named "ItemSoundEvent")) "Sound"
                 ]
 
             wire
@@ -104,7 +104,7 @@ module Explosion =
                     read "z" F64 "Z"
                     read "playerKnockback" (Option(Named "Vec3f")) "PlayerKnockback"
                     read "explosionParticle" (Named "Particle") "ExplosionParticle"
-                    read "sound" (Named "ItemSoundHolder") "Sound"
+                    read "sound" (RegistryHolder(Named "ItemSoundEvent")) "Sound"
                 ]
 
             wire
@@ -115,7 +115,7 @@ module Explosion =
                     read "z" F64 "Z"
                     read "playerKnockback" (Option(Named "Vec3f64")) "PlayerKnockback"
                     read "explosionParticle" (Named "Particle") "ExplosionParticle"
-                    read "sound" (Named "ItemSoundHolder") "Sound"
+                    read "sound" (RegistryHolder(Named "ItemSoundEvent")) "Sound"
                 ]
 
             wire
@@ -126,7 +126,7 @@ module Explosion =
                     read "blockCount" I32 "BlockCount"
                     read "playerKnockback" (Option(Named "Vec3f64")) "PlayerKnockback"
                     read "explosionParticle" (Named "Particle") "ExplosionParticle"
-                    read "sound" (Named "ItemSoundHolder") "Sound"
+                    read "sound" (RegistryHolder(Named "ItemSoundEvent")) "Sound"
                     read "blockParticles" (Array(Named "ExplosionParticleEntry", VarIntCount)) "BlockParticles"
                 ]
         }

@@ -90,6 +90,10 @@ module CSharpSurface =
             /// C# spellings of api leaf types that are not C# keywords.
             NbtType: string
             UuidType: string
+            /// Generic runtime type behind `RegistryHolder`: a struct carrying either a registry
+            /// id or an inline payload. It implements the same protocol-type interface as any
+            /// nested named type, so it travels on the existing ReadNamed/WriteNamed pair.
+            HolderType: string
             /// Wire primitive -> reader/writer methods.
             Primitives: Map<WireType, Primitive>
         }
@@ -151,6 +155,7 @@ module CSharpSurface =
             WrongLayerExceptionType = "WrongLayerException"
             NbtType = "NbtTag"
             UuidType = "Guid"
+            HolderType = "RegistryOrInline"
             Primitives =
                 Map.ofList
                     [
@@ -195,14 +200,31 @@ module CSharpSurface =
         | TBytes -> "byte[]"
         | TArray inner -> csType s inner + "[]"
         | TOption inner -> csType s inner + "?"
+        | THolder inner -> sprintf "%s<%s>" s.HolderType (csType s inner)
         | TNamed n -> n
         | TUnion n -> n
+
+    /// The C# type a wire type produces when it stands on its own — what a holder needs to name
+    /// as its generic argument. `None` means the shape has no single C# spelling.
+    let wireLeafCsType (s: RuntimeSurface) (w: WireType) : string option =
+        match w with
+        | Named n -> Some n
+        | FixedBytes _ -> Some "byte[]"
+        | _ -> s.Primitives.TryFind w |> Option.map (fun p -> p.CsType)
+
+    /// `RegistryOrInline<Payload>` — the C# type a `RegistryHolder` wire field reads and writes.
+    let holderCsType (s: RuntimeSurface) (inner: WireType) : string option =
+        wireLeafCsType s inner |> Option.map (sprintf "%s<%s>" s.HolderType)
 
     /// Full read expression for a wire type, e.g. `reader.ReadVarInt()` or
     /// `reader.ReadType<Slot>(protocolVersion)`. `Error` carries the unsupported shape.
     let readExpr (s: RuntimeSurface) (w: WireType) : Result<string, string> =
         match w with
         | Named n -> Ok(sprintf "%s.%s<%s>(%s)" s.ReaderParam s.ReadNamedMethod n s.VersionParam)
+        | RegistryHolder inner ->
+            match holderCsType s inner with
+            | Some t -> Ok(sprintf "%s.%s<%s>(%s)" s.ReaderParam s.ReadNamedMethod t s.VersionParam)
+            | None -> Error(sprintf "%A" w)
         | FixedBytes n -> Ok(sprintf "%s.%s(%d)" s.ReaderParam s.ReadFixedBytesMethod n)
         | _ ->
             match s.Primitives.TryFind w with
@@ -219,6 +241,10 @@ module CSharpSurface =
 
         match w with
         | Named n -> Ok(sprintf "%s.%s<%s>(%s, %s)" s.WriterParam s.WriteNamedMethod n v s.VersionParam)
+        | RegistryHolder inner ->
+            match holderCsType s inner with
+            | Some t -> Ok(sprintf "%s.%s<%s>(%s, %s)" s.WriterParam s.WriteNamedMethod t v s.VersionParam)
+            | None -> Error(sprintf "%A" w)
         | FixedBytes n -> Ok(sprintf "%s.%s(%s, %d)" s.WriterParam s.WriteFixedBytesMethod v n)
         | _ ->
             match s.Primitives.TryFind w with
