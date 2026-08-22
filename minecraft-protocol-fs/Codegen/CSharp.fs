@@ -728,18 +728,25 @@ module CSharp =
             let iv = camel api + "Item"
 
             // same rule as the scalar branch below: an option-typed api field written as a
-            // required wire value must be present, or the count and the items disagree
-            let acc =
+            // required wire value must be present, or the count and the items disagree. The
+            // count and the loop both read it, so bind it once instead of repeating the throw.
+            let bind, acc =
                 match apiTypes.TryFind api with
                 | Some(TOption _) ->
-                    sprintf
-                        "(%s ?? throw new System.InvalidOperationException(\"%s is required at this protocol version.\"))"
-                        (ctx.Access api)
-                        api
-                | _ -> ctx.Access api
+                    let lv = camel api + "Value"
+
+                    [
+                        sprintf
+                            "var %s = %s ?? throw new System.InvalidOperationException(\"%s is required at this protocol version.\");"
+                            lv
+                            (ctx.Access api)
+                            api
+                    ],
+                    lv
+                | _ -> [], ctx.Access api
 
             match writeExpr s item None iv, countWrite s cnt acc with
-            | Ok call, Some cw -> Ok(cw @ [ sprintf "foreach (var %s in %s) %s;" iv acc call ])
+            | Ok call, Some cw -> Ok(bind @ cw @ [ sprintf "foreach (var %s in %s) %s;" iv acc call ])
             | _ -> Error(sprintf "write '%s' (Array %A)" api item)
         | Read(_, wt, api) ->
             // an option-typed api field written as a required wire value must be present
