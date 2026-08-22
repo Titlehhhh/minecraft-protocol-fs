@@ -72,6 +72,13 @@ module CSharpSurface =
             IdentityType: string
             PhaseEnum: string
             DirectionEnum: string
+            /// The members of `PhaseEnum` / `DirectionEnum` in the numeric order the runtime
+            /// declares them. The registry's flat lookup indexes its tables by `(int)phase` and
+            /// `(int)direction`, so the slot of a (phase, direction) is decided here and not by
+            /// the order the renderer happens to walk in. Reordering the runtime enum without
+            /// reordering these lists mismaps every id: `PacketRegistryTests` is the guard.
+            PhaseOrder: ProtocolState list
+            DirectionOrder: Direction list
             PacketAttributeName: string
             PacketFieldAttributeName: string
             WrongLayerExceptionType: string
@@ -130,6 +137,8 @@ module CSharpSurface =
             IdentityType = "PacketIdentity"
             PhaseEnum = "PacketPhase"
             DirectionEnum = "PacketDirection"
+            PhaseOrder = [ Handshaking; Status; Login; Configuration; Play ]
+            DirectionOrder = [ Clientbound; Serverbound ]
             PacketAttributeName = "Packet"
             PacketFieldAttributeName = "PacketField"
             WrongLayerExceptionType = "WrongLayerException"

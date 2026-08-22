@@ -1748,43 +1748,81 @@ module CSharp =
             line "    ];"
             line ""
 
-        for st, dir, slice in slices do
-            for lo, hi, map in runsFor slice do
-                let maxId = map |> List.map fst |> List.max
-                let table = Array.create (maxId + 1) (-1)
+        // ----- the flat lookup: every per-run table concatenated once, addressed by arithmetic -----
+        // The tables above are keyed by (phase, direction) and a protocol-version *range*, which a
+        // switch plus a chain of range compares can answer but only in time proportional to the
+        // number of ranges. Concatenating them into one blob and indexing it by
+        // ((int)phase * directions + (int)direction) * pvCount + (pv - minPv) answers the same
+        // question with two loads and no branching on the version at all.
+        let dirCount = s.DirectionOrder.Length
+        let slotCount = s.PhaseOrder.Length * dirCount
 
-                for id, ordinal in map do
-                    table.[id] <- ordinal
+        let slotOf (st: ProtocolState) (dir: Direction) =
+            let phaseIndex = s.PhaseOrder |> List.findIndex ((=) st)
+            let dirIndex = s.DirectionOrder |> List.findIndex ((=) dir)
+            phaseIndex * dirCount + dirIndex
 
-                line (sprintf "    private static ReadOnlySpan<short> Table%A%A_%d_%d =>" st dir lo hi)
-                line (sprintf "        [%s];" (table |> Seq.map string |> String.concat ", "))
-                line ""
+        let allRuns =
+            [
+                for st, dir, slice in slices do
+                    for lo, hi, map in runsFor slice do
+                        yield st, dir, lo, hi, map
+            ]
 
-        line (
-            sprintf "    private static ReadOnlySpan<short> Table(%s phase, %s dir, int pv)" s.PhaseEnum s.DirectionEnum
-        )
+        let minPv = allRuns |> List.map (fun (_, _, lo, _, _) -> lo) |> List.min
+        let maxPv = allRuns |> List.map (fun (_, _, _, hi, _) -> hi) |> List.max
+        let pvCount = maxPv - minPv + 1
 
-        line "    {"
-        line "        switch (phase, dir)"
-        line "        {"
+        let blob = ResizeArray<int>()
+        let offsets = Array.zeroCreate<int> (slotCount * pvCount)
+        let lengths = Array.zeroCreate<int> (slotCount * pvCount)
 
-        for st, dir, slice in slices do
-            let runs = runsFor slice
+        for st, dir, lo, hi, map in allRuns do
+            let maxId = map |> List.map fst |> List.max
+            let table = Array.create (maxId + 1) -1
 
-            if not runs.IsEmpty then
-                line (sprintf "            case (%s.%A, %s.%A):" s.PhaseEnum st s.DirectionEnum dir)
+            for id, ordinal in map do
+                table.[id] <- ordinal
 
-                for lo, hi, _ in runs do
-                    line (
-                        sprintf "                if (pv >= %d && pv <= %d) return Table%A%A_%d_%d;" lo hi st dir lo hi
-                    )
+            let offset = blob.Count
+            blob.AddRange table
 
-                line "                return default;"
+            for pv in lo..hi do
+                let index = slotOf st dir * pvCount + (pv - minPv)
+                offsets.[index] <- offset
+                lengths.[index] <- table.Length
 
-        line "        }"
+        let window =
+            [
+                for i in 0 .. offsets.Length - 1 do
+                    yield offsets.[i]
+                    yield lengths.[i]
+            ]
+
+        line "    /// <summary>Number of members of the phase and direction enums the tables were built"
+        line "    /// against. Public because a caller that indexes anything by (phase, direction) must"
+        line "    /// size it from the same numbers rather than reflecting over the enums.</summary>"
+        line (sprintf "    public const int PhaseCount = %d;" s.PhaseOrder.Length)
         line ""
-        line "        return default;"
-        line "    }"
+        line (sprintf "    public const int DirectionCount = %d;" dirCount)
+        line ""
+        line (sprintf "    public const int CatalogCount = %d;" slotCount)
+        line ""
+        line (sprintf "    private const int MinPv = %d;" minPv)
+        line ""
+        line (sprintf "    private const int PvCount = %d;" pvCount)
+        line ""
+        line "    /// <summary>Every per-run id->ordinal table, concatenated. -1 marks an id this run"
+        line "    /// does not map.</summary>"
+        line "    private static ReadOnlySpan<short> OrdinalBlob =>"
+        line (sprintf "        [%s];" (blob |> Seq.map string |> String.concat ", "))
+        line ""
+        line "    /// <summary>Offset and length, interleaved, of the table for one (phase, direction,"
+        line "    /// protocol version) inside <see cref=\"OrdinalBlob\"/>: the pair sits in one cache line"
+        line "    /// so the lookup reads both with a single probe. Length 0 means that combination"
+        line "    /// carries no packets.</summary>"
+        line "    private static ReadOnlySpan<int> TableWindow =>"
+        line (sprintf "        [%s];" (window |> Seq.map string |> String.concat ", "))
         line ""
 
         line (
@@ -1796,11 +1834,21 @@ module CSharp =
         )
 
         line "    {"
-        line (sprintf "        var table = Table(phase, dir, %s);" s.VersionParam)
-        line "        if ((uint)id < (uint)table.Length && table[id] >= 0)"
+        line (sprintf "        var pvIndex = %s - MinPv;" s.VersionParam)
+        line "        // phase and direction are bounded separately on purpose: a single check on the"
+        line "        // combined slot would let an out-of-range direction alias onto another phase's row."
+        line "        if ((uint)pvIndex < PvCount && (uint)phase < PhaseCount && (uint)dir < DirectionCount)"
         line "        {"
-        line "            ordinal = (ushort)table[id];"
-        line "            return true;"
+        line "            var window = (((int)phase * DirectionCount + (int)dir) * PvCount + pvIndex) * 2;"
+        line "            if ((uint)id < (uint)TableWindow[window + 1])"
+        line "            {"
+        line "                var value = OrdinalBlob[TableWindow[window] + id];"
+        line "                if (value >= 0)"
+        line "                {"
+        line "                    ordinal = (ushort)value;"
+        line "                    return true;"
+        line "                }"
+        line "            }"
         line "        }"
         line ""
         line "        ordinal = 0;"
@@ -1902,6 +1950,19 @@ module CSharp =
         line "public static partial class PacketFlow"
         line "{"
         line "    public static event TrailingBytesHook? OnTrailingBytes;"
+        line ""
+        line "    /// <summary>Raises <see cref=\"OnTrailingBytes\"/> for a caller that decoded the body"
+        line "    /// itself. An event can only be raised inside the type that declares it, and the"
+        line "    /// generated handlers decode without going through <see cref=\"Dispatch\"/>; the hook"
+        line "    /// stays the one place a suspect spec is reported from.</summary>"
+
+        line (
+            sprintf
+                "    internal static void RaiseTrailingBytes(int packetId, int %s, long remainingBytes) => OnTrailingBytes?.Invoke(packetId, %s, remainingBytes);"
+                s.VersionParam
+                s.VersionParam
+        )
+
         line ""
 
         line (
@@ -2231,93 +2292,140 @@ module CSharp =
             (sprintf "%A" e.Spec.State, e.Spec.ClassName), name)
         |> Map.ofList
 
-    /// `Flow/ClientboundHandler.g.cs`: one base for every clientbound phase, phase slot led by
-    /// the consumer, ValueTask handlers awaited by the facade after the synchronous dispatch.
+    /// `Flow/<Direction>Handler.g.cs`: one base for every phase of one direction, phase slot led
+    /// by the consumer, ValueTask handlers awaited by the facade after the synchronous dispatch.
+    ///
+    /// `HandleAsync` resolves the ordinal itself and reads the packet inside the case block that
+    /// already knows its type, so the decoded packet reaches `On<Name>` with nothing dynamic in
+    /// between. The handler is deliberately NOT an `IPacketVisitor`: routing it through
+    /// `PacketFlow` would hand the visitor's `Visit<T>` a `ValueTask` it has nowhere to return,
+    /// and a dropped `ValueTask` is a silently lost continuation. `PacketFlow` and
+    /// `IPacketVisitor` remain for callers that want them — `PacketSubscriptions` is one — and
+    /// are emitted unchanged.
     let private renderHandlerFile
         (s: RuntimeSurface)
         (dispatchable: PacketSpec -> bool)
+        (dir: Direction)
+        (className: string)
         (entries: Registry.CatalogEntry list)
         : string
         =
         let sb = System.Text.StringBuilder()
         let line (t: string) = sb.AppendLine t |> ignore
 
-        let clientbound =
+        let slices =
             [
                 for st in allStates do
                     let slice =
-                        Registry.slice st Clientbound entries
-                        |> List.filter (fun e -> dispatchable e.Spec)
+                        Registry.slice st dir entries |> List.filter (fun e -> dispatchable e.Spec)
 
                     if not slice.IsEmpty then
                         yield st, slice
             ]
 
-        let names = handlerNames (clientbound |> List.collect snd)
+        let names = handlerNames (slices |> List.collect snd)
+
+        // The phase a connection is in when the first packet of this direction can arrive: a
+        // client starts listening in Login, a server starts reading in Handshaking.
+        let defaultPhase =
+            match dir with
+            | Clientbound -> "Login"
+            | Serverbound -> "Handshaking"
+
+        let lowerDir = (sprintf "%A" dir).ToLowerInvariant()
 
         line "using System.Threading.Tasks;"
         line (sprintf "using %s;" s.UsingSerialization)
         line ""
         line (sprintf "namespace %s;" s.Namespace)
         line ""
-        line "/// <summary>Generated handler base over every clientbound phase. The truth about"
+        line (sprintf "/// <summary>Generated handler base over every %s phase. The truth about" lowerDir)
         line "/// the current phase is the consumer's: set <see cref=\"Phase\"/> as the connection"
         line "/// advances. <c>HandleAsync</c> decodes synchronously (the raw data window must not"
         line "/// cross an await) and awaits the handler's result after. <c>OnUnknown</c> must not"
         line "/// hold on to <c>raw</c> beyond the call.</summary>"
-        line "public abstract partial class ClientboundHandler : IPacketVisitor"
+        line (sprintf "public abstract partial class %s" className)
         line "{"
-        line "    private ValueTask _pending;"
+        line (sprintf "    public %s Phase { get; protected set; } = %s.%s;" s.PhaseEnum s.PhaseEnum defaultPhase)
         line ""
-        line (sprintf "    public %s Phase { get; protected set; } = %s.Login;" s.PhaseEnum s.PhaseEnum)
+        line (sprintf "    protected static %s Direction => %s.%A;" s.DirectionEnum s.DirectionEnum dir)
         line ""
-        line (sprintf "    protected static %s Direction => %s.Clientbound;" s.DirectionEnum s.DirectionEnum)
-        line ""
+
+        line "    /// <summary>The registry lookup and the typed read happen here, in a case block where"
+        line "    /// the packet type is statically known, so nothing between the wire and"
+        line "    /// <c>On&lt;Name&gt;</c> is dynamic. <see cref=\"Phase\"/> is read once: a handler that"
+        line "    /// advances the phase does so after the switch, and this packet is read as the phase"
+        line "    /// it arrived in.</summary>"
         line (sprintf "    public ValueTask HandleAsync(in IncomingPacket raw, int %s)" s.VersionParam)
         line "    {"
-        line "        _pending = default;"
-        line "        var self = this;"
+        line "        var phase = Phase;"
 
         line (
             sprintf
-                "        PacketFlow.Dispatch(in raw, %s, Phase, %s.Clientbound, ref self);"
+                "        if (!PacketRegistry.TryGetOrdinal(raw.Id, %s, phase, %s.%A, out var ordinal))"
                 s.VersionParam
                 s.DirectionEnum
+                dir
         )
 
-        line "        return _pending;"
-        line "    }"
+        line "            return OnUnknown(in raw);"
         line ""
-        line "    void IPacketVisitor.Visit<T>(T packet)"
-        line "    {"
-        line "        var identity = T.Identity;"
-        line "        switch (identity.Phase)"
+        line (sprintf "        var %s = new %s(raw.Body);" s.ReaderParam s.ReaderType)
+        line "        ValueTask pending;"
+        line "        switch (phase)"
         line "        {"
 
-        for st, slice in clientbound do
+        for st, slice in slices do
             line (sprintf "            case %s.%A:" s.PhaseEnum st)
-            line "                switch (identity.Ordinal)"
+            line "                switch (ordinal)"
             line "                {"
 
             for e in slice do
                 let handler = names.[(sprintf "%A" st, e.Spec.ClassName)]
 
                 line (sprintf "                    case %d:" e.Ordinal)
-                line (sprintf "                        _pending = %s((%s)(object)packet);" handler (relTypeName e.Spec))
-                line "                        return;"
+                line "                    {"
 
+                line (
+                    sprintf
+                        "                        var packet = %s.Read(ref %s, %s);"
+                        (relTypeName e.Spec)
+                        s.ReaderParam
+                        s.VersionParam
+                )
+
+                line (sprintf "                        pending = %s(packet);" handler)
+                line "                        break;"
+                line "                    }"
+
+            line ""
+            line "                    default:"
+            line "                        return OnUnknown(in raw);"
             line "                }"
             line ""
-            line "                return;"
+            line "                break;"
 
+        line "            default:"
+        line "                return OnUnknown(in raw);"
         line "        }"
-        line "    }"
         line ""
-        line "    void IPacketVisitor.Unknown(in IncomingPacket raw) => _pending = OnUnknown(in raw);"
+        line (sprintf "        if (%s.RemainingCount != 0)" s.ReaderParam)
+
+        line (
+            sprintf
+                "            PacketFlow.RaiseTrailingBytes(raw.Id, %s, %s.RemainingCount);"
+                s.VersionParam
+                s.ReaderParam
+        )
+
+        line ""
+        line "        return pending;"
+        line "    }"
+
         line ""
         line "    protected virtual ValueTask OnUnknown(in IncomingPacket raw) => default;"
 
-        for st, slice in clientbound do
+        for st, slice in slices do
             line ""
             line (sprintf "    // --- %A ---" st)
 
@@ -2350,7 +2458,17 @@ module CSharp =
             }
             {
                 RelativePath = "Flow/ClientboundHandler.g.cs"
-                Contents = renderRawUnit "ClientboundHandler" (renderHandlerFile s dispatchable entries)
+                Contents =
+                    renderRawUnit
+                        "ClientboundHandler"
+                        (renderHandlerFile s dispatchable Clientbound "ClientboundHandler" entries)
+            }
+            {
+                RelativePath = "Flow/ServerboundHandler.g.cs"
+                Contents =
+                    renderRawUnit
+                        "ServerboundHandler"
+                        (renderHandlerFile s dispatchable Serverbound "ServerboundHandler" entries)
             }
         ]
 
