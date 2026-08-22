@@ -287,7 +287,7 @@ Console.WriteLine($"protocol version = {version}\n");
 // --- SpawnInfo (766 vs 768: +seaLevel) with optional DeathLocation ---
 {
     var death = new DeathLocation("minecraft:overworld", new Position(10, 64, -20));
-    var info = new SpawnInfo(2, "minecraft:overworld", 12345L, 1, 0, false, true, death, 3, 63);
+    var info = new SpawnInfo(2, "minecraft:overworld", 12345L, Gamemode.Creative, 0, false, true, death, 3, 63);
     foreach (var v in new[] { 766, 772 })
     {
         var w = new MinecraftPrimitiveWriter();
@@ -778,6 +778,83 @@ Console.WriteLine($"protocol version = {version}\n");
 
     Assert(tooOldThrew);
     Console.WriteLine($"HolderShapeProbe: {bytes.Length} bytes, both holder arms and an array of them re-write byte-identical\n");
+}
+
+// --- EnumShapeProbe: named values, unknown ids, per-site backings, per-version tables ---
+{
+    static byte[] Bytes(EnumShapeProbe p, int v)
+    {
+        var w = new MinecraftPrimitiveWriter();
+        p.Write(w, v);
+        return w.ToArray();
+    }
+
+    foreach (var v in new[] { 770, 772 })
+    {
+        var probe = new EnumShapeProbe(7, SoundSource.Player, Gamemode.Adventure, Difficulty.Hard, 9);
+        var bytes = Bytes(probe, v);
+        var r = new MinecraftPrimitiveReader(bytes);
+        var back = EnumShapeProbe.Read(ref r, v);
+
+        Assert(r.Position == bytes.Length);
+        Assert(back.Sound == SoundSource.Player && back.Mode == Gamemode.Adventure);
+        Assert(back.Diff == Difficulty.Hard && back.Before == 7 && back.After == 9);
+        Assert(Hex(Bytes(back, v)) == Hex(bytes));
+
+        // an id no table names survives the round-trip as its raw value, it never throws
+        var unknown = new EnumShapeProbe(0, new SoundSource(99), new Gamemode(120), new Difficulty(7), 0);
+        var uBytes = Bytes(unknown, v);
+        var ur = new MinecraftPrimitiveReader(uBytes);
+        var uBack = EnumShapeProbe.Read(ref ur, v);
+
+        Assert(ur.Position == uBytes.Length);
+        Assert(uBack.Sound.Value == 99 && uBack.Mode.Value == 120 && uBack.Diff.Value == 7);
+        Assert(uBack.Sound.ToString() == "unknown(99)");
+        Assert(Hex(Bytes(uBack, v)) == Hex(uBytes));
+
+        Console.WriteLine($"EnumShapeProbe @{v}: {bytes.Length} bytes, named + unknown ids re-write byte-identical");
+    }
+
+    // the same table under two backings: gamemode is i8 until 770 and varint from 771, and
+    // difficulty is u8 until 770 and varint from 771 — both one byte for these ids, so the
+    // layouts must be told apart by which reader call they made, not by length
+    Assert(Bytes(new EnumShapeProbe(0, SoundSource.Master, Gamemode.Spectator, Difficulty.Peaceful, 0), 770).Length
+           == Bytes(new EnumShapeProbe(0, SoundSource.Master, Gamemode.Spectator, Difficulty.Peaceful, 0), 772).Length);
+
+    // multi-layout table: `ui` exists from 771 only, and the merged ToString() knows every name
+    Assert(SoundSource.Ui.ToString(770) == "unknown(10)");
+    Assert(SoundSource.Ui.ToString(772) == "ui");
+    Assert(SoundSource.Ui.ToString() == "ui");
+    Assert(SoundSource.Voice.ToString(770) == "voice");
+    Assert(((int)Difficulty.Normal) == 2 && ((Difficulty)2) == Difficulty.Normal);
+
+    // outside every layout the gate refuses rather than inventing a shape
+    var beforeSupport = false;
+    try
+    {
+        var r765 = new MinecraftPrimitiveReader(new byte[] { 0, 0, 0, 0, 0 });
+        EnumShapeProbe.Read(ref r765, 765);
+    }
+    catch (InvalidOperationException)
+    {
+        beforeSupport = true;
+    }
+
+    Assert(beforeSupport);
+
+    var soundTooOld = false;
+    try
+    {
+        var rOld = new MinecraftPrimitiveReader(new byte[] { 0 });
+        SoundSource.Read(ref rOld, 760);
+    }
+    catch (InvalidOperationException)
+    {
+        soundTooOld = true;
+    }
+
+    Assert(soundTooOld);
+    Console.WriteLine("EnumShapeProbe: per-version tables, explicit conversions and the version gate all hold\n");
 }
 
 // --- GetPacketId: numeric ids from the McProtoFacts manifest ---

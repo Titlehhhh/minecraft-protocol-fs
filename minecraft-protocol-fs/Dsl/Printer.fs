@@ -81,6 +81,17 @@ module Printer =
 
         printfn ""
 
+    let printEnum (spec: EnumSpec) =
+        printfn "=== enum %s ===" spec.Name
+
+        for l in spec.Layouts do
+            printfn "Values [%A] (%A):" l.Range l.Backing
+
+            for id, name in l.Values do
+                printfn "  %-4d -> %s" id name
+
+        printfn ""
+
     let printPacket (spec: PacketSpec) =
         printfn "=== packet %s | %A %A | %A ===" spec.ClassName spec.State spec.Direction spec.Since
 
@@ -112,6 +123,11 @@ module Printer =
 
         for b in spec.Bitflags do
             printBitflags b
+
+        printfn "===== ENUMS ====="
+
+        for e in spec.Enums do
+            printEnum e
 
         printfn "===== PACKETS ====="
 

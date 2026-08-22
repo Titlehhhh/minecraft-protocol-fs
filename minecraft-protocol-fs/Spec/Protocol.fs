@@ -24,4 +24,5 @@ module Protocol =
         { Types    = collect<NamedTypeSpec> () |> List.sortBy (fun t -> t.Name)
           Unions   = collect<UnionTypeSpec> () |> List.sortBy (fun u -> u.Name)
           Bitflags = collect<BitflagsSpec> ()  |> List.sortBy (fun b -> b.Name)
+          Enums    = collect<EnumSpec> ()      |> List.sortBy (fun e -> e.Name)
           Packets  = collect<PacketSpec> ()    |> List.sortBy (fun p -> p.ClassName) }

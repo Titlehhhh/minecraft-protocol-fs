@@ -31,6 +31,12 @@ module Helpers =
 
     let inlineUnion disc arms = InlineUnion(disc, arms)
 
+    /// Reference a named `enumType` through its own canonical backing.
+    let enumOf name = EnumRef(name, None)
+
+    /// Reference a named `enumType` whose raw integer travels as `backing` at this site.
+    let enumAs name backing = EnumRef(name, Some backing)
+
     let arm keys name entries =
         {
             Keys = keys
@@ -77,6 +83,7 @@ module Helpers =
         | RegistryHolder t -> THolder(apiOf t)
         | Array(t, _) -> TArray(apiOf t)
         | Named n -> TNamed n
+        | EnumRef(n, _) -> TEnum n
         | other -> failwithf "apiOf: no natural api type for %A - use explicit api+wire" other
 
     type Column =

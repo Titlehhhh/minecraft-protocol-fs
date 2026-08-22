@@ -20,6 +20,13 @@ module Generator =
             Contents = t.RenderBitflags spec
         }
 
+    /// Generate one enum type as a source file for the target language.
+    let generateEnum (t: ILanguageTarget) (spec: EnumSpec) : GeneratedFile =
+        {
+            RelativePath = sprintf "Enums/%s%s" spec.Name t.Extension
+            Contents = t.RenderEnum spec
+        }
+
     /// Generate one union type as a source file for the target language.
     let generateUnion (t: ILanguageTarget) (spec: UnionTypeSpec) : GeneratedFile =
         {
@@ -42,6 +49,7 @@ module Generator =
 
         (p.Types |> List.map (generateType t))
         @ (p.Bitflags |> List.map (generateBitflags t))
+        @ (p.Enums |> List.map (generateEnum t))
         @ (p.Unions |> List.map (generateUnion t))
         @ (catalog |> List.map (generatePacket t))
         @ t.RenderProtocol p

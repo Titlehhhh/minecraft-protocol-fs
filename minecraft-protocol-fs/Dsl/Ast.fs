@@ -60,6 +60,12 @@ module Ast =
         // named complex type
         | Named of string
 
+        // reference to a named `enumType`. `Backing = None` reads it through its own canonical
+        // wire (the backing its layouts declare); `Some w` reads the raw integer as `w` at this
+        // site instead, for tables the protocol carries under two different integer widths
+        // (Gamemode: i8 inside SpawnInfo, varint in change_gamemode).
+        | EnumRef of name: string * backing: WireType option
+
     and ArrayCount =
         | VarIntCount
         | FixedCount of int
@@ -116,6 +122,7 @@ module Ast =
         | THolder of ApiType
         | TNamed of string
         | TUnion of string
+        | TEnum of string
 
     type ApiField =
         {
@@ -164,6 +171,23 @@ module Ast =
             Layouts: BitflagsLayout list
         }
 
+    // A closed integer table whose ids carry names (protodef `mapper`). The generated type is a
+    // record struct over the raw int, never a C# enum: an id the table does not know must survive
+    // a round-trip unchanged. `Values` are (id, wire name) pairs; `Backing` is the integer the
+    // table travels as in that version range.
+    type EnumLayout =
+        {
+            Range: VersionRange
+            Backing: WireType
+            Values: (int * string) list
+        }
+
+    type EnumSpec =
+        {
+            Name: string
+            Layouts: EnumLayout list
+        }
+
     type ProtocolState =
         | Handshaking
         | Status
@@ -192,5 +216,6 @@ module Ast =
             Types: NamedTypeSpec list
             Unions: UnionTypeSpec list
             Bitflags: BitflagsSpec list
+            Enums: EnumSpec list
             Packets: PacketSpec list
         }

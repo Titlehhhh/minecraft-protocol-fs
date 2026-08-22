@@ -8,14 +8,14 @@ module SetDifficulty =
     let setDifficulty =
         packet "SetDifficultyPacket" Play Serverbound All {
             api [
-                field "NewDifficulty" TInt All
+                field "NewDifficulty" (TEnum "Difficulty") All
             ]
 
             wire (Until 770) [
-                read "newDifficulty" U8 "NewDifficulty"
+                read "newDifficulty" (enumAs "Difficulty" U8) "NewDifficulty"
             ]
 
             wire (Since 771) [
-                read "newDifficulty" VarInt "NewDifficulty"
+                read "newDifficulty" (enumOf "Difficulty") "NewDifficulty"
             ]
         }

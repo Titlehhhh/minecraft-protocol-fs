@@ -98,6 +98,29 @@ module Builders =
         member _.Run(()) : BitflagsSpec = { Name = name; Layouts = layouts }
 
 
+    type EnumTypeBuilder(name) =
+        let mutable layouts: EnumLayout list = []
+
+        member _.Yield(()) = ()
+        member _.Zero() = ()
+        member _.Delay(f) = f ()
+        member _.Combine((), f) = f ()
+
+        [<CustomOperation("values")>]
+        member _.Values((), range, backing, values) =
+            layouts <-
+                layouts
+                @ [
+                    {
+                        Range = range
+                        Backing = backing
+                        Values = values
+                    }
+                ]
+
+        member _.Run(()) : EnumSpec = { Name = name; Layouts = layouts }
+
+
     // ===== CONSTRUCTORS =====
 
     let packet name state direction since =
@@ -108,3 +131,5 @@ module Builders =
     let unionType name = UnionTypeBuilder(name)
 
     let bitflags name = BitflagsBuilder(name)
+
+    let enumType name = EnumTypeBuilder(name)

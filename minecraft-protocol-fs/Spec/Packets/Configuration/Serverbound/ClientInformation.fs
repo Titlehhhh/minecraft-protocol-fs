@@ -17,7 +17,7 @@ module ClientInformation =
                 field "MainHand"            TInt    All
                 field "EnableTextFiltering" TBool   All
                 field "EnableServerListing" TBool   All
-                field "ParticleStatus"      TInt    (Since 768)
+                field "ParticleStatus"      (TEnum "ParticleStatus") (Since 768)
             ]
             wire (Between(764, 767)) [
                 read "locale"              Str    "Locale"
@@ -38,6 +38,6 @@ module ClientInformation =
                 read "mainHand"            VarInt "MainHand"
                 read "enableTextFiltering" Bool   "EnableTextFiltering"
                 read "enableServerListing" Bool   "EnableServerListing"
-                read "particleStatus"      VarInt "ParticleStatus"
+                read "particleStatus"      (enumOf "ParticleStatus") "ParticleStatus"
             ]
         }

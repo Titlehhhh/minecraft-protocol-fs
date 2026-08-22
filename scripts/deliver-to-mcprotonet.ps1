@@ -31,11 +31,13 @@ $staging = Join-Path ([IO.Path]::GetTempPath()) "mcproto-gen-$([guid]::NewGuid()
 # (readOpt / ifNonZero + readBlock / FixedBytes) and is never delivered either.
 # HolderShapeProbe.cs is the fixture for RegistryHolder: ExplosionPacket is the only real user
 # and it stays held back for Particle, so the probe is what exercises the shape end to end.
+# EnumShapeProbe.cs is the fixture for enumType: it exercises both enum backings and a
+# multi-layout table in one type, and is never delivered.
 $exclude = @(
     'EntityMetadataPacket.cs', 'ExplosionPacket.cs', 'ExplosionParticleEntry.cs',
     'ExplosionParticleInfo.cs', 'MapPacket.cs', 'WindowClickPacket.cs',
     'EntityMetadataEntry.cs', 'EntityMetadataValue.cs', 'UnionShapeProbe.cs',
-    'ConditionalShapeProbe.cs', 'HolderShapeProbe.cs'
+    'ConditionalShapeProbe.cs', 'HolderShapeProbe.cs', 'EnumShapeProbe.cs'
 )
 
 # One generated file declares one type, named after the file, so an excluded file name is the

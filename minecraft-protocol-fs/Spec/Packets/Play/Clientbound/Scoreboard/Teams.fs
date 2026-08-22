@@ -19,8 +19,8 @@ module Teams =
             ]
 
             wire (Since 771) [
-                read      "team" Str    "TeamName"
-                read      "mode" VarInt "_mode"
+                read      "team" Str "TeamName"
+                read      "mode" I8  "_mode"
                 readUnion "_mode" "TeamAction" "Action"
             ]
         }

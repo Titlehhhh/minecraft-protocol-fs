@@ -8,10 +8,10 @@ module ChangeGamemode =
     let changeGamemode =
         packet "ChangeGamemodePacket" Play Serverbound (Since 771) {
             api [
-                field "Mode" TInt All
+                field "Mode" (TEnum "Gamemode") All
             ]
 
             wire (Since 771) [
-                read "mode" VarInt "Mode"
+                read "mode" (enumAs "Gamemode" VarInt) "Mode"
             ]
         }

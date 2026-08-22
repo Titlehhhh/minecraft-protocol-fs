@@ -203,12 +203,14 @@ module CSharpSurface =
         | THolder inner -> sprintf "%s<%s>" s.HolderType (csType s inner)
         | TNamed n -> n
         | TUnion n -> n
+        | TEnum n -> n
 
     /// The C# type a wire type produces when it stands on its own — what a holder needs to name
     /// as its generic argument. `None` means the shape has no single C# spelling.
     let wireLeafCsType (s: RuntimeSurface) (w: WireType) : string option =
         match w with
         | Named n -> Some n
+        | EnumRef(n, _) -> Some n
         | FixedBytes _ -> Some "byte[]"
         | _ -> s.Primitives.TryFind w |> Option.map (fun p -> p.CsType)
 
@@ -216,11 +218,28 @@ module CSharpSurface =
     let holderCsType (s: RuntimeSurface) (inner: WireType) : string option =
         wireLeafCsType s inner |> Option.map (sprintf "%s<%s>" s.HolderType)
 
+    /// The primitive an enum table may travel as: integral and narrow enough that its value fits
+    /// an `int` without loss, because the generated enum carries exactly one `int Value`.
+    let enumBacking (s: RuntimeSurface) (w: WireType) : Primitive option =
+        match w with
+        | I8
+        | U8
+        | I16
+        | U16
+        | I32
+        | VarInt -> s.Primitives.TryFind w
+        | _ -> None
+
     /// Full read expression for a wire type, e.g. `reader.ReadVarInt()` or
     /// `reader.ReadType<Slot>(protocolVersion)`. `Error` carries the unsupported shape.
     let readExpr (s: RuntimeSurface) (w: WireType) : Result<string, string> =
         match w with
         | Named n -> Ok(sprintf "%s.%s<%s>(%s)" s.ReaderParam s.ReadNamedMethod n s.VersionParam)
+        | EnumRef(n, None) -> Ok(sprintf "%s.%s<%s>(%s)" s.ReaderParam s.ReadNamedMethod n s.VersionParam)
+        | EnumRef(n, Some b) ->
+            match enumBacking s b with
+            | Some p -> Ok(sprintf "new %s((int)%s.%s)" n s.ReaderParam p.ReadCall)
+            | None -> Error(sprintf "%A" w)
         | RegistryHolder inner ->
             match holderCsType s inner with
             | Some t -> Ok(sprintf "%s.%s<%s>(%s)" s.ReaderParam s.ReadNamedMethod t s.VersionParam)
@@ -241,6 +260,11 @@ module CSharpSurface =
 
         match w with
         | Named n -> Ok(sprintf "%s.%s<%s>(%s, %s)" s.WriterParam s.WriteNamedMethod n v s.VersionParam)
+        | EnumRef(n, None) -> Ok(sprintf "%s.%s<%s>(%s, %s)" s.WriterParam s.WriteNamedMethod n v s.VersionParam)
+        | EnumRef(_, Some b) ->
+            match enumBacking s b with
+            | Some p -> Ok(sprintf "%s.%s((%s)%s.Value)" s.WriterParam p.WriteMethod p.CsType value)
+            | None -> Error(sprintf "%A" w)
         | RegistryHolder inner ->
             match holderCsType s inner with
             | Some t -> Ok(sprintf "%s.%s<%s>(%s, %s)" s.WriterParam s.WriteNamedMethod t v s.VersionParam)
