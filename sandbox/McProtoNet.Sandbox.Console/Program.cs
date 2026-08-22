@@ -7,6 +7,7 @@ using McProtoNet.Protocol.Packets.Status.Clientbound;
 using McProtoNet.Protocol.Packets.Status.Serverbound;
 using McProtoNet.Primitives;
 using UseEntityPacket = McProtoNet.Protocol.Packets.Play.Serverbound.UseEntityPacket;
+using ChatMessagePacket = McProtoNet.Protocol.Packets.Play.Serverbound.ChatMessagePacket;
 using McProtoNet.NBT;
 
 int version = MinecraftVersion.LatestProtocol;
@@ -855,6 +856,156 @@ Console.WriteLine($"protocol version = {version}\n");
 
     Assert(soundTooOld);
     Console.WriteLine("EnumShapeProbe: per-version tables, explicit conversions and the version gate all hold\n");
+}
+
+// --- PlayerChatPacket / ChatMessagePacket: the signed-chat chain across its version layers ---
+{
+    static byte[] WritePlayerChat(PlayerChatPacket p, int v)
+    {
+        var w = new MinecraftPrimitiveWriter();
+        p.Write(w, v);
+        return w.ToArray();
+    }
+
+    static byte[] WriteChatMessage(ChatMessagePacket p, int v)
+    {
+        var w = new MinecraftPrimitiveWriter();
+        p.Write(w, v);
+        return w.ToArray();
+    }
+
+    var sender = Guid.Parse("f84c6a79-0a4e-45e0-879b-cd49ebd4c4e2");
+    var signature = new byte[256];
+    for (int i = 0; i < signature.Length; i++) signature[i] = (byte)(i * 7);
+
+    var previous = new[]
+    {
+        new PreviousMessage(default, default!, 0, signature),
+        new PreviousMessage(default, default!, 3, null),
+    };
+
+    // 772: globalIndex, a holder-carried chat type and NBT chat components
+    {
+        var packet = new PlayerChatPacket(
+            sender, signature, 1_700_000_000_000L, -4242L,
+            V770_Last: new PlayerChatPacket.V770_LastLayer(
+                17, 4, "hello world", previous,
+                new NbtCompound().With("text", new NbtString("hello world")),
+                2, new[] { 1L, 2L, 3L },
+                RegistryOrInline<ChatTypes>.FromRegistry(1),
+                new NbtCompound().With("text", new NbtString("Steve")),
+                null));
+
+        var bytes = WritePlayerChat(packet, 772);
+        var r = new MinecraftPrimitiveReader(bytes);
+        var back = PlayerChatPacket.Read(ref r, 772);
+
+        Assert(r.Position == bytes.Length);
+        Assert(back.SenderUuid == sender && back.Timestamp == 1_700_000_000_000L && back.Salt == -4242L);
+        Assert(back.V770_Last is not null && back.V759 is null && back.V767_769 is null);
+
+        var layer = back.V770_Last!.Value;
+        Assert(layer.GlobalIndex == 17 && layer.Index == 4 && layer.PlainMessage == "hello world");
+        Assert(layer.PreviousMessages.Length == 2);
+        Assert(layer.PreviousMessages[0].Id == 0 && Hex(layer.PreviousMessages[0].Signature!) == Hex(signature));
+        Assert(layer.PreviousMessages[1].Id == 3 && layer.PreviousMessages[1].Signature is null);
+        Assert(layer.FilterType == 2 && layer.FilterTypeMask is { Length: 3 });
+        Assert(layer.ChatType.IsRegistry && layer.ChatType.Id == 1);
+        Assert(((NbtCompound)layer.NetworkName).Items["text"] is NbtString { Value: "Steve" });
+        Assert(layer.NetworkTargetName is null);
+        Assert(Hex(WritePlayerChat(back, 772)) == Hex(bytes));
+
+        Console.WriteLine($"PlayerChatPacket @772: {bytes.Length} bytes, re-writes byte-identical");
+    }
+
+    // 767: the same holder, inline this time — the chat type travels as a payload, not an id
+    {
+        var chatType = new ChatTypes(
+            new ChatType("chat.type.text", new[] { ChatTypeParameterType.Sender, ChatTypeParameterType.Content },
+                new NbtCompound().With("color", new NbtString("white"))),
+            new ChatType("chat.type.text.narrate", new[] { ChatTypeParameterType.Content },
+                new NbtCompound()));
+
+        var packet = new PlayerChatPacket(
+            sender, null, 1L, 2L,
+            V767_769: new PlayerChatPacket.V767_769Layer(
+                0, "inline", Array.Empty<PreviousMessage>(), null, 0, null,
+                RegistryOrInline<ChatTypes>.Inline(chatType),
+                new NbtCompound().With("text", new NbtString("Alex")),
+                new NbtCompound().With("text", new NbtString("Steve"))));
+
+        var bytes = WritePlayerChat(packet, 767);
+        var r = new MinecraftPrimitiveReader(bytes);
+        var back = PlayerChatPacket.Read(ref r, 767);
+
+        Assert(r.Position == bytes.Length);
+        Assert(back.Signature is null);
+
+        var layer = back.V767_769!.Value;
+        Assert(layer.ChatType.IsInline);
+        Assert(layer.ChatType.Value.Chat.TranslationKey == "chat.type.text");
+        Assert(layer.ChatType.Value.Chat.Parameters.Length == 2);
+        Assert(layer.ChatType.Value.Chat.Parameters[0] == ChatTypeParameterType.Sender);
+        Assert(layer.ChatType.Value.Narration.Parameters.Length == 1);
+        Assert(layer.FilterType == 0 && layer.FilterTypeMask is null);
+        Assert(Hex(WritePlayerChat(back, 767)) == Hex(bytes));
+
+        Console.WriteLine($"PlayerChatPacket @767: {bytes.Length} bytes, inline holder round-trips");
+    }
+
+    // 761: the oldest layer that still has today's shape — json components, no global index
+    {
+        var packet = new PlayerChatPacket(
+            sender, signature, 5L, 6L,
+            V761_764: new PlayerChatPacket.V761_764Layer(
+                1, "legacy", previous, "{\"text\":\"legacy\"}", 2, new[] { -1L },
+                7, "{\"text\":\"Alex\"}", null));
+
+        var bytes = WritePlayerChat(packet, 761);
+        var r = new MinecraftPrimitiveReader(bytes);
+        var back = PlayerChatPacket.Read(ref r, 761);
+
+        Assert(r.Position == bytes.Length);
+        Assert(back.V761_764 is not null && back.V770_Last is null);
+        Assert(back.V761_764!.Value.Type == 7 && back.V761_764!.Value.NetworkNameJson == "{\"text\":\"Alex\"}");
+        Assert(Hex(WritePlayerChat(back, 761)) == Hex(bytes));
+
+        Console.WriteLine($"PlayerChatPacket @761: {bytes.Length} bytes, re-writes byte-identical");
+    }
+
+    // serverbound: 772 carries the checksum byte, 761-769 does not
+    {
+        var acknowledged = new byte[] { 0x01, 0x00, 0x80 };
+
+        var packet = new ChatMessagePacket(
+            "/say hi", 1_700_000_000_000L, 99L, signature,
+            V770_Last: new ChatMessagePacket.V770_LastLayer(12, acknowledged, 0xAB));
+
+        var bytes = WriteChatMessage(packet, 772);
+        var r = new MinecraftPrimitiveReader(bytes);
+        var back = ChatMessagePacket.Read(ref r, 772);
+
+        Assert(r.Position == bytes.Length);
+        Assert(back.Message == "/say hi" && back.Salt == 99L);
+        Assert(Hex(back.Signature!) == Hex(signature));
+        Assert(back.V770_Last!.Value.Offset == 12 && back.V770_Last!.Value.Checksum == 0xAB);
+        Assert(Hex(back.V770_Last!.Value.Acknowledged) == Hex(acknowledged));
+        Assert(Hex(WriteChatMessage(back, 772)) == Hex(bytes));
+
+        var older = new ChatMessagePacket(
+            "unsigned", 1L, 2L, null,
+            V761_769: new ChatMessagePacket.V761_769Layer(0, acknowledged));
+
+        var oldBytes = WriteChatMessage(older, 769);
+        var ro = new MinecraftPrimitiveReader(oldBytes);
+        var oldBack = ChatMessagePacket.Read(ref ro, 769);
+
+        Assert(ro.Position == oldBytes.Length);
+        Assert(oldBack.Signature is null && oldBack.V761_769 is not null && oldBack.V770_Last is null);
+        Assert(Hex(WriteChatMessage(oldBack, 769)) == Hex(oldBytes));
+
+        Console.WriteLine($"ChatMessagePacket: {bytes.Length} bytes @772, {oldBytes.Length} bytes @769, both re-write byte-identical\n");
+    }
 }
 
 // --- GetPacketId: numeric ids from the McProtoFacts manifest ---

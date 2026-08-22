@@ -726,7 +726,17 @@ module CSharp =
             | Error e -> Error(sprintf "write '%s' (Option: %s)" api e)
         | Read(_, Array(item, cnt), api) ->
             let iv = camel api + "Item"
-            let acc = ctx.Access api
+
+            // same rule as the scalar branch below: an option-typed api field written as a
+            // required wire value must be present, or the count and the items disagree
+            let acc =
+                match apiTypes.TryFind api with
+                | Some(TOption _) ->
+                    sprintf
+                        "(%s ?? throw new System.InvalidOperationException(\"%s is required at this protocol version.\"))"
+                        (ctx.Access api)
+                        api
+                | _ -> ctx.Access api
 
             match writeExpr s item None iv, countWrite s cnt acc with
             | Ok call, Some cw -> Ok(cw @ [ sprintf "foreach (var %s in %s) %s;" iv acc call ])
