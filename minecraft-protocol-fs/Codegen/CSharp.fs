@@ -1693,7 +1693,11 @@ module CSharp =
                 .AddMembers(List.toArray toStringMembers)
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
 
-        renderUnit s s.Namespace name [ s.UsingAttributes; s.UsingSerialization ] shell
+        // CA2225 wants a named twin for every conversion operator (`ToInt32`, `FromDifficulty`).
+        // The named form is already the type's whole surface — `Value` reads the int out and the
+        // primary constructor puts one back — so the analyzer would only buy duplicate spellings.
+        "#pragma warning disable CA2225\n\n"
+        + renderUnit s s.Namespace name [ s.UsingAttributes; s.UsingSerialization ] shell
 
     // ----- unions -----
 
