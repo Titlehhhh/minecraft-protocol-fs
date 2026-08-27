@@ -1,0 +1,626 @@
+{
+  "comment": "Packet counts per connection state and direction, read from the official Minecraft Wiki page 'Java Edition protocol/Packets'. Each version is one revision of that page (oldid); protocol 776 is the live page. Regenerate with scripts/wiki-packet-counts.py. null means the state does not exist in that protocol version - the configuration state arrives in 764. handshaking.serverbound is 2 because it counts Legacy Server List Ping (0xFE) as well as Handshake.",
+  "wikiPage": "https://minecraft.wiki/w/Java_Edition_protocol/Packets",
+  "undocumented": {
+    "protocols": [
+      735,
+      736,
+      751,
+      768,
+      774,
+      775
+    ],
+    "reason": "The wiki page carries no full packet list for these releases. Its history jumps 578 -> 753, 767 -> 769 and 773 -> 776, so they were never merged into the stable page. They are left out of the count assertions on purpose."
+  },
+  "versions": [
+    {
+      "protocol": 753,
+      "mcVersion": "1.16.3",
+      "oldid": 2772553,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 3
+        },
+        "configuration": {
+          "clientbound": null,
+          "serverbound": null
+        },
+        "play": {
+          "clientbound": 92,
+          "serverbound": 48
+        }
+      }
+    },
+    {
+      "protocol": 754,
+      "mcVersion": "1.16.4-1.16.5",
+      "oldid": 2772660,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 3
+        },
+        "configuration": {
+          "clientbound": null,
+          "serverbound": null
+        },
+        "play": {
+          "clientbound": 92,
+          "serverbound": 48
+        }
+      }
+    },
+    {
+      "protocol": 755,
+      "mcVersion": "1.17",
+      "oldid": 2772685,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 3
+        },
+        "configuration": {
+          "clientbound": null,
+          "serverbound": null
+        },
+        "play": {
+          "clientbound": 103,
+          "serverbound": 48
+        }
+      }
+    },
+    {
+      "protocol": 756,
+      "mcVersion": "1.17.1",
+      "oldid": 2772702,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 3
+        },
+        "configuration": {
+          "clientbound": null,
+          "serverbound": null
+        },
+        "play": {
+          "clientbound": 103,
+          "serverbound": 48
+        }
+      }
+    },
+    {
+      "protocol": 757,
+      "mcVersion": "1.18-1.18.1",
+      "oldid": 2772764,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 3
+        },
+        "configuration": {
+          "clientbound": null,
+          "serverbound": null
+        },
+        "play": {
+          "clientbound": 104,
+          "serverbound": 48
+        }
+      }
+    },
+    {
+      "protocol": 758,
+      "mcVersion": "1.18.2",
+      "oldid": 2772783,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 3
+        },
+        "configuration": {
+          "clientbound": null,
+          "serverbound": null
+        },
+        "play": {
+          "clientbound": 104,
+          "serverbound": 48
+        }
+      }
+    },
+    {
+      "protocol": 759,
+      "mcVersion": "1.19",
+      "oldid": 2772902,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 3
+        },
+        "configuration": {
+          "clientbound": null,
+          "serverbound": null
+        },
+        "play": {
+          "clientbound": 105,
+          "serverbound": 50
+        }
+      }
+    },
+    {
+      "protocol": 760,
+      "mcVersion": "1.19.2",
+      "oldid": 2772944,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 3
+        },
+        "configuration": {
+          "clientbound": null,
+          "serverbound": null
+        },
+        "play": {
+          "clientbound": 108,
+          "serverbound": 51
+        }
+      }
+    },
+    {
+      "protocol": 761,
+      "mcVersion": "1.19.3",
+      "oldid": 2773015,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 3
+        },
+        "configuration": {
+          "clientbound": null,
+          "serverbound": null
+        },
+        "play": {
+          "clientbound": 107,
+          "serverbound": 51
+        }
+      }
+    },
+    {
+      "protocol": 762,
+      "mcVersion": "1.19.4",
+      "oldid": 2773029,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 3
+        },
+        "configuration": {
+          "clientbound": null,
+          "serverbound": null
+        },
+        "play": {
+          "clientbound": 111,
+          "serverbound": 51
+        }
+      }
+    },
+    {
+      "protocol": 763,
+      "mcVersion": "1.20-1.20.1",
+      "oldid": 2773082,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 3
+        },
+        "configuration": {
+          "clientbound": null,
+          "serverbound": null
+        },
+        "play": {
+          "clientbound": 111,
+          "serverbound": 51
+        }
+      }
+    },
+    {
+      "protocol": 764,
+      "mcVersion": "1.20.2",
+      "oldid": 2773142,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 4
+        },
+        "configuration": {
+          "clientbound": 9,
+          "serverbound": 6
+        },
+        "play": {
+          "clientbound": 113,
+          "serverbound": 54
+        }
+      }
+    },
+    {
+      "protocol": 765,
+      "mcVersion": "1.20.3-1.20.4",
+      "oldid": 2773281,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 5,
+          "serverbound": 4
+        },
+        "configuration": {
+          "clientbound": 10,
+          "serverbound": 6
+        },
+        "play": {
+          "clientbound": 117,
+          "serverbound": 55
+        }
+      }
+    },
+    {
+      "protocol": 766,
+      "mcVersion": "1.20.5-1.20.6",
+      "oldid": 2773283,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 6,
+          "serverbound": 5
+        },
+        "configuration": {
+          "clientbound": 15,
+          "serverbound": 8
+        },
+        "play": {
+          "clientbound": 122,
+          "serverbound": 58
+        }
+      }
+    },
+    {
+      "protocol": 767,
+      "mcVersion": "1.21-1.21.1",
+      "oldid": 2789623,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 6,
+          "serverbound": 5
+        },
+        "configuration": {
+          "clientbound": 17,
+          "serverbound": 8
+        },
+        "play": {
+          "clientbound": 124,
+          "serverbound": 58
+        }
+      }
+    },
+    {
+      "protocol": 769,
+      "mcVersion": "1.21.4",
+      "oldid": 2938097,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 6,
+          "serverbound": 5
+        },
+        "configuration": {
+          "clientbound": 17,
+          "serverbound": 8
+        },
+        "play": {
+          "clientbound": 131,
+          "serverbound": 62
+        }
+      }
+    },
+    {
+      "protocol": 770,
+      "mcVersion": "1.21.5",
+      "oldid": 2992295,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 6,
+          "serverbound": 5
+        },
+        "configuration": {
+          "clientbound": 17,
+          "serverbound": 8
+        },
+        "play": {
+          "clientbound": 131,
+          "serverbound": 64
+        }
+      }
+    },
+    {
+      "protocol": 771,
+      "mcVersion": "1.21.6",
+      "oldid": 3024144,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 6,
+          "serverbound": 5
+        },
+        "configuration": {
+          "clientbound": 19,
+          "serverbound": 9
+        },
+        "play": {
+          "clientbound": 134,
+          "serverbound": 66
+        }
+      }
+    },
+    {
+      "protocol": 772,
+      "mcVersion": "1.21.7-1.21.8",
+      "oldid": 3258009,
+      "structure": "classic",
+      "method": "api-sections",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 6,
+          "serverbound": 5
+        },
+        "configuration": {
+          "clientbound": 19,
+          "serverbound": 9
+        },
+        "play": {
+          "clientbound": 134,
+          "serverbound": 66
+        }
+      }
+    },
+    {
+      "protocol": 773,
+      "mcVersion": "1.21.9-1.21.10",
+      "oldid": 3657983,
+      "structure": "new",
+      "method": "api-wikitext",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 6,
+          "serverbound": 5
+        },
+        "configuration": {
+          "clientbound": 20,
+          "serverbound": 10
+        },
+        "play": {
+          "clientbound": 139,
+          "serverbound": 66
+        }
+      }
+    },
+    {
+      "protocol": 776,
+      "mcVersion": "26.2",
+      "oldid": null,
+      "structure": "new",
+      "method": "api-wikitext",
+      "counts": {
+        "handshaking": {
+          "clientbound": 0,
+          "serverbound": 2
+        },
+        "status": {
+          "clientbound": 2,
+          "serverbound": 2
+        },
+        "login": {
+          "clientbound": 6,
+          "serverbound": 5
+        },
+        "configuration": {
+          "clientbound": 20,
+          "serverbound": 10
+        },
+        "play": {
+          "clientbound": 141,
+          "serverbound": 69
+        }
+      }
+    }
+  ]
+}

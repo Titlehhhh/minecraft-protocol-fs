@@ -27,3 +27,6 @@ Thumbs.db
 
 # BenchmarkDotNet output
 BenchmarkDotNet.Artifacts/
+
+# HTTP cache of scripts/wiki-packet-counts.py — regenerable, not versioned
+tests/McProtocol.Tests/.wiki-cache/
