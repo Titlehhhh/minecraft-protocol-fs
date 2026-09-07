@@ -45,7 +45,7 @@ module TeamAction =
                 ]
 
             cases
-                (Since 771)
+                (Between(771, 775))
                 [
                     case1
                         0
@@ -74,6 +74,44 @@ module TeamAction =
                             read "formatting" VarInt "Formatting"
                             read "prefix" AnonNbt "Prefix"
                             read "suffix" AnonNbt "Suffix"
+                        ]
+
+                    case [ 3; 4 ] "PlayersChanged" [ read "players" (Array(Str, VarIntCount)) "Players" ]
+                ]
+
+            // 26.2 (776): компоненты идут первыми, цвет стал optional, флаги — последними.
+            // Источник: провод с Paper 26.2 + ViaVersion Protocol26_1To26_2 (SET_PLAYER_TEAM);
+            // факты для 776 ещё несут раскладку 771.
+            cases
+                (Since 776)
+                [
+                    case1
+                        0
+                        "Created"
+                        [
+                            read "name" AnonNbt "Name"
+                            read "prefix" AnonNbt "Prefix"
+                            read "suffix" AnonNbt "Suffix"
+                            read "nameTagVis" VarInt "NameTagVisibility"
+                            read "collisionRule" VarInt "CollisionRule"
+                            read "formatting" (Option VarInt) "Formatting"
+                            read "flags" (Named "TeamFlags") "Flags"
+                            read "players" (Array(Str, VarIntCount)) "Players"
+                        ]
+
+                    case1 1 "Removed" []
+
+                    case1
+                        2
+                        "Updated"
+                        [
+                            read "name" AnonNbt "Name"
+                            read "prefix" AnonNbt "Prefix"
+                            read "suffix" AnonNbt "Suffix"
+                            read "nameTagVis" VarInt "NameTagVisibility"
+                            read "collisionRule" VarInt "CollisionRule"
+                            read "formatting" (Option VarInt) "Formatting"
+                            read "flags" (Named "TeamFlags") "Flags"
                         ]
 
                     case [ 3; 4 ] "PlayersChanged" [ read "players" (Array(Str, VarIntCount)) "Players" ]

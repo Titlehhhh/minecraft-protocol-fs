@@ -412,7 +412,7 @@ Console.WriteLine($"protocol version = {version}\n");
 
     // the 771 layer swaps the text fields to nbt, so Created is a second case, not the same one
     var teamFlags = new TeamFlags(FriendlyFire: true, SeeFriendlyInvisible: false);
-    var created772 = new TeamAction.CreatedV771_Last(
+    var created772 = new TeamAction.CreatedV771_775(
         new NbtCompound().With("text", new NbtString("Reds")), teamFlags, 0, 1, 4,
         new NbtCompound().With("text", new NbtString("[")),
         new NbtCompound().With("text", new NbtString("]")), new[] { "Steve" });
@@ -421,7 +421,7 @@ Console.WriteLine($"protocol version = {version}\n");
     var nbtBytes = w3.ToArray();
     var r3 = new MinecraftPrimitiveReader(nbtBytes);
     var back3 = TeamsPacket.Read(ref r3, 772);
-    var backNbt = back3.Action as TeamAction.CreatedV771_Last;
+    var backNbt = back3.Action as TeamAction.CreatedV771_775;
     Assert(backNbt is not null);
     Assert(((NbtCompound)backNbt!.Name).Items["text"] is NbtString { Value: "Reds" });
     Assert(backNbt.Flags == teamFlags);
@@ -449,10 +449,36 @@ Console.WriteLine($"protocol version = {version}\n");
     {
     }
 
+    // 26.2 (776) moved the components first, made the colour optional and put the flags last;
+    // these bytes were captured from a Paper 26.2 server (one TAB team, one player) and must
+    // read into the 776 case and re-write byte-identical
+    var wire776 = Convert.FromHexString(
+        "143034393030385F41303030303030303030303438000A080005636F6C6F7200046772617908000474657874000" +
+        "5416C706861000A09000565787472610A00000001080005636F6C6F720005776869746509000565787472610A0000000" +
+        "1080005636F6C6F7200046772617909000565787472610A00000001080005636F6C6F720005776869746509000565787" +
+        "472610A00000001080005636F6C6F7200046772617908000474657874000120000800047465787400013E00080004746" +
+        "57874000AD098D0B3D180D0BED0BA000800047465787400013C000800047465787400000008000000000107030105416" +
+        "C706861");
+    var r6 = new MinecraftPrimitiveReader(wire776);
+    var back6 = TeamsPacket.Read(ref r6, 776);
+    var created776 = back6.Action as TeamAction.CreatedV776_Last;
+    Assert(created776 is not null);
+    Assert(((NbtCompound)created776!.Name).Items["text"] is NbtString { Value: "Alpha" });
+    Assert(created776.Suffix is NbtString { Value: "" });
+    Assert(created776.NameTagVisibility == 0 && created776.CollisionRule == 0);
+    Assert(created776.Formatting == 7);
+    Assert(created776.Flags == new TeamFlags(true, true));
+    Assert(created776.Players.Length == 1 && created776.Players[0] == "Alpha");
+    var w6 = new MinecraftPrimitiveWriter();
+    back6.Write(w6, 776);
+    Assert(Hex(w6.ToArray()) == Hex(wire776));
+    Console.WriteLine($"TeamsPacket @776: {wire776.Length} captured bytes read as {back6.Action.GetType().Name}, re-write byte-identical");
+
     var kind = back3.Action.Match(
         createdVUntil764: _ => "created", removed: _ => "removed", updatedVUntil764: _ => "updated",
         playersAdded: _ => "playersAdded", playersRemoved: _ => "playersRemoved",
-        createdV771_Last: _ => "created", updatedV771_Last: _ => "updated",
+        createdV771_775: _ => "created", updatedV771_775: _ => "updated",
+        createdV776_Last: _ => "created", updatedV776_Last: _ => "updated",
         playersChanged: _ => "playersChanged");
     Assert(kind == "created");
     Console.WriteLine($"TeamAction.Match -> {kind}\n");
