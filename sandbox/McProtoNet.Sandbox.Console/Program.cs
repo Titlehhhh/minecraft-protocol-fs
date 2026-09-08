@@ -19,6 +19,25 @@ static void Assert(bool condition, [System.Runtime.CompilerServices.CallerArgume
     if (!condition) throw new Exception($"assertion failed: {expr}");
 }
 
+// write, read back, re-write: the round-trip the packet probes below all run. Byte-identity of
+// the second write and a fully consumed buffer are the whole check; the caller only adds what the
+// wire cannot say for itself.
+static (byte[] Bytes, T Back) RoundTrip<T>(T value, int protocolVersion) where T : IProtocolType<T>
+{
+    var w = new MinecraftPrimitiveWriter();
+    value.Write(w, protocolVersion);
+    var bytes = w.ToArray();
+
+    var r = new MinecraftPrimitiveReader(bytes);
+    var back = T.Read(ref r, protocolVersion);
+    Assert(r.Position == bytes.Length);
+
+    var w2 = new MinecraftPrimitiveWriter();
+    back.Write(w2, protocolVersion);
+    Assert(Hex(w2.ToArray()) == Hex(bytes));
+    return (bytes, back);
+}
+
 Console.WriteLine($"protocol version = {version}\n");
 
 // --- Vec3f: plain numeric record struct ---
@@ -1032,6 +1051,668 @@ Console.WriteLine($"protocol version = {version}\n");
 
         Console.WriteLine($"ChatMessagePacket: {bytes.Length} bytes @772, {oldBytes.Length} bytes @769, both re-write byte-identical\n");
     }
+}
+
+// --- BossBarPacket: the BossBarAction union — string title until 764, nbt title from 765 ---
+{
+    var uuid = Guid.Parse("f84c6a79-0a4e-45e0-879b-cd49ebd4c4e2");
+
+    var arms764 = new BossBarAction[]
+    {
+        new BossBarAction.AddVUntil764("{\"text\":\"Boss\"}", 0.75f, 2, 6, 0x07),
+        new BossBarAction.Remove(),
+        new BossBarAction.UpdateHealth(0.5f),
+        new BossBarAction.UpdateTitleVUntil764("{\"text\":\"Boss II\"}"),
+        new BossBarAction.UpdateStyle(4, 12),
+        new BossBarAction.UpdateFlags(0x02),
+    };
+
+    var bytes764 = 0;
+    foreach (var arm in arms764)
+    {
+        var (bytes, back) = RoundTrip(new BossBarPacket(uuid, arm), 764);
+        Assert(back.EntityUuid == uuid && back.Action.GetType() == arm.GetType());
+        // the uuid is 16 bytes, so the action discriminator is the varint right after it
+        Assert(bytes[16] == arm.Discriminator(764));
+        bytes764 += bytes.Length;
+    }
+
+    // the empty arm is uuid + discriminator and nothing else
+    Assert(RoundTrip(new BossBarPacket(uuid, new BossBarAction.Remove()), 764).Bytes.Length == 17);
+
+    var title = new NbtCompound().With("text", new NbtString("Boss"));
+    var arms772 = new BossBarAction[]
+    {
+        new BossBarAction.AddV765_Last(title, 0.25f, 1, 10, 0x01),
+        new BossBarAction.Remove(),
+        new BossBarAction.UpdateHealth(1f),
+        new BossBarAction.UpdateTitleV765_Last(new NbtString("Boss II")),
+        new BossBarAction.UpdateStyle(0, 0),
+        new BossBarAction.UpdateFlags(0x04),
+    };
+
+    var bytes772 = 0;
+    foreach (var arm in arms772)
+    {
+        var (bytes, back) = RoundTrip(new BossBarPacket(uuid, arm), 772);
+        Assert(back.EntityUuid == uuid && back.Action.GetType() == arm.GetType());
+        Assert(bytes[16] == arm.Discriminator(772));
+        bytes772 += bytes.Length;
+    }
+
+    var addBack = (BossBarAction.AddV765_Last)RoundTrip(new BossBarPacket(uuid, arms772[0]), 772).Back.Action;
+    Assert(((NbtCompound)addBack.Title).Items["text"] is NbtString { Value: "Boss" });
+    Assert(addBack.Health == 0.25f && addBack.Color == 1 && addBack.Dividers == 10 && addBack.Flags == 0x01);
+
+    // a case whose layer does not cover the version must fail, not invent a shape
+    var wrongEra = false;
+    try
+    {
+        new BossBarPacket(uuid, arms764[0]).Write(new MinecraftPrimitiveWriter(), 772);
+    }
+    catch (NotSupportedException)
+    {
+        wrongEra = true;
+    }
+
+    Assert(wrongEra);
+    Console.WriteLine($"BossBarPacket @764: {arms764.Length} arms, {bytes764} bytes total, all re-write byte-identical");
+    Console.WriteLine($"BossBarPacket @772: {arms772.Length} arms, {bytes772} bytes total, nbt title round-trips, 764-only arm refused\n");
+}
+
+// --- WorldBorderPacket: the WorldBorderAction union, one layout, split into six after 754 ---
+{
+    var arms = new WorldBorderAction[]
+    {
+        new WorldBorderAction.SetSize(60_000_000d),
+        new WorldBorderAction.LerpSize(100d, 50d, 3000L),
+        new WorldBorderAction.SetCenter(-12.5d, 33.25d),
+        new WorldBorderAction.Initialize(0d, 0d, 100d, 50d, 3000L, 29999984, 15, 5),
+        new WorldBorderAction.SetWarningTime(15),
+        new WorldBorderAction.SetWarningBlocks(5),
+    };
+
+    var total = 0;
+    foreach (var arm in arms)
+    {
+        var (bytes, back) = RoundTrip(new WorldBorderPacket(arm), 754);
+        Assert(back.Action.GetType() == arm.GetType());
+        Assert(bytes[0] == arm.Discriminator(754));
+        total += bytes.Length;
+    }
+
+    var init = (WorldBorderAction.Initialize)RoundTrip(new WorldBorderPacket(arms[3]), 754).Back.Action;
+    Assert(init.Speed == 3000L && init.PortalTeleportBoundary == 29999984 && init.WarningBlocks == 5);
+
+    // the packet is gone from 755 on, so the support span must refuse it there
+    var gone = false;
+    try
+    {
+        new WorldBorderPacket(arms[0]).Write(new MinecraftPrimitiveWriter(), 755);
+    }
+    catch (InvalidOperationException)
+    {
+        gone = true;
+    }
+
+    Assert(gone);
+    Console.WriteLine($"WorldBorderPacket @754: {arms.Length} arms, {total} bytes total, all re-write byte-identical, refused @755\n");
+}
+
+// --- TitlePacket: the TitleAction union, one layout, split into four after 754 ---
+{
+    var arms = new TitleAction[]
+    {
+        new TitleAction.SetTitle("{\"text\":\"Title\"}"),
+        new TitleAction.SetSubtitle("{\"text\":\"Subtitle\"}"),
+        new TitleAction.SetActionBar("{\"text\":\"Action bar\"}"),
+        new TitleAction.SetTimes(10, 70, 20),
+    };
+
+    var total = 0;
+    foreach (var arm in arms)
+    {
+        var (bytes, back) = RoundTrip(new TitlePacket(arm), 754);
+        Assert(back.Action.GetType() == arm.GetType());
+        Assert(bytes[0] == arm.Discriminator(754));
+        total += bytes.Length;
+    }
+
+    // times are three i32, so the payload after the discriminator is a fixed 12 bytes
+    Assert(RoundTrip(new TitlePacket(arms[3]), 754).Bytes.Length == 13);
+
+    var kind = arms[2].Match(
+        setTitle: _ => "title", setSubtitle: _ => "subtitle",
+        setActionBar: _ => "actionBar", setTimes: _ => "times");
+    Assert(kind == "actionBar");
+    Console.WriteLine($"TitlePacket @754: {arms.Length} arms, {total} bytes total, all re-write byte-identical, Match -> {kind}\n");
+}
+
+// --- CombatEventPacket: the CombatEventAction union with an empty arm, gone after 754 ---
+{
+    var arms = new CombatEventAction[]
+    {
+        new CombatEventAction.Enter(),
+        new CombatEventAction.End(600, 42),
+        new CombatEventAction.Death(7, -1, "{\"text\":\"Steve was slain\"}"),
+    };
+
+    var total = 0;
+    foreach (var arm in arms)
+    {
+        var (bytes, back) = RoundTrip(new CombatEventPacket(arm), 754);
+        Assert(back.Action.GetType() == arm.GetType());
+        Assert(bytes[0] == arm.Discriminator(754));
+        total += bytes.Length;
+    }
+
+    // the empty arm is the discriminator alone
+    Assert(RoundTrip(new CombatEventPacket(arms[0]), 754).Bytes.Length == 1);
+
+    var death = (CombatEventAction.Death)RoundTrip(new CombatEventPacket(arms[2]), 735).Back.Action;
+    Assert(death.PlayerId == 7 && death.EntityId == -1 && death.MessageJson.Contains("slain"));
+    Console.WriteLine($"CombatEventPacket @754: {arms.Length} arms, {total} bytes total, empty arm is 1 byte, all re-write byte-identical\n");
+}
+
+// --- CraftingBookDataPacket: the CraftingBookDataAction union, gone after 736 ---
+{
+    var arms = new CraftingBookDataAction[]
+    {
+        new CraftingBookDataAction.DisplayedRecipe("minecraft:stick"),
+        new CraftingBookDataAction.BookSettings(true, false, true, false, false, true, false, true),
+    };
+
+    var total = 0;
+    foreach (var arm in arms)
+    {
+        var (bytes, back) = RoundTrip(new McProtoNet.Protocol.Packets.Play.Serverbound.CraftingBookDataPacket(arm), 736);
+        Assert(back.Data.GetType() == arm.GetType());
+        Assert(bytes[0] == arm.Discriminator(736));
+        total += bytes.Length;
+    }
+
+    // eight booleans, one byte each, after the discriminator
+    Assert(RoundTrip(new McProtoNet.Protocol.Packets.Play.Serverbound.CraftingBookDataPacket(arms[1]), 736).Bytes.Length == 9);
+
+    var settings = (CraftingBookDataAction.BookSettings)RoundTrip(
+        new McProtoNet.Protocol.Packets.Play.Serverbound.CraftingBookDataPacket(arms[1]), 735).Back.Data;
+    Assert(settings.CraftingBookOpen && !settings.CraftingFilter && settings.SmokingFilter);
+    Console.WriteLine($"CraftingBookDataPacket @736: {arms.Length} arms, {total} bytes total, all re-write byte-identical\n");
+}
+
+// --- ScoreboardObjectivePacket: readOpt on action — 0 and 2 carry the display, 1 does not ---
+{
+    var json = new ObjectiveDisplay("{\"text\":\"Kills\"}", default!, 0, null, null);
+    var cases764 = new (int Action, ObjectiveDisplay? Display)[]
+    {
+        (0, json),
+        (1, null),
+        (2, json),
+    };
+
+    var total764 = 0;
+    foreach (var (action, display) in cases764)
+    {
+        var (bytes, back) = RoundTrip(new ScoreboardObjectivePacket("kills", action, display), 764);
+        Assert(back.Name == "kills" && back.Action == action);
+        Assert((back.Display is null) == (display is null));
+        Assert(back.Display is null || (back.Display.DisplayTextJson == "{\"text\":\"Kills\"}" && back.Display.Type == 0));
+        total764 += bytes.Length;
+    }
+
+    // action 1 is the name plus the one action byte
+    Assert(RoundTrip(new ScoreboardObjectivePacket("kills", 1, null), 764).Bytes.Length == 7);
+
+    var nbt = new NbtCompound().With("text", new NbtString("Kills"));
+    var styling = new NbtCompound().With("color", new NbtString("red"));
+    var cases772 = new (int Action, ObjectiveDisplay? Display)[]
+    {
+        (0, new ObjectiveDisplay(default!, nbt, 0, null, null)),
+        (0, new ObjectiveDisplay(default!, nbt, 1, 0, null)),
+        (0, new ObjectiveDisplay(default!, nbt, 0, 1, styling)),
+        (2, new ObjectiveDisplay(default!, nbt, 0, 2, new NbtString("42"))),
+        (1, null),
+    };
+
+    var total772 = 0;
+    foreach (var (action, display) in cases772)
+    {
+        var (bytes, back) = RoundTrip(new ScoreboardObjectivePacket("kills", action, display), 772);
+        Assert(back.Action == action);
+        Assert((back.Display is null) == (display is null));
+        Assert(back.Display is null || back.Display.NumberFormat == display!.NumberFormat);
+        Assert(back.Display is null || (back.Display.Styling is null) == (display!.Styling is null));
+        total772 += bytes.Length;
+    }
+
+    // a display the action does not select has nowhere to go on the wire
+    var orphan = false;
+    try
+    {
+        new ScoreboardObjectivePacket("kills", 1, json).Write(new MinecraftPrimitiveWriter(), 764);
+    }
+    catch (InvalidOperationException)
+    {
+        orphan = true;
+    }
+
+    Assert(orphan);
+
+    // styling belongs to number_format 1 and 2 only
+    var strayStyling = false;
+    try
+    {
+        new ScoreboardObjectivePacket("kills", 0, new ObjectiveDisplay(default!, nbt, 0, 0, styling))
+            .Write(new MinecraftPrimitiveWriter(), 772);
+    }
+    catch (InvalidOperationException)
+    {
+        strayStyling = true;
+    }
+
+    Assert(strayStyling);
+    Console.WriteLine($"ScoreboardObjectivePacket @764: actions 0/1/2, {total764} bytes total, json display round-trips");
+    Console.WriteLine($"ScoreboardObjectivePacket @772: {cases772.Length} shapes, {total772} bytes total, nbt display and number_format 0/1/2 round-trip\n");
+}
+
+// --- ScoreboardScorePacket: action-gated value until 764, two independent options from 765 ---
+{
+    var cases764 = new (int Action, int? Value)[] { (0, 7), (1, null) };
+    var total764 = 0;
+    foreach (var (action, value) in cases764)
+    {
+        var (bytes, back) = RoundTrip(
+            new ScoreboardScorePacket("Steve", "kills", value, VUntil764: new(action)), 764);
+        Assert(back.VUntil764!.Value.Action == action && back.Value == value);
+        Assert(back.V765_Last is null);
+        total764 += bytes.Length;
+    }
+
+    var nbt = new NbtCompound().With("text", new NbtString("Steve"));
+    var styling = new NbtCompound().With("color", new NbtString("gold"));
+    var layers772 = new ScoreboardScorePacket.V765_LastLayer[]
+    {
+        new(null, null, null),
+        new(nbt, null, null),
+        new(nbt, 0, null),
+        new(null, 2, styling),
+    };
+
+    var total772 = 0;
+    foreach (var layer in layers772)
+    {
+        var (bytes, back) = RoundTrip(new ScoreboardScorePacket("Steve", "kills", 13, V765_Last: layer), 772);
+        var read = back.V765_Last!.Value;
+        Assert(back.Value == 13 && back.VUntil764 is null);
+        Assert((read.DisplayName is null) == (layer.DisplayName is null));
+        Assert(read.NumberFormat == layer.NumberFormat);
+        Assert((read.Styling is null) == (layer.Styling is null));
+        total772 += bytes.Length;
+    }
+
+    // the 765 layer is not a shape 764 can write
+    var wrongLayer = false;
+    try
+    {
+        new ScoreboardScorePacket("Steve", "kills", 13, V765_Last: layers772[0])
+            .Write(new MinecraftPrimitiveWriter(), 764);
+    }
+    catch (WrongLayerException)
+    {
+        wrongLayer = true;
+    }
+
+    Assert(wrongLayer);
+    Console.WriteLine($"ScoreboardScorePacket @764: actions 0/1, {total764} bytes total, value only under action 0");
+    Console.WriteLine($"ScoreboardScorePacket @772: {layers772.Length} shapes, {total772} bytes total, both options round-trip\n");
+}
+
+// --- StopSoundPacket: two readOpt fields selected by the bits of one flags byte ---
+{
+    var cases = new (int Flags, int? Source, string? Sound)[]
+    {
+        (0, null, null),
+        (1, 2, null),
+        (2, null, "minecraft:entity.pig.ambient"),
+        (3, 4, "minecraft:block.stone.break"),
+    };
+
+    var total = 0;
+    foreach (var (flags, source, sound) in cases)
+    {
+        var (bytes, back) = RoundTrip(new StopSoundPacket(flags, source, sound), 772);
+        Assert(back.Flags == flags && back.Source == source && back.Sound == sound);
+        Assert(bytes[0] == flags);
+        total += bytes.Length;
+
+        // one layout for the whole span: 735 must produce the same bytes
+        Assert(Hex(RoundTrip(new StopSoundPacket(flags, source, sound), 735).Bytes) == Hex(bytes));
+    }
+
+    // flags 0 is the whole packet
+    Assert(RoundTrip(new StopSoundPacket(0, null, null), 772).Bytes.Length == 1);
+
+    // a value no bit selects, and a value a bit demands but the model does not carry
+    var stray = false;
+    try
+    {
+        new StopSoundPacket(0, 2, null).Write(new MinecraftPrimitiveWriter(), 772);
+    }
+    catch (InvalidOperationException)
+    {
+        stray = true;
+    }
+
+    Assert(stray);
+
+    var missing = false;
+    try
+    {
+        new StopSoundPacket(3, 2, null).Write(new MinecraftPrimitiveWriter(), 772);
+    }
+    catch (InvalidOperationException)
+    {
+        missing = true;
+    }
+
+    Assert(missing);
+    Console.WriteLine($"StopSoundPacket: flags 0/1/2/3, {total} bytes total, both readOpt fields round-trip byte-identical\n");
+}
+
+// --- FacePlayerPacket: Option(Named …) — the target morphs at 765, present and absent ---
+{
+    var cases = new (int Version, FacePlayerEntityTarget? Entity)[]
+    {
+        (764, null),
+        (764, new FacePlayerEntityTarget(7, "eyes", default!)),
+        (772, null),
+        (772, new FacePlayerEntityTarget(7, default!, 1)),
+    };
+
+    var total = 0;
+    foreach (var (v, entity) in cases)
+    {
+        var (bytes, back) = RoundTrip(new FacePlayerPacket(1, 1.5d, 64d, -2.25d, entity), v);
+        Assert(back.FeetEyes == 1 && back.X == 1.5d && back.Y == 64d && back.Z == -2.25d);
+        Assert((back.Entity is null) == (entity is null));
+        Assert(back.Entity is null || back.Entity.EntityId == 7);
+        total += bytes.Length;
+    }
+
+    // feetEyes travels as a string name until 764 and as a varint from 765
+    var named = RoundTrip(new FacePlayerPacket(1, 0d, 0d, 0d, new FacePlayerEntityTarget(7, "eyes", default!)), 764);
+    var numeric = RoundTrip(new FacePlayerPacket(1, 0d, 0d, 0d, new FacePlayerEntityTarget(7, default!, 1)), 772);
+    Assert(named.Back.Entity!.FeetEyesName == "eyes");
+    Assert(numeric.Back.Entity!.FeetEyes == 1);
+    Assert(named.Bytes.Length == numeric.Bytes.Length + 4);
+
+    // absent is one boolean byte after feetEyes and three doubles
+    Assert(RoundTrip(new FacePlayerPacket(0, 0d, 0d, 0d, null), 772).Bytes.Length == 26);
+    Console.WriteLine($"FacePlayerPacket @764/@772: {cases.Length} shapes, {total} bytes total, target present and absent round-trip\n");
+}
+
+// --- UnlockRecipesPacket: action-gated second recipe list, four more book flags from 751 ---
+{
+    var recipes1 = new[] { "minecraft:stick", "minecraft:torch" };
+    var recipes2 = new[] { "minecraft:ladder" };
+
+    var cases = new (int Version, int Action, string[]? Recipes2)[]
+    {
+        (736, 0, recipes2),
+        (736, 1, null),
+        (767, 0, recipes2),
+        (767, 2, null),
+    };
+
+    var total = 0;
+    foreach (var (v, action, second) in cases)
+    {
+        var layer = v >= 751
+            ? new UnlockRecipesPacket.V751_767Layer(true, false, true, false)
+            : (UnlockRecipesPacket.V751_767Layer?)null;
+
+        var (bytes, back) = RoundTrip(
+            new UnlockRecipesPacket(action, true, false, true, false, recipes1, second, layer), v);
+
+        Assert(back.Action == action && back.Recipes1.Length == 2 && back.Recipes1[1] == "minecraft:torch");
+        Assert((back.Recipes2 is null) == (second is null));
+        Assert(back.Recipes2 is null || back.Recipes2[0] == "minecraft:ladder");
+        Assert((back.V751_767 is null) == (v < 751));
+        total += bytes.Length;
+    }
+
+    // the four extra book flags are the only difference between the layouts
+    var older = RoundTrip(new UnlockRecipesPacket(1, true, false, true, false, recipes1, null), 736);
+    var newer = RoundTrip(new UnlockRecipesPacket(1, true, false, true, false, recipes1, null,
+        new UnlockRecipesPacket.V751_767Layer(true, false, true, false)), 767);
+    Assert(newer.Bytes.Length == older.Bytes.Length + 4);
+
+    // a second list the action does not select has nowhere to go
+    var stray = false;
+    try
+    {
+        new UnlockRecipesPacket(1, true, false, true, false, recipes1, recipes2)
+            .Write(new MinecraftPrimitiveWriter(), 736);
+    }
+    catch (InvalidOperationException)
+    {
+        stray = true;
+    }
+
+    Assert(stray);
+    Console.WriteLine($"UnlockRecipesPacket @736/@767: {cases.Length} shapes, {total} bytes total, both layouts re-write byte-identical\n");
+}
+
+// --- HideMessagePacket: a byte array @760, an id-gated fixed 256 bytes from 761 ---
+{
+    var signature = new byte[256];
+    for (int i = 0; i < signature.Length; i++) signature[i] = (byte)(i * 5);
+
+    var (oldBytes, oldBack) = RoundTrip(new HideMessagePacket(V760: new(new byte[] { 1, 2, 3 })), 760);
+    Assert(Hex(oldBack.V760!.Value.MessageSignature) == "010203" && oldBack.V761_Last is null);
+
+    var cases = new (int Id, byte[]? Signature)[] { (0, signature), (5, null) };
+    var total = oldBytes.Length;
+    foreach (var (id, sig) in cases)
+    {
+        var (bytes, back) = RoundTrip(new HideMessagePacket(V761_Last: new(id, sig)), 772);
+        var layer = back.V761_Last!.Value;
+        Assert(layer.Id == id && (layer.Signature is null) == (sig is null));
+        Assert(layer.Signature is null || Hex(layer.Signature) == Hex(signature));
+        total += bytes.Length;
+    }
+
+    // id 0 means "a signature follows", and it is a fixed 256 bytes with no length prefix
+    Assert(RoundTrip(new HideMessagePacket(V761_Last: new(0, signature)), 772).Bytes.Length == 257);
+    Assert(RoundTrip(new HideMessagePacket(V761_Last: new(5, null)), 772).Bytes.Length == 1);
+
+    var missing = false;
+    try
+    {
+        new HideMessagePacket(V761_Last: new(0, null)).Write(new MinecraftPrimitiveWriter(), 772);
+    }
+    catch (InvalidOperationException)
+    {
+        missing = true;
+    }
+
+    Assert(missing);
+    Console.WriteLine($"HideMessagePacket @760/@772: 3 shapes, {total} bytes total, id 0 carries 256 fixed bytes\n");
+}
+
+// --- AdvancementTabPacket: readOpt on action — 0 opens a tab, 1 closes it ---
+{
+    var cases = new (int Action, string? TabId)[] { (0, "minecraft:story"), (1, null) };
+    var total = 0;
+    foreach (var (action, tabId) in cases)
+    {
+        var (bytes, back) = RoundTrip(
+            new McProtoNet.Protocol.Packets.Play.Serverbound.AdvancementTabPacket(action, tabId), 772);
+        Assert(back.Action == action && back.TabId == tabId);
+        total += bytes.Length;
+
+        // one layout for the whole span
+        Assert(Hex(RoundTrip(
+            new McProtoNet.Protocol.Packets.Play.Serverbound.AdvancementTabPacket(action, tabId), 735).Bytes) == Hex(bytes));
+    }
+
+    // closing the tab is the action varint alone
+    Assert(RoundTrip(new McProtoNet.Protocol.Packets.Play.Serverbound.AdvancementTabPacket(1, null), 772).Bytes.Length == 1);
+
+    var stray = false;
+    try
+    {
+        new McProtoNet.Protocol.Packets.Play.Serverbound.AdvancementTabPacket(1, "minecraft:story")
+            .Write(new MinecraftPrimitiveWriter(), 772);
+    }
+    catch (InvalidOperationException)
+    {
+        stray = true;
+    }
+
+    Assert(stray);
+    Console.WriteLine($"AdvancementTabPacket: actions 0/1, {total} bytes total, tab id only under action 0\n");
+}
+
+// --- ServerLink / ServerLinkLabel: one type behind three packets, both label arms ---
+{
+    var links = new[]
+    {
+        new ServerLink(new ServerLinkLabel.KnownType(ServerLinkType.BugReport), "https://example.org/bugs"),
+        new ServerLink(new ServerLinkLabel.Custom(new NbtCompound().With("text", new NbtString("Wiki"))), "https://example.org/wiki"),
+        new ServerLink(new ServerLinkLabel.KnownType((ServerLinkType)42), "https://example.org/unknown"),
+    };
+
+    // the label discriminator is a boolean byte: 1 picks the known type, 0 the custom component
+    Assert(links[0].Label.Discriminator(767) == 1 && links[1].Label.Discriminator(767) == 0);
+
+    var total = 0;
+    foreach (var v in new[] { 767, 776 })
+    {
+        var (bytes, back) = RoundTrip(
+            new McProtoNet.Protocol.Packets.Configuration.Clientbound.ServerLinksPacket(links), v);
+        Assert(back.Links.Length == 3);
+        Assert(((ServerLinkLabel.KnownType)back.Links[0].Label).Type == ServerLinkType.BugReport);
+        Assert(((NbtCompound)((ServerLinkLabel.Custom)back.Links[1].Label).Label).Items["text"] is NbtString { Value: "Wiki" });
+        Assert(((ServerLinkLabel.KnownType)back.Links[2].Label).Type.ToString() == "unknown(42)");
+        Assert(back.Links[2].Link == "https://example.org/unknown");
+        total += bytes.Length;
+
+        // the play-phase twin carries the same array, so the payload must be the same bytes
+        var (playBytes, playBack) = RoundTrip(new PlayServerLinksPacket(links), v);
+        Assert(playBack.Links.Length == 3 && Hex(playBytes) == Hex(bytes));
+        total += playBytes.Length;
+    }
+
+    // the serverbound answer stops at 770
+    foreach (var v in new[] { 767, 770 })
+    {
+        var (bytes, back) = RoundTrip(
+            new McProtoNet.Protocol.Packets.Configuration.Serverbound.ServerLinksResponsePacket(links), v);
+        Assert(back.Links.Length == 3);
+        total += bytes.Length;
+    }
+
+    // an empty array is the count varint alone
+    Assert(RoundTrip(new McProtoNet.Protocol.Packets.Configuration.Clientbound.ServerLinksPacket(
+        Array.Empty<ServerLink>()), 776).Bytes.Length == 1);
+
+    var tooOld = false;
+    try
+    {
+        new McProtoNet.Protocol.Packets.Configuration.Clientbound.ServerLinksPacket(links)
+            .Write(new MinecraftPrimitiveWriter(), 766);
+    }
+    catch (InvalidOperationException)
+    {
+        tooOld = true;
+    }
+
+    Assert(tooOld);
+    Console.WriteLine($"ServerLinks @767/@776: 3 packets x 3 links x 2 label arms, {total} bytes total, all re-write byte-identical\n");
+}
+
+// --- TrackedWaypointPacket: a Waypoint carrying two unions and an optional colour ---
+{
+    var uuid = Guid.Parse("11111111-2222-3333-4444-555555555555");
+    var identities = new WaypointIdentity[]
+    {
+        new WaypointIdentity.Uuid(uuid),
+        new WaypointIdentity.Id("player_1"),
+    };
+
+    var datas = new TrackedWaypointData[]
+    {
+        new TrackedWaypointData.Empty(),
+        new TrackedWaypointData.Position(new Vec3i(10, 64, -20)),
+        new TrackedWaypointData.Chunk(3, -4),
+        new TrackedWaypointData.Azimuth(1.75f),
+    };
+
+    var icons = new[]
+    {
+        new WaypointIcon("minecraft:default", null),
+        new WaypointIcon("minecraft:bowtie", new WaypointColor(255, 128, 0)),
+    };
+
+    var operations = new[]
+    {
+        TrackedWaypointOperation.Track, TrackedWaypointOperation.Untrack, TrackedWaypointOperation.Update
+    };
+
+    var probes = 0;
+    var total = 0;
+    foreach (var v in new[] { 771, 776 })
+        foreach (var identity in identities)
+            foreach (var icon in icons)
+                foreach (var data in datas)
+                {
+                    var operation = operations[probes % operations.Length];
+                    var (bytes, back) = RoundTrip(
+                        new TrackedWaypointPacket(operation, new Waypoint(identity, icon, data)), v);
+
+                    Assert(back.Operation == operation);
+                    Assert(back.Waypoint.Identity.GetType() == identity.GetType());
+                    Assert(back.Waypoint.Data.GetType() == data.GetType());
+                    Assert(back.Waypoint.Icon.Style == icon.Style);
+                    Assert((back.Waypoint.Icon.Color is null) == (icon.Color is null));
+                    Assert(back.Waypoint.Icon.Color is null || back.Waypoint.Icon.Color == icon.Color);
+
+                    probes++;
+                    total += bytes.Length;
+                }
+
+    // operation varint, identity discriminator, uuid, "minecraft:default", no colour, empty data
+    var byUuid = RoundTrip(new TrackedWaypointPacket(TrackedWaypointOperation.Track,
+        new Waypoint(identities[0], icons[0], datas[0])), 776);
+    Assert(byUuid.Bytes[1] == 1 && byUuid.Bytes.Length == 1 + 1 + 16 + 18 + 1 + 1);
+
+    var byId = RoundTrip(new TrackedWaypointPacket(TrackedWaypointOperation.Untrack,
+        new Waypoint(identities[1], icons[0], datas[0])), 776);
+    Assert(byId.Bytes[1] == 0);
+
+    var position = (TrackedWaypointData.Position)RoundTrip(new TrackedWaypointPacket(
+        TrackedWaypointOperation.Update, new Waypoint(identities[0], icons[1], datas[1])), 776).Back.Waypoint.Data;
+    Assert(position.Coordinates == new Vec3i(10, 64, -20));
+
+    var chunk = (TrackedWaypointData.Chunk)RoundTrip(new TrackedWaypointPacket(
+        TrackedWaypointOperation.Update, new Waypoint(identities[0], icons[0], datas[2])), 771).Back.Waypoint.Data;
+    Assert(chunk.ChunkX == 3 && chunk.ChunkZ == -4);
+
+    // the waypoint arrives at 771; 770 must refuse rather than invent a shape
+    var tooOld = false;
+    try
+    {
+        new TrackedWaypointPacket(TrackedWaypointOperation.Track, new Waypoint(identities[0], icons[0], datas[0]))
+            .Write(new MinecraftPrimitiveWriter(), 770);
+    }
+    catch (InvalidOperationException)
+    {
+        tooOld = true;
+    }
+
+    Assert(tooOld);
+    Console.WriteLine($"TrackedWaypointPacket @771/@776: {probes} combinations, {total} bytes total, both identity arms and all four data arms re-write byte-identical\n");
 }
 
 // --- GetPacketId: numeric ids from the McProtoFacts manifest ---
