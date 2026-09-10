@@ -20,7 +20,22 @@
         <Compile Include="Codegen\Coverage.fs" />
         <Compile Include="Codegen\Generator.fs" />
         <Compile Include="Codegen\CSharpSurface.fs" />
-        <Compile Include="Codegen\CSharp.fs" />
+
+        <!-- C# backend, split by dependency layer: text helpers -> Roslyn structure ->
+             wire statements -> layout bodies -> per-spec renderers -> the target that binds
+             them. `CSharpTarget.fs` keeps the public entry point (`CSharp.target`). -->
+        <Compile Include="Codegen\CSharp\Text.fs" />
+        <Compile Include="Codegen\CSharp\Structure.fs" />
+        <Compile Include="Codegen\CSharp\Statements.fs" />
+        <Compile Include="Codegen\CSharp\Bodies.fs" />
+        <Compile Include="Codegen\CSharp\Renderers\NamedTypes.fs" />
+        <Compile Include="Codegen\CSharp\Renderers\PacketParts.fs" />
+        <Compile Include="Codegen\CSharp\Renderers\PacketLayers.fs" />
+        <Compile Include="Codegen\CSharp\Renderers\Bitflags.fs" />
+        <Compile Include="Codegen\CSharp\Renderers\Enums.fs" />
+        <Compile Include="Codegen\CSharp\Renderers\Unions.fs" />
+        <Compile Include="Codegen\CSharp\Renderers\Aggregates.fs" />
+        <Compile Include="Codegen\CSharp\CSharpTarget.fs" />
 
         <!-- Spec: WireAliases first (shared helper bindings), then every spec file auto-globbed.
              Protocol.fs indexes all specs by reflection, so a new type/union/packet needs no edit
