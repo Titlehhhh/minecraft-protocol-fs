@@ -1070,23 +1070,14 @@ module CSharp =
             []
         |> List.rev
 
-    /// `public static bool TryGetPacketId(int protocolVersion, out int id)`: one guarded branch
-    /// per coalesced manifest range, unknown version -> false; plus `GetPacketId` as a throwing
-    /// wrapper — both only emitted for packets whose `Ids` the manifest resolved
-    /// (see `PacketIds.enrich`).
-    let private packetIdMethods (s: RuntimeSurface) (ids: (int * int * int) list) : MemberDeclarationSyntax list =
+    /// `public static bool TryGetPacketId(int protocolVersion, out int id)` and `GetPacketId`, its
+    /// throwing wrapper. Both forward to `PacketRegistry`, whose catalogs already carry the same
+    /// coalesced manifest ranges as data. Emitting the ranges a second time as an if-ladder cost
+    /// ~13.8k lines and let the two forms drift apart; the lookup runs on the send path, which is
+    /// cold, so scanning one packet's ranges is enough.
+    let private packetIdMethods (s: RuntimeSurface) : MemberDeclarationSyntax list =
         let tryBody =
-            [
-                for lo, hi, id in coalesceIds ids ->
-                    sprintf
-                        "if (%s >= %d && %s <= %d) { id = 0x%02X; return true; }"
-                        s.VersionParam
-                        lo
-                        s.VersionParam
-                        hi
-                        id
-            ]
-            @ [ "id = 0;"; "return false;" ]
+            [ sprintf "return PacketRegistry.TryGetId(Identity, %s, out id);" s.VersionParam ]
 
         let tryDecl =
             MethodDeclaration(PredefinedType(Token SyntaxKind.BoolKeyword), "TryGetPacketId")
@@ -1098,10 +1089,7 @@ module CSharp =
                 .WithBody(parseBody tryBody)
 
         let getBody =
-            [
-                sprintf "if (TryGetPacketId(%s, out var id)) return id;" s.VersionParam
-                sprintf "throw new System.NotSupportedException($\"No packet id for protocol {%s}.\");" s.VersionParam
-            ]
+            [ sprintf "return PacketRegistry.GetId(Identity, %s);" s.VersionParam ]
 
         let getDecl =
             MethodDeclaration(PredefinedType(Token SyntaxKind.IntKeyword), "GetPacketId")
@@ -1500,7 +1488,7 @@ module CSharp =
         let shell =
             (packetRecordShell s.PacketInterface s.PacketBaseInterface p.ClassName commonPos layers)
                 .AddMembers(readMethod s p.ClassName (parseBody readBody), writeMethod s false (parseBody writeBody))
-                .AddMembers(identityMembers @ packetIdMethods s p.Ids |> List.toArray)
+                .AddMembers(identityMembers @ packetIdMethods s |> List.toArray)
                 .AddAttributeLists(supportAttr s (p.Layouts |> List.map (fun l -> l.Range)))
                 .AddAttributeLists(
                     packetAttr s e :: packetFieldAttrs s commonFields (if multi then layers else [])
@@ -2351,6 +2339,51 @@ module CSharp =
         line ""
         line "        descriptor = null;"
         line "        return false;"
+        line "    }"
+        line ""
+
+        line "    /// <summary>Gets the wire id a packet carries on the specified protocol version, or"
+        line "    /// false when the packet does not exist there. The reverse of TryGetOrdinal: the dense"
+        line "    /// tables index id-&gt;ordinal, so one packet's own ranges are scanned instead, which is"
+        line "    /// what the send path needs and it is cold.</summary>"
+
+        line (
+            sprintf
+                "    public static bool TryGetId(in %s identity, int %s, out int id)"
+                s.IdentityType
+                s.VersionParam
+        )
+
+        line "    {"
+        line "        foreach (var range in Catalog(identity.Phase, identity.Direction)[identity.Ordinal].Ids)"
+        line "        {"
+        line (sprintf "            if (%s >= range.FromPv && %s <= range.ToPv)" s.VersionParam s.VersionParam)
+        line "            {"
+        line "                id = range.Id;"
+        line "                return true;"
+        line "            }"
+        line "        }"
+        line ""
+        line "        id = 0;"
+        line "        return false;"
+        line "    }"
+        line ""
+
+        line "    /// <summary>Gets the wire id a packet carries on the specified protocol version.</summary>"
+
+        line (
+            sprintf "    public static int GetId(in %s identity, int %s)" s.IdentityType s.VersionParam
+        )
+
+        line "    {"
+        line (sprintf "        if (TryGetId(identity, %s, out var id)) return id;" s.VersionParam)
+
+        line (
+            sprintf
+                "        throw new System.NotSupportedException($\"No packet id for protocol {%s}.\");"
+                s.VersionParam
+        )
+
         line "    }"
         line ""
 

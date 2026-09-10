@@ -29,6 +29,8 @@
                           ..\..\generated-csharp\Packets\Play\Clientbound\LoginPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Serverbound\WindowClickPacket.cs"
                  Link="Generated\%(RecursiveDir)%(Filename)%(Extension)" />
+        <Compile Include="..\..\generated-csharp\Flow\PacketRegistry.g.cs"
+                 Link="Generated\Flow\PacketRegistry.g.cs" />
     </ItemGroup>
     <ItemGroup>
       <PackageReference Include="Dunet" Version="1.16.2" />
