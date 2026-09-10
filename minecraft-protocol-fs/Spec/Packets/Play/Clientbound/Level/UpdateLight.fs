@@ -20,8 +20,8 @@ module UpdateLight =
                 field "BlockLightMask"            (TArray TLong)        (Since 755)
                 field "EmptySkyLightMask"         (TArray TLong)        (Since 755)
                 field "EmptyBlockLightMask"       (TArray TLong)        (Since 755)
-                field "SkyLight"                  (TArray(TArray TInt)) (Since 755)
-                field "BlockLight"                (TArray(TArray TInt)) (Since 755)
+                field "SkyLight"                  (TArray TBytes)       (Since 755)
+                field "BlockLight"                (TArray TBytes)       (Since 755)
             ]
 
             wire (Until 754) [

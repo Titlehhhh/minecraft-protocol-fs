@@ -176,6 +176,16 @@ module CSharp =
             s.DiscriminatorParam
             s.VersionParam
 
+    /// A discriminator no arm of an inline union claims. The same stream condition as the
+    /// named-union case, but an inline union has no type to name — its discriminator's own DSL
+    /// name is the only anchor the message can carry.
+    let private throwNoInlineCaseLine (s: RuntimeSurface) (disc: string) (value: string) =
+        sprintf
+            "throw new System.NotSupportedException($\"Inline union on '%s' has no case for {%s} at protocol version {%s}.\");"
+            disc
+            value
+            s.VersionParam
+
     /// A case whose layer does not cover the version being written: the model holds a shape this
     /// version cannot carry, so the write must fail rather than invent one.
     let private throwNoCaseLayerLine (s: RuntimeSurface) (typeName: string) =
@@ -350,6 +360,7 @@ module CSharp =
         | EnumRef(n, _) -> Some n
         | RegistryHolder inner -> holderCsType s inner
         | FixedBytes _ -> Some "byte[]"
+        | Array(U8, VarIntCount) -> s.Primitives.TryFind ByteArray |> Option.map (fun p -> p.CsType)
         | _ -> s.Primitives.TryFind w |> Option.map (fun p -> p.CsType)
 
     /// C# type of a whole wire field, wrappers included — what a union case declares as a
@@ -357,7 +368,8 @@ module CSharp =
     let rec private wireCsType (s: RuntimeSurface) (w: WireType) : string option =
         match w with
         | Option inner -> wireCsType s inner |> Option.map (fun t -> t + "?")
-        | Array(item, _) -> wireCsType s item |> Option.map (fun t -> t + "[]")
+        | Array(item, _)
+        | SentinelArray(item, _) -> wireCsType s item |> Option.map (fun t -> t + "[]")
         | _ -> itemCsType s w
 
     /// Count-prefix read: setup lines + the count expression.
@@ -386,6 +398,10 @@ module CSharp =
         | -1 -> sprintf "new %s[%s]" itemType count
         | i -> sprintf "new %s[%s]%s" (itemType.Substring(0, i)) count (itemType.Substring i)
 
+    /// Capacity a sentinel-terminated array starts at. No count travels ahead of its items, so
+    /// the read has nothing to size the buffer from: start small, double, trim.
+    let private sentinelSeed = 4
+
     /// `T` -> `T?`, idempotent: a conditional group declares its locals nullable so the guard can
     /// leave them unset, and the api field it feeds is optional for exactly the same reason.
     let private nullableOf (t: string) = if t.EndsWith "?" then t else t + "?"
@@ -404,9 +420,16 @@ module CSharp =
             inner
             |> List.collect (entryBindings s)
             |> List.map (fun (a, t) -> a, nullableOf t)
+        // an arm binds what it reads, and only the arm the stream took actually runs — so every
+        // arm's fields are hoisted together and every one of them is nullable, exactly like a
+        // conditional group's
+        | InlineUnion(_, arms) ->
+            arms
+            |> List.collect (fun arm -> arm.Entries |> List.collect (entryBindings s))
+            |> List.distinctBy fst
+            |> List.map (fun (a, t) -> a, nullableOf t)
         | Discard _
-        | ReadUnion _
-        | InlineUnion _ -> []
+        | ReadUnion _ -> []
 
     /// Wire *and* api spellings of every field a layout reads, both pointing at the api name and
     /// the wire type it travelled as. `ifNonZero`/`readOpt` name their discriminator with either
@@ -442,14 +465,64 @@ module CSharp =
             | _ -> None)
         |> Map.ofList
 
+    /// How a discriminator local compares against a case key, spelled for the wire it arrived on.
+    /// A `Bool` discriminator lands in a C# `bool`, where `local == 1` would not even compile.
+    let private discEquals (wt: WireType option) (local: string) (key: int) =
+        match wt with
+        | Some Bool -> if key = 0 then sprintf "!%s" local else local
+        | _ -> sprintf "%s == %d" local key
+
+    /// `field != 0` the way a conditional group spells it — or the bare local when the field
+    /// travelled as a `Bool`, which C# refuses to compare against an integer at all.
+    let private nonZeroCond (wt: WireType option) (local: string) =
+        match wt with
+        | Some Bool -> local
+        | _ -> sprintf "%s != 0" local
+
+    /// Guards for the arms of an inline union, in ladder order. `None` is the bare `else`, which
+    /// the last arm takes when the arms already cover every value the discriminator can carry (a
+    /// `Bool` read under both keys) — that is what keeps `if (flag) ... else ...` from growing a
+    /// branch no stream can reach. Otherwise every arm is guarded and the caller adds the throw.
+    let private armConditions
+        (discLocal: string)
+        (discWt: WireType option)
+        (arms: UnionArm list)
+        : string option list
+        =
+        // a `Bool` splits into exactly two values, so two arms pinned to one value each are the
+        // only shape that leaves nothing over; anything looser and the `else` would swallow a key
+        // some other arm claims
+        let truths (arm: UnionArm) = arm.Keys |> List.map (fun k -> k <> 0) |> List.distinct
+
+        let covered =
+            discWt = Some Bool
+            && List.length arms = 2
+            && arms |> List.forall (fun arm -> List.length (truths arm) = 1)
+            && List.length (arms |> List.collect truths |> List.distinct) = 2
+
+        let last = List.length arms - 1
+
+        arms
+        |> List.mapi (fun i arm ->
+            if covered && i = last then
+                None
+            else
+                arm.Keys
+                |> List.map (discEquals discWt discLocal)
+                |> String.concat " || "
+                |> Some)
+
     /// One wire entry -> read statement lines. `bound` maps every name the entries before this one
-    /// in the same layout already read (wire and api spelling) to its api name — the only names an
-    /// entry may address. `nameOf` turns an api name into the local holding it, which is how a
-    /// group renders its body into fresh locals before assigning the hoisted ones.
+    /// in the same layout already read (wire and api spelling) to its api name and the wire it
+    /// travelled as — the only names an entry may address. The wire type is `None` for a name a
+    /// non-`Read` entry bound: nothing addresses those as a discriminator, and a shape that needs
+    /// the wire to spell a comparison says so instead of guessing. `nameOf` turns an api name into
+    /// the local holding it, which is how a group renders its body into fresh locals before
+    /// assigning the hoisted ones.
     let rec private readEntryLines
         (s: RuntimeSurface)
         (nameOf: string -> string)
-        (bound: Map<string, string>)
+        (bound: Map<string, string * WireType option>)
         (entry: WireEntry)
         : Result<string list, string>
         =
@@ -478,6 +551,28 @@ module CSharp =
                     ]
                 )
             | _ -> Error(sprintf "read '%s' (Array %A)" api item)
+        | Read(_, SentinelArray(item, endValue), api) ->
+            // No count travels ahead of the items, so the buffer grows by doubling and is trimmed
+            // to what was actually read - `NbtBinaryReader.ReadArrayBigEndian`'s shape, minus the
+            // length it knows up front. The terminator occupies the byte where the next item would
+            // start, so the loop tests that byte and rewinds it when it belongs to an item.
+            let ln = nameOf api
+
+            match readExpr s item, itemCsType s item, s.Primitives.TryFind U8 with
+            | Ok call, Some t, Some sentinel ->
+                Ok
+                    [
+                        sprintf "var %s = %s;" ln (newArrayExpr t (string sentinelSeed))
+                        sprintf "int %sCount = 0;" ln
+                        sprintf "while (%s.%s != %d)" s.ReaderParam sentinel.ReadCall endValue
+                        "{"
+                        sprintf "%s.%s(1);" s.ReaderParam s.RewindMethod
+                        sprintf "if (%sCount == %s.Length) System.Array.Resize(ref %s, %s.Length * 2);" ln ln ln ln
+                        sprintf "%s[%sCount++] = %s;" ln ln call
+                        "}"
+                        sprintf "if (%s.Length != %sCount) System.Array.Resize(ref %s, %sCount);" ln ln ln ln
+                    ]
+            | _ -> Error(sprintf "read '%s' (SentinelArray %A)" api item)
         | Read(_, wt, api) ->
             match readExpr s wt with
             | Ok call -> Ok [ sprintf "var %s = %s;" (nameOf api) call ]
@@ -520,16 +615,16 @@ module CSharp =
                         s.ReadMethodName
                         s.ReaderParam
                         s.VersionParam
-                        (nameOf bound.[disc])
+                        (nameOf (fst bound.[disc]))
                 ]
         | IfNonZero(field, entries) ->
             match bound.TryFind field with
             | None -> Error(sprintf "conditional group (field '%s' is not read by an earlier entry)" field)
-            | Some api -> readGroupLines s nameOf bound (sprintf "%s != 0" (nameOf api)) entries
+            | Some(api, wt) -> readGroupLines s nameOf bound (nonZeroCond wt (nameOf api)) entries
         | ReadOpt(wire, wt, api, disc, keys) ->
             match bound.TryFind disc with
             | None -> Error(sprintf "read optional '%s' (discriminator '%s' is not read by an earlier entry)" api disc)
-            | Some discApi ->
+            | Some(discApi, _) ->
                 let cond =
                     keys
                     |> List.map (fun k -> sprintf "%s == %d" (nameOf discApi) k)
@@ -555,6 +650,10 @@ module CSharp =
                     |> String.concat ", "
 
                 Ok(readLinesOf results @ [ sprintf "var %s = new %s(%s);" ln typeName args ])
+        | InlineUnion(disc, arms) ->
+            match bound.TryFind disc with
+            | None -> Error(sprintf "inline union (discriminator '%s' is not read by an earlier entry)" disc)
+            | Some(discApi, discWt) -> readInlineUnionLines s nameOf bound disc (nameOf discApi) discWt arms
         | other -> Error(sprintf "%A" other)
 
     /// A conditional group: every local the body binds is declared (nullable) above the guard, the
@@ -563,7 +662,7 @@ module CSharp =
     and private readGroupLines
         (s: RuntimeSurface)
         (nameOf: string -> string)
-        (bound: Map<string, string>)
+        (bound: Map<string, string * WireType option>)
         (cond: string)
         (entries: WireEntry list)
         : Result<string list, string>
@@ -585,12 +684,82 @@ module CSharp =
                 @ [ "}" ]
             )
 
+    /// An inline union is not a C# type - it is a ladder of conditional groups over one
+    /// discriminator, which is why it renders here beside `readGroupLines` and not in the union
+    /// backend. Every api field any arm binds is hoisted (nullable) above the ladder, so the arm
+    /// the stream selected assigns its own and leaves the rest null: exactly what the `TOption`
+    /// api fields such a layout declares already say. Each arm reads inside its own block, so two
+    /// arms may reuse a local name.
+    and private readInlineUnionLines
+        (s: RuntimeSurface)
+        (nameOf: string -> string)
+        (bound: Map<string, string * WireType option>)
+        (disc: string)
+        (discLocal: string)
+        (discWt: WireType option)
+        (arms: UnionArm list)
+        : Result<string list, string>
+        =
+        let innerName (a: string) = nameOf a + "Value"
+
+        let armBindings (arm: UnionArm) =
+            arm.Entries |> List.collect (entryBindings s) |> List.distinctBy fst
+
+        let rendered = arms |> List.map (fun arm -> arm, readEntriesFold s innerName bound arm.Entries)
+
+        let armError =
+            rendered
+            |> List.tryPick (fun (arm, rs) ->
+                firstReadError rs |> Option.map (sprintf "inline union arm '%s' (%s)" arm.Name))
+
+        let unhoistable =
+            arms
+            |> List.tryPick (fun arm ->
+                unbindableInGroup s arm.Entries
+                |> Option.map (fun e -> sprintf "inline union arm '%s' holds an entry it cannot hoist: %A" arm.Name e))
+
+        match armError, unhoistable, arms |> List.tryFind (fun arm -> List.isEmpty arm.Keys) with
+        | Some e, _, _
+        | _, Some e, _ -> Error e
+        | _, _, Some arm -> Error(sprintf "inline union arm '%s' has no discriminator key" arm.Name)
+        | None, None, None ->
+            let conds = armConditions discLocal discWt arms
+
+            let ladder =
+                [
+                    for i, ((arm, rs), cond) in List.indexed (List.zip rendered conds) do
+                        match cond with
+                        | Some c when i = 0 -> yield sprintf "if (%s)" c
+                        | Some c -> yield sprintf "else if (%s)" c
+                        | None -> yield "else"
+
+                        yield "{"
+                        yield! readLinesOf rs
+                        yield! [ for a, _ in armBindings arm -> sprintf "%s = %s;" (nameOf a) (innerName a) ]
+                        yield "}"
+                ]
+
+            let fallthrough =
+                if conds |> List.exists Option.isNone then
+                    []
+                else
+                    [ "else"; "{"; throwNoInlineCaseLine s disc discLocal; "}" ]
+
+            Ok(
+                [
+                    for a, t in arms |> List.collect armBindings |> List.distinctBy fst ->
+                        sprintf "%s %s = default;" (nullableOf t) (nameOf a)
+                ]
+                @ ladder
+                @ fallthrough
+            )
+
     /// Read entries in layout order, pairing each with its rendered lines. The fold is what makes
     /// "an earlier entry bound this" checkable: an entry only ever sees the names before it.
     and private readEntriesFold
         (s: RuntimeSurface)
         (nameOf: string -> string)
-        (start: Map<string, string>)
+        (start: Map<string, string * WireType option>)
         (entries: WireEntry list)
         : (WireEntry * Result<string list, string>) list
         =
@@ -601,8 +770,8 @@ module CSharp =
 
                 let bound =
                     match e with
-                    | Read(wire, _, api) -> bound |> Map.add wire api |> Map.add api api
-                    | _ -> entryBindings s e |> List.fold (fun m (a, _) -> Map.add a a m) bound
+                    | Read(wire, wt, api) -> bound |> Map.add wire (api, Some wt) |> Map.add api (api, Some wt)
+                    | _ -> entryBindings s e |> List.fold (fun m (a, _) -> Map.add a (a, None) m) bound
 
                 (e, rendered), bound)
             start
@@ -647,6 +816,32 @@ module CSharp =
             | _ -> None)
         |> Map.ofList
 
+    /// Discriminator -> the arms of the inline union that consumes it. The same job
+    /// `discriminatorUnions` does, for the union that has no C# type of its own: no member of the
+    /// model answers `Discriminator(pv)`, so the key has to be derived from the fields that are set.
+    /// Only a union whose discriminator an *earlier* entry read is in here: the derived key
+    /// lands in a local, and a local cannot be read above the line that declares it. A layout
+    /// that orders them the other way stubs — the read side rejects it for the same reason.
+    let private inlineUnionArms (entries: WireEntry list) : Map<string, UnionArm list> =
+        entries
+        |> List.mapFold
+            (fun seen e ->
+                let taken =
+                    match e with
+                    | InlineUnion(disc, arms) when Set.contains disc seen -> Some(disc, arms)
+                    | _ -> None
+
+                let seen =
+                    match e with
+                    | Read(wire, _, api) -> seen |> Set.add wire |> Set.add api
+                    | _ -> seen
+
+                taken, seen)
+            Set.empty
+        |> fst
+        |> List.choose id
+        |> Map.ofList
+
     /// What a write body needs beyond the entry itself. `Access` is how a value is spelled in C#:
     /// the api name at the top level, `block.Field` inside a block — the one place a nested
     /// container differs from the packet's own fields.
@@ -654,6 +849,7 @@ module CSharp =
         {
             ApiTypes: Map<string, ApiType>
             DiscUnions: Map<string, string>
+            InlineArms: Map<string, UnionArm list>
             Fields: Map<string, string * WireType>
             Access: string -> string
         }
@@ -662,6 +858,7 @@ module CSharp =
         {
             ApiTypes = apiTypes
             DiscUnions = discriminatorUnions entries
+            InlineArms = inlineUnionArms entries
             Fields = fieldNames entries
             Access = id
         }
@@ -682,6 +879,76 @@ module CSharp =
         | Some p, Some t when csType s t <> p.CsType -> sprintf "(%s)%s" p.CsType acc
         | _ -> acc
 
+    /// The test that says the model carries this arm: every optional api field the arm reads is
+    /// set. An arm with no optional field of its own cannot answer that question, and a derivation
+    /// that guessed would put a key on the wire the payload behind it does not match - so the arm,
+    /// and with it the whole inline union, stays a gap instead.
+    let private armPresence (s: RuntimeSurface) (ctx: WriteCtx) (arm: UnionArm) : Result<string, string> =
+        let optionals =
+            arm.Entries
+            |> List.collect (entryBindings s)
+            |> List.map fst
+            |> List.distinct
+            |> List.filter (fun n ->
+                match ctx.ApiTypes.TryFind n with
+                | Some(TOption _) -> true
+                | _ -> false)
+
+        if List.isEmpty optionals then
+            Error(sprintf "inline union arm '%s' has no optional api field its key could be derived from" arm.Name)
+        else
+            optionals
+            |> List.map (fun n -> sprintf "%s is not null" (ctx.Access n))
+            |> String.concat " && "
+            |> Ok
+
+    /// The wire-only key of an inline union, derived from the model: the first arm whose api
+    /// fields are all present wins, and a model that matches no arm fails loudly rather than
+    /// writing a key the bytes behind it will contradict. The key lands in a local typed as the
+    /// wire carries it, so the union body right after it guards on the very value that went out.
+    let private inlineDiscLines
+        (s: RuntimeSurface)
+        (ctx: WriteCtx)
+        (disc: string)
+        (wt: WireType)
+        (arms: UnionArm list)
+        : Result<string list, string>
+        =
+        let ln = localName s disc
+        let presence = arms |> List.map (fun arm -> arm, armPresence s ctx arm)
+
+        let firstError =
+            presence
+            |> List.tryPick (fun (_, r) ->
+                match r with
+                | Error e -> Some e
+                | Ok _ -> None)
+
+        match firstError, s.Primitives.TryFind wt, arms |> List.tryFind (fun a -> List.isEmpty a.Keys) with
+        | Some e, _, _ -> Error e
+        | _, None, _ -> Error(sprintf "write inline union key '%s' (%A is not a wire primitive)" disc wt)
+        | _, _, Some arm -> Error(sprintf "inline union arm '%s' has no discriminator key" arm.Name)
+        | None, Some p, None ->
+            let lit (k: int) =
+                if p.CsType = "bool" then (if k = 0 then "false" else "true")
+                elif p.CsType = csType s TInt then string k
+                else sprintf "(%s)%d" p.CsType k
+
+            let expr =
+                List.foldBack
+                    (fun ((arm: UnionArm), r) acc ->
+                        match r with
+                        | Ok cond -> sprintf "%s ? %s : %s" cond (lit (List.head arm.Keys)) acc
+                        | Error _ -> acc)
+                    presence
+                    (sprintf
+                        "throw new System.InvalidOperationException(\"No inline union case selected by '%s' matches the fields that are set.\")"
+                        disc)
+
+            match writeExpr s wt None ln with
+            | Ok call -> Ok [ sprintf "%s %s = %s;" p.CsType ln expr; sprintf "%s;" call ]
+            | Error e -> Error(sprintf "write inline union key '%s' (%s)" disc e)
+
     /// One wire entry -> write statement lines. `ctx.ApiTypes` drives narrowing casts;
     /// `ctx.DiscUnions` pairs a wire-only discriminator with the union field that derives its value.
     let rec private writeEntryLines
@@ -697,9 +964,10 @@ module CSharp =
         | Read(_, wt, api) when api.StartsWith "_" ->
             // wire-only field: the model carries no such field, so the value must be derived. Only
             // a union consumer knows how — anything else stays a gap.
-            match discUnions.TryFind api with
-            | None -> Error(sprintf "write wire-only '%s' (derive from model)" api)
-            | Some unionApi ->
+            match discUnions.TryFind api, ctx.InlineArms.TryFind api with
+            | None, Some arms -> inlineDiscLines s ctx api wt arms
+            | None, None -> Error(sprintf "write wire-only '%s' (derive from model)" api)
+            | Some unionApi, _ ->
                 let disc = sprintf "%s.%s(%s)" unionApi s.DiscriminatorMethodName s.VersionParam
 
                 // `Discriminator` hands back the api-level integer; a narrower wire primitive must
@@ -748,6 +1016,33 @@ module CSharp =
             match writeExpr s item None iv, countWrite s cnt acc with
             | Ok call, Some cw -> Ok(bind @ cw @ [ sprintf "foreach (var %s in %s) %s;" iv acc call ])
             | _ -> Error(sprintf "write '%s' (Array %A)" api item)
+        | Read(_, SentinelArray(item, endValue), api) ->
+            // the items, then the terminator; no count to write ahead of them, which is the whole
+            // difference from `Array` - and the reason a missing value has to throw here too
+            let iv = camel api + "Item"
+
+            let bind, acc =
+                match apiTypes.TryFind api with
+                | Some(TOption _) ->
+                    let lv = camel api + "Value"
+
+                    [
+                        sprintf
+                            "var %s = %s ?? throw new System.InvalidOperationException(\"%s is required at this protocol version.\");"
+                            lv
+                            (ctx.Access api)
+                            api
+                    ],
+                    lv
+                | _ -> [], ctx.Access api
+
+            match writeExpr s item None iv, s.Primitives.TryFind U8 with
+            | Ok call, Some sentinel ->
+                match writeExpr s U8 (Some sentinel.CsType) (string endValue) with
+                | Ok endCall ->
+                    Ok(bind @ [ sprintf "foreach (var %s in %s) %s;" iv acc call; sprintf "%s;" endCall ])
+                | Error e -> Error(sprintf "write '%s' (SentinelArray terminator: %s)" api e)
+            | _ -> Error(sprintf "write '%s' (SentinelArray %A)" api item)
         | Read(_, wt, api) ->
             // an option-typed api field written as a required wire value must be present
             let apiT = apiTypes.TryFind api
@@ -803,7 +1098,7 @@ module CSharp =
         | IfNonZero(field, entries) ->
             match ctx.Fields.TryFind field with
             | None -> Error(sprintf "write conditional group (field '%s' is not a wire field of this layout)" field)
-            | Some(api, wt) -> writeGroupLines s ctx (sprintf "%s != 0" (discValue s ctx api wt)) entries
+            | Some(api, wt) -> writeGroupLines s ctx (nonZeroCond (Some wt) (discValue s ctx api wt)) entries
         | ReadOpt(wire, wt, api, disc, keys) ->
             match ctx.Fields.TryFind disc with
             | None ->
@@ -840,6 +1135,7 @@ module CSharp =
                 {
                     ApiTypes = naturalApiTypes entries
                     DiscUnions = Map.empty
+                    InlineArms = inlineUnionArms entries
                     Fields = fieldNames entries
                     Access = fun a -> ln + "." + a
                 }
@@ -870,7 +1166,77 @@ module CSharp =
                            | Ok ls -> ls
                            | Error _ -> []))
                 )
+        | InlineUnion(disc, arms) ->
+            match ctx.Fields.TryFind disc with
+            | None -> Error(sprintf "write inline union (discriminator '%s' is not a wire field of this layout)" disc)
+            | Some(discApi, _) when discApi.StartsWith "_" && not (ctx.InlineArms.ContainsKey disc) ->
+                Error(sprintf "write inline union (discriminator '%s' is not derived by an earlier entry)" disc)
+            | Some(discApi, discWt) ->
+                // a wire-only key was derived into a local of the wire's own C# type by the entry
+                // just above; a key the api models comes off the model, narrowed the way the wire
+                // carries it. Either way the guard tests exactly the value that went out.
+                let value =
+                    if discApi.StartsWith "_" then
+                        localName s discApi
+                    else
+                        discValue s ctx discApi discWt
+
+                writeInlineUnionLines s ctx disc value discWt arms
         | other -> Error(sprintf "%A" other)
+
+    /// An inline union on the write side: the same ladder the read side builds, over the same
+    /// discriminator value. Each arm writes its own fields, which the api models as optional, so
+    /// the `?? throw` the scalar renderer already emits is what catches a model whose fields and
+    /// whose key disagree.
+    and private writeInlineUnionLines
+        (s: RuntimeSurface)
+        (ctx: WriteCtx)
+        (disc: string)
+        (discAccess: string)
+        (discWt: WireType)
+        (arms: UnionArm list)
+        : Result<string list, string>
+        =
+        let rendered =
+            arms |> List.map (fun arm -> arm, arm.Entries |> List.map (writeEntryLines s ctx))
+
+        let armError =
+            rendered
+            |> List.tryPick (fun (arm, rs) ->
+                rs
+                |> List.tryPick (function
+                    | Error e -> Some(sprintf "inline union arm '%s' (%s)" arm.Name e)
+                    | Ok _ -> None))
+
+        match armError, arms |> List.tryFind (fun arm -> List.isEmpty arm.Keys) with
+        | Some e, _ -> Error e
+        | _, Some arm -> Error(sprintf "inline union arm '%s' has no discriminator key" arm.Name)
+        | None, None ->
+            let conds = armConditions discAccess (Some discWt) arms
+
+            let ladder =
+                [
+                    for i, ((_, rs), cond) in List.indexed (List.zip rendered conds) do
+                        match cond with
+                        | Some c when i = 0 -> yield sprintf "if (%s)" c
+                        | Some c -> yield sprintf "else if (%s)" c
+                        | None -> yield "else"
+
+                        yield "{"
+
+                        yield!
+                            rs
+                            |> List.collect (function
+                                | Ok ls -> ls
+                                | Error _ -> [])
+
+                        yield "}"
+                ]
+
+            if conds |> List.exists Option.isNone then
+                Ok ladder
+            else
+                Ok(ladder @ [ "else"; "{"; throwNoInlineCaseLine s disc discAccess; "}" ])
 
     /// A conditional group on the write side: the same guard the read side applies, over the api
     /// value the group's discriminator field carries.
@@ -1134,6 +1500,7 @@ module CSharp =
             | ReadBlock(_, api, _) -> [ api ]
             | ReadUnion(_, _, api) -> [ api ]
             | IfNonZero(_, inner) -> boundApis inner
+            | InlineUnion(_, arms) -> arms |> List.collect (fun arm -> boundApis arm.Entries)
             | _ -> [])
 
     /// A field is common when it lives in every version (`Present = All`).
@@ -1155,6 +1522,10 @@ module CSharp =
                 | Read(_, Option _, api) -> api = f.Name
                 | ReadOpt(_, _, api, _, _) -> api = f.Name
                 | IfNonZero(_, inner) -> boundApis inner |> List.contains f.Name || optionalIn inner
+                | InlineUnion(_, arms) ->
+                    arms
+                    |> List.exists (fun arm ->
+                        boundApis arm.Entries |> List.contains f.Name || optionalIn arm.Entries)
                 | _ -> false)
 
         let optionalHere = optionalIn l.Entries

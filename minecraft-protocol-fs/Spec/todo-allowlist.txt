@@ -3,9 +3,8 @@
 # fails when any file outside this list gains a stub, so remove entries as the
 # gaps close. Paths are relative to the generation root, as printed by
 # `dotnet run -- gen`.
-# inline unions have no renderer yet
-Packets/Login/Serverbound/EncryptionResponsePacket.cs
-# SentinelArray has no renderer yet
+# Renders in full since 2026-09-10 (SentinelArray has a reader/writer), but the
+# packet is still held back from the sandbox and from delivery: EntityMetadataEntry
+# and EntityMetadataValue need Slot, Particle and the registry variant types.
+# `gen` reports this entry as stale until those land and the exclude lists drop it.
 Packets/Play/Clientbound/EntityMetadataPacket.cs
-# Array of Array has no renderer yet
-Packets/Play/Clientbound/UpdateLightPacket.cs

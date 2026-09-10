@@ -56,6 +56,11 @@ module CSharpSurface =
             /// Generic read/write of a nested named type on the reader/writer.
             ReadNamedMethod: string
             WriteNamedMethod: string
+            /// Step the reader back over bytes it already consumed. A sentinel-terminated array
+            /// is the shape that needs it: the terminator sits exactly where the next item's
+            /// first byte would, so the read tests one byte and hands it back when it turns out
+            /// to belong to an item after all.
+            RewindMethod: string
             /// Exactly-n bytes, no length prefix (`FixedBytes n`). The count is part of the wire
             /// type, not of the stream, so it cannot live in the `Primitives` map: the read takes
             /// it as an argument and the write takes it as the length the value must have.
@@ -138,6 +143,7 @@ module CSharpSurface =
             LatestProtocolConst = "MinecraftVersion.LatestProtocol"
             ReadNamedMethod = "ReadType"
             WriteNamedMethod = "WriteType"
+            RewindMethod = "Rewind"
             ReadFixedBytesMethod = "ReadFixedBytes"
             WriteFixedBytesMethod = "WriteFixedBytes"
             ReadMethodName = "Read"
@@ -245,6 +251,12 @@ module CSharpSurface =
             | Some t -> Ok(sprintf "%s.%s<%s>(%s)" s.ReaderParam s.ReadNamedMethod t s.VersionParam)
             | None -> Error(sprintf "%A" w)
         | FixedBytes n -> Ok(sprintf "%s.%s(%d)" s.ReaderParam s.ReadFixedBytesMethod n)
+        // a spec spells an inner byte array as Array(U8, VarIntCount); it is the same wire shape
+        // as ByteArray, which lets a nested array render its element as one expression
+        | Array(U8, VarIntCount) ->
+            match s.Primitives.TryFind ByteArray with
+            | Some p -> Ok(sprintf "%s.%s" s.ReaderParam p.ReadCall)
+            | None -> Error(sprintf "%A" w)
         | _ ->
             match s.Primitives.TryFind w with
             | Some p -> Ok(sprintf "%s.%s" s.ReaderParam p.ReadCall)
@@ -270,6 +282,10 @@ module CSharpSurface =
             | Some t -> Ok(sprintf "%s.%s<%s>(%s, %s)" s.WriterParam s.WriteNamedMethod t v s.VersionParam)
             | None -> Error(sprintf "%A" w)
         | FixedBytes n -> Ok(sprintf "%s.%s(%s, %d)" s.WriterParam s.WriteFixedBytesMethod v n)
+        | Array(U8, VarIntCount) ->
+            match s.Primitives.TryFind ByteArray with
+            | Some p -> Ok(sprintf "%s.%s(%s%s)" s.WriterParam p.WriteMethod v p.WriteExtraArgs)
+            | None -> Error(sprintf "%A" w)
         | _ ->
             match s.Primitives.TryFind w with
             | Some p -> Ok(sprintf "%s.%s(%s%s)" s.WriterParam p.WriteMethod v p.WriteExtraArgs)

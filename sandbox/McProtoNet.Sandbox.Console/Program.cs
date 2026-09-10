@@ -1715,6 +1715,72 @@ Console.WriteLine($"protocol version = {version}\n");
     Console.WriteLine($"TrackedWaypointPacket @771/@776: {probes} combinations, {total} bytes total, both identity arms and all four data arms re-write byte-identical\n");
 }
 
+// --- EncryptionResponsePacket: an inline union, the one shape that is a union without a type ---
+{
+    var secret = new byte[] { 0xAA, 0xBB, 0xCC };
+    var token = new byte[] { 0x01, 0x02 };
+    var signature = new byte[] { 0x09, 0x08, 0x07, 0x06 };
+
+    // arm 1 carries the token, arm 0 carries salt + signature; the api holds all three as
+    // options and the arm that was not taken reads back null
+    var cases = new (byte[]? Token, long? Salt, byte[]? Signature)[]
+    {
+        (token, null, null),
+        (null, 0x0123456789ABCDEFL, signature),
+    };
+
+    var total = 0;
+    foreach (var (tok, salt, sig) in cases)
+    {
+        foreach (var v in new[] { 759, 760 })
+        {
+            var (bytes, back) = RoundTrip(
+                new EncryptionResponsePacket(secret, tok, new EncryptionResponsePacket.V759_760Layer(salt, sig)), v);
+
+            var layer = back.V759_760!.Value;
+            Assert(Hex(back.SharedSecret) == Hex(secret));
+            Assert((back.VerifyToken is null) == (tok is null));
+            Assert(layer.Salt == salt);
+            Assert((layer.MessageSignature is null) == (sig is null));
+
+            // the discriminator sits right behind the shared secret, and it is derived from the
+            // fields the model carries — nothing in the api spells it
+            Assert(bytes[1 + secret.Length] == (tok is not null ? 1 : 0));
+            total += bytes.Length;
+        }
+    }
+
+    // a model no arm claims: neither the token nor a complete salt + signature pair
+    foreach (var stray in new[]
+             {
+                 new EncryptionResponsePacket(secret, null, new EncryptionResponsePacket.V759_760Layer(null, null)),
+                 new EncryptionResponsePacket(secret, null, new EncryptionResponsePacket.V759_760Layer(7L, null)),
+             })
+    {
+        var noArm = false;
+        try
+        {
+            stray.Write(new MinecraftPrimitiveWriter(), 759);
+        }
+        catch (InvalidOperationException)
+        {
+            noArm = true;
+        }
+
+        Assert(noArm);
+    }
+
+    // the neighbouring layouts have no union at all: the token is a plain required field
+    foreach (var v in new[] { 758, 761, MinecraftVersion.LatestProtocol })
+    {
+        var (bytes, back) = RoundTrip(new EncryptionResponsePacket(secret, token), v);
+        Assert(Hex(back.VerifyToken!) == Hex(token) && back.V759_760 is null);
+        Assert(bytes.Length == 1 + secret.Length + 1 + token.Length);
+    }
+
+    Console.WriteLine($"EncryptionResponsePacket @759/@760: both inline-union arms round-trip, {total} bytes total; @758/@761 stay flat\n");
+}
+
 // --- GetPacketId: numeric ids from the McProtoFacts manifest ---
 {
     Assert(SetProtocolPacket.GetPacketId(772) == 0x00);

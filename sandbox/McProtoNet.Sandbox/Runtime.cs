@@ -300,6 +300,11 @@ namespace McProtoNet.Primitives
 
         public int Position => _pos;
 
+        // Mirrors MinecraftPrimitiveReader.Rewind in McProtoNet.Primitives: hand back bytes the
+        // reader already consumed. A sentinel-terminated array tests one byte and returns it when
+        // it turns out to be the first byte of an item rather than the terminator.
+        public void Rewind(int count) => _pos -= count;
+
         private byte Next() => _data[_pos++];
 
         public bool ReadBoolean() => Next() != 0;
