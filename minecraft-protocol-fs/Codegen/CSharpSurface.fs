@@ -92,6 +92,13 @@ module CSharpSurface =
             PacketAttributeName: string
             PacketFieldAttributeName: string
             WrongLayerExceptionType: string
+            /// JSON model view: the using, the writer type and parameter, the method name every
+            /// generated type gets, and the property that names a union case.
+            UsingJson: string
+            JsonWriterType: string
+            JsonWriterParam: string
+            WriteJsonMethodName: string
+            UnionCaseProperty: string
             /// C# spellings of api leaf types that are not C# keywords.
             NbtType: string
             UuidType: string
@@ -159,6 +166,11 @@ module CSharpSurface =
             PacketAttributeName = "Packet"
             PacketFieldAttributeName = "PacketField"
             WrongLayerExceptionType = "WrongLayerException"
+            UsingJson = "System.Text.Json"
+            JsonWriterType = "Utf8JsonWriter"
+            JsonWriterParam = "writer"
+            WriteJsonMethodName = "WriteJson"
+            UnionCaseProperty = "$case"
             NbtType = "NbtTag"
             UuidType = "Guid"
             HolderType = "RegistryOrInline"

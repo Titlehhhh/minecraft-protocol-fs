@@ -13,6 +13,7 @@ module Bitflags =
     open Text
     open Structure
     open Bodies
+    open Json
 
     // ----- bitflags -----
 
@@ -55,9 +56,16 @@ module Bitflags =
             gateLine s name
             :: versionedBody s name true [ for l in spec.Layouts -> l.Range, writeCore l ]
 
+        let jsonBody =
+            objectLines s [ for f in apiFlags -> pascal f, JBool, pascal f ]
+
         let shell =
             (recordStructShell s.ProtocolInterface name (apiFlags |> List.map (fun f -> "bool", pascal f)))
-                .AddMembers(readMethod s name (parseBody readBody), writeMethod s true (parseBody writeBody))
+                .AddMembers(
+                    readMethod s name (parseBody readBody),
+                    writeMethod s true (parseBody writeBody),
+                    writeJsonMethod s true (parseBody jsonBody)
+                )
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
 
-        renderUnit s s.Namespace name [ s.UsingAttributes; s.UsingSerialization ] shell
+        renderUnit s s.Namespace name [ s.UsingAttributes; s.UsingSerialization; s.UsingJson ] shell

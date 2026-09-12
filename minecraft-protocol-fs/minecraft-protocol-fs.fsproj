@@ -28,6 +28,7 @@
         <Compile Include="Codegen\CSharp\Structure.fs" />
         <Compile Include="Codegen\CSharp\Statements.fs" />
         <Compile Include="Codegen\CSharp\Bodies.fs" />
+        <Compile Include="Codegen\CSharp\Json.fs" />
         <Compile Include="Codegen\CSharp\Renderers\NamedTypes.fs" />
         <Compile Include="Codegen\CSharp\Renderers\PacketParts.fs" />
         <Compile Include="Codegen\CSharp\Renderers\PacketLayers.fs" />

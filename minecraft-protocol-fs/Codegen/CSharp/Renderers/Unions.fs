@@ -15,14 +15,19 @@ module Unions =
     open Statements
     open Bodies
     open PacketLayers
+    open Json
 
     // ----- unions -----
 
     /// One case of a rendered union: the nested record's name and its positional parameters.
+    /// `ArmName` is the DSL name the JSON view labels the case with, whatever suffix the C#
+    /// case carries; `JsonFields` are the same parameters with their JSON shape.
     type private UnionCase =
         {
             CaseName: string
             Params: (string * string) list
+            ArmName: string
+            JsonFields: (string * JsonShape) list
         }
 
     /// Positional parameters of an arm, in wire order. The parameter is named by the api name
@@ -36,6 +41,17 @@ module Unions =
         arm.Entries
         |> List.choose (function
             | Read(_, w, api) when not (api.StartsWith "_") -> wireCsType s w |> Option.map (fun t -> t, api)
+            | _ -> None)
+
+    /// The JSON shape of each positional parameter, in `armParams` order: an entry drops out of
+    /// both lists for the same reason, so the two stay aligned.
+    let private armJsonFields (s: RuntimeSurface) (arm: UnionArm) : (string * JsonShape) list =
+        arm.Entries
+        |> List.choose (function
+            | Read(_, w, api) when not (api.StartsWith "_") ->
+                match wireCsType s w, shapeOfWire s w with
+                | Some _, Some shape -> Some(api, shape)
+                | _ -> None
             | _ -> None)
 
     /// Case name of an arm inside one layer: the DSL name while the arm's parameter list is the
@@ -62,6 +78,8 @@ module Unions =
                     {
                         CaseName = unionCaseName s spec l a
                         Params = armParams s a
+                        ArmName = a.Name
+                        JsonFields = armJsonFields s a
                     }
         ]
         |> List.distinctBy (fun c -> c.CaseName)
@@ -156,6 +174,34 @@ module Unions =
             yield throwNoCaseLayerLine s spec.Name
         ]
 
+    /// JSON body: one object, the case named under the surface's case property, then the case's
+    /// own fields. Version-free — the case the value holds is the whole story.
+    let private unionJsonLines (s: RuntimeSurface) (spec: UnionTypeSpec) (cases: UnionCase list) : string list =
+        let w = s.JsonWriterParam
+
+        [
+            yield sprintf "%s.WriteStartObject();" w
+            yield "switch (this)"
+            yield "{"
+
+            for c in cases do
+                yield sprintf "case %s %s:" c.CaseName (if c.JsonFields.IsEmpty then "_" else "arm")
+                yield "{"
+                yield sprintf "%s.WriteString(\"%s\", \"%s\");" w s.UnionCaseProperty c.ArmName
+
+                for n, shape in c.JsonFields do
+                    yield! propertyLines s n shape (sprintf "arm.%s" n)
+
+                yield "break;"
+                yield "}"
+
+            yield "default:"
+            yield sprintf "throw new System.NotSupportedException($\"%s case {GetType().Name} has no JSON view.\");" spec.Name
+
+            yield "}"
+            yield sprintf "%s.WriteEndObject();" w
+        ]
+
     /// `Discriminator` body of one layer: the case picks the key. An arm that reads under several
     /// keys (`case [3; 4] "PlayersChanged"`) writes the first one.
     let private unionDiscriminatorLines (s: RuntimeSurface) (spec: UnionTypeSpec) (l: UnionLayout) : string list =
@@ -214,6 +260,7 @@ module Unions =
             yield s.UsingUnion
             yield s.UsingAttributes
             yield s.UsingSerialization
+            yield s.UsingJson
             if text.Contains s.NbtType then
                 yield s.UsingNbt
             if text.Contains s.UuidType then
@@ -295,7 +342,8 @@ module Unions =
                 .AddMembers(
                     unionReadMethod s spec.Name (parseBody readBody),
                     writeMethod s false (parseBody writeBody),
-                    discriminatorMethod s (parseBody discBody)
+                    discriminatorMethod s (parseBody discBody),
+                    writeJsonMethod s false (parseBody (unionJsonLines s spec cases))
                 )
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
                 .AddAttributeLists(unionAttr s)

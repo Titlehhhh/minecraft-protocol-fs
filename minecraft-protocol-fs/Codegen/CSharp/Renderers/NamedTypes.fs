@@ -13,6 +13,7 @@ module NamedTypes =
     open Text
     open Structure
     open Bodies
+    open Json
 
     // ----- named types -----
 
@@ -22,6 +23,7 @@ module NamedTypes =
         [
             yield s.UsingAttributes
             yield s.UsingSerialization
+            yield s.UsingJson
             if text.Contains s.NbtType then
                 yield s.UsingNbt
             if text.Contains s.UuidType then
@@ -59,6 +61,9 @@ module NamedTypes =
                 true
                 [ for l in spec.Layouts -> l.Range, layoutWriteLines s spec.Name apiTypes l ]
 
+        let jsonBody =
+            objectLines s [ for f in spec.ApiFields -> f.Name, shapeOfApi f.Type, f.Name ]
+
         let shell =
             if value then
                 recordStructShell iface spec.Name fields
@@ -67,7 +72,11 @@ module NamedTypes =
 
         let shell =
             shell
-                .AddMembers(readMethod s spec.Name (parseBody readBody), writeMethod s value (parseBody writeBody))
+                .AddMembers(
+                    readMethod s spec.Name (parseBody readBody),
+                    writeMethod s value (parseBody writeBody),
+                    writeJsonMethod s value (parseBody jsonBody)
+                )
                 .AddMembers(List.toArray extraMembers)
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
                 .AddAttributeLists(List.toArray extraAttrs)

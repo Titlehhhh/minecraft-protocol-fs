@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json;
 
 namespace McProtoNet.Protocol.Attributes
 {
@@ -70,6 +71,7 @@ namespace McProtoNet.Protocol
     public interface IPacket
     {
         PacketIdentity Identity { get; }
+        void WriteJson(Utf8JsonWriter writer);
     }
 
     // Sandbox mirror of the real IPacket: no class constraint, so it serves both the current
@@ -130,6 +132,15 @@ namespace McProtoNet.Protocol
             long v = ((long)(X & 0x3FFFFFF) << 38) | ((long)(Z & 0x3FFFFFF) << 12) | ((long)Y & 0xFFF);
             writer.WriteSignedLong(v);
         }
+
+        public readonly void WriteJson(Utf8JsonWriter writer)
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("X", X);
+            writer.WriteNumber("Y", Y);
+            writer.WriteNumber("Z", Z);
+            writer.WriteEndObject();
+        }
     }
 
     // Hand-written runtime primitive (mirrors McProtoNet): quantized velocity vector, protocol 773+.
@@ -186,6 +197,15 @@ namespace McProtoNet.Protocol
             writer.WriteUnsignedInt((uint)(packed >> 16));
 
             if (continued) writer.WriteVarInt((int)(scale >> 2));
+        }
+
+        public readonly void WriteJson(Utf8JsonWriter writer)
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("X", X);
+            writer.WriteNumber("Y", Y);
+            writer.WriteNumber("Z", Z);
+            writer.WriteEndObject();
         }
 
         private static double Unpack(ulong packed) =>
@@ -251,6 +271,60 @@ namespace McProtoNet.NBT
         }
     }
 
+    // Sandbox mirror of McProtoNet.NBT's NbtJson: the tag's value as JSON, names as object keys.
+    public static class NbtJson
+    {
+        public static void WriteJson(this NbtTag tag, Utf8JsonWriter writer)
+        {
+            switch (tag)
+            {
+                case NbtCompound c:
+                    writer.WriteStartObject();
+                    foreach (var (name, child) in c.Items)
+                    {
+                        writer.WritePropertyName(name);
+                        child.WriteJson(writer);
+                    }
+                    writer.WriteEndObject();
+                    break;
+                case NbtList l:
+                    writer.WriteStartArray();
+                    foreach (var item in l.Items) item.WriteJson(writer);
+                    writer.WriteEndArray();
+                    break;
+                case NbtByte b: writer.WriteNumberValue(b.Value); break;
+                case NbtShort s: writer.WriteNumberValue(s.Value); break;
+                case NbtInt i: writer.WriteNumberValue(i.Value); break;
+                case NbtLong l: writer.WriteNumberValue(l.Value); break;
+                case NbtFloat f: WriteFloating(writer, f.Value); break;
+                case NbtDouble d: WriteFloating(writer, d.Value); break;
+                case NbtString s: writer.WriteStringValue(s.Value); break;
+                case NbtByteArray a:
+                    writer.WriteStartArray();
+                    foreach (var v in a.Value) writer.WriteNumberValue(v);
+                    writer.WriteEndArray();
+                    break;
+                case NbtIntArray a:
+                    writer.WriteStartArray();
+                    foreach (var v in a.Value) writer.WriteNumberValue(v);
+                    writer.WriteEndArray();
+                    break;
+                case NbtLongArray a:
+                    writer.WriteStartArray();
+                    foreach (var v in a.Value) writer.WriteNumberValue(v);
+                    writer.WriteEndArray();
+                    break;
+                default: writer.WriteNullValue(); break;
+            }
+        }
+
+        private static void WriteFloating(Utf8JsonWriter writer, double value)
+        {
+            if (double.IsFinite(value)) writer.WriteNumberValue(value);
+            else writer.WriteStringValue(double.IsNaN(value) ? "NaN" : value > 0 ? "Infinity" : "-Infinity");
+        }
+    }
+
     public static class NbtIds
     {
         public static byte Of(NbtTag tag) => tag switch
@@ -283,6 +357,7 @@ namespace McProtoNet.Primitives
     {
         static abstract TSelf Read(ref MinecraftPrimitiveReader reader, int protocolVersion);
         void Write(MinecraftPrimitiveWriter writer, int protocolVersion);
+        void WriteJson(Utf8JsonWriter writer);
     }
 
     // Big-endian primitive reader over a byte buffer. A struct so the generated
@@ -751,6 +826,23 @@ namespace McProtoNet.Protocol
 
             writer.WriteVarInt(0);
             _value.Write(writer, protocolVersion);
+        }
+
+        public void WriteJson(Utf8JsonWriter writer)
+        {
+            if (_tag != 0)
+            {
+                writer.WriteNumberValue(_tag - 1);
+                return;
+            }
+
+            if (_value is null)
+            {
+                writer.WriteNullValue();
+                return;
+            }
+
+            _value.WriteJson(writer);
         }
     }
 }

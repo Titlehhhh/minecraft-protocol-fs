@@ -13,6 +13,7 @@ module Enums =
     open Text
     open Structure
     open Bodies
+    open Json
 
     // ----- enums -----
 
@@ -160,10 +161,19 @@ module Enums =
             [ gateLine s name ]
             @ versionedBody s name true [ for l in spec.Layouts -> l.Range, writeCore l ]
 
+        // The model view of a table value is its name; an id the table does not know keeps
+        // the `unknown(n)` spelling `ToString` already gives it.
+        let jsonBody =
+            [ sprintf "%s.WriteStringValue(ToString());" s.JsonWriterParam ]
+
         let shell =
             (recordStructShell s.ProtocolInterface name [ "int", "Value" ])
                 .AddMembers(List.toArray (constants @ conversions))
-                .AddMembers(readMethod s name (parseBody readBody), writeMethod s true (parseBody writeBody))
+                .AddMembers(
+                    readMethod s name (parseBody readBody),
+                    writeMethod s true (parseBody writeBody),
+                    writeJsonMethod s true (parseBody jsonBody)
+                )
                 .AddMembers(List.toArray toStringMembers)
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
 
@@ -171,4 +181,4 @@ module Enums =
         // The named form is already the type's whole surface — `Value` reads the int out and the
         // primary constructor puts one back — so the analyzer would only buy duplicate spellings.
         "#pragma warning disable CA2225\n\n"
-        + renderUnit s s.Namespace name [ s.UsingAttributes; s.UsingSerialization ] shell
+        + renderUnit s s.Namespace name [ s.UsingAttributes; s.UsingSerialization; s.UsingJson ] shell

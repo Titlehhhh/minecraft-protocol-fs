@@ -16,6 +16,7 @@ module PacketLayers =
     open Bodies
     open NamedTypes
     open PacketParts
+    open Json
 
     // ----- form A: version groups (layers) -----
 
@@ -28,6 +29,7 @@ module PacketLayers =
             Layout: WireLayout
             GroupName: string option
             Fields: (string * string) list
+            Json: (string * JsonShape) list
         }
 
     /// Mechanical group name from a layout range: `V759`, `V761_763`, `V764_Last`. Shared with the
@@ -58,9 +60,9 @@ module PacketLayers =
     /// A field is common when it lives in every version (`Present = All`).
     let private isCommon (f: ApiField) = f.Present = All
 
-    /// Per-layer C# type of a group field: existence-optionality (`TOption` because the field is
+    /// Per-layer C# type and JSON shape of a group field: existence-optionality (`TOption` because the field is
     /// absent in other versions) is stripped; the layer's own wire decides real nullability.
-    let private layerFieldType (s: RuntimeSurface) (l: WireLayout) (f: ApiField) : string =
+    let private layerField (s: RuntimeSurface) (l: WireLayout) (f: ApiField) : string * JsonShape =
         let inner =
             match f.Type with
             | TOption t -> t
@@ -83,9 +85,9 @@ module PacketLayers =
         let optionalHere = optionalIn l.Entries
 
         if optionalHere then
-            csType s inner + "?"
+            csType s inner + "?", JOption(shapeOfApi inner)
         else
-            csType s inner
+            csType s inner, shapeOfApi inner
 
     /// Cut a multi-layout packet into layers. A layer with no non-common fields gets no group.
     let private packetLayers (s: RuntimeSurface) (p: PacketSpec) : PacketLayer list =
@@ -96,10 +98,12 @@ module PacketLayers =
             for l in p.Layouts ->
                 let bound = boundApis l.Entries |> Set.ofList
 
-                let fields =
+                let own =
                     p.ApiFields
                     |> List.filter (fun f -> not (commonNames.Contains f.Name) && bound.Contains f.Name)
-                    |> List.map (fun f -> layerFieldType s l f, f.Name)
+                    |> List.map (fun f -> f.Name, layerField s l f)
+
+                let fields = own |> List.map (fun (n, (t, _)) -> t, n)
 
                 {
                     Layout = l
@@ -109,6 +113,7 @@ module PacketLayers =
                          else
                              Some(layerName (p.Layouts |> List.map (fun l -> l.Range)) l.Range))
                     Fields = fields
+                    Json = own |> List.map (fun (n, (_, shape)) -> n, shape)
                 }
         ]
 
@@ -380,6 +385,7 @@ module PacketLayers =
                             Layout = l
                             GroupName = None
                             Fields = []
+                            Json = []
                         }
                 ]
 
@@ -404,13 +410,47 @@ module PacketLayers =
                 true
                 [ for l in layers -> l.Layout.Range, formAWriteLines s p.ClassName apiTypes l ]
 
+        // JSON view: common fields, then the fields of whichever layer the value holds, all in one
+        // flat object. The layer is a fact about the value, not a level of the JSON.
+        let jsonBody =
+            let w = s.JsonWriterParam
+
+            [
+                yield sprintf "%s.WriteStartObject();" w
+
+                for f in commonFields do
+                    yield! propertyLines s f.Name (shapeOfApi f.Type) f.Name
+
+                // `else if`: a hand-built packet with two layers set must not write a key twice.
+                let grouped = layers |> List.filter (fun l -> l.GroupName.IsSome)
+
+                for i, l in List.indexed grouped do
+                    match l.GroupName with
+                    | Some g ->
+                        let v = camel g
+                        yield sprintf "%sif (%s is { } %s)" (if i = 0 then "" else "else ") g v
+                        yield "{"
+
+                        for n, shape in l.Json do
+                            yield! propertyLines s n shape (sprintf "%s.%s" v n)
+
+                        yield "}"
+                    | None -> ()
+
+                yield sprintf "%s.WriteEndObject();" w
+            ]
+
         let identityMembers =
             identityMember s e
             :: [ for i in Option.toList s.PacketBaseInterface -> identityBaseMember s i ]
 
         let shell =
             (packetRecordShell s.PacketInterface s.PacketBaseInterface p.ClassName commonPos layers)
-                .AddMembers(readMethod s p.ClassName (parseBody readBody), writeMethod s false (parseBody writeBody))
+                .AddMembers(
+                    readMethod s p.ClassName (parseBody readBody),
+                    writeMethod s false (parseBody writeBody),
+                    writeJsonMethod s false (parseBody jsonBody)
+                )
                 .AddMembers(identityMembers @ packetIdMethods s |> List.toArray)
                 .AddAttributeLists(supportAttr s (p.Layouts |> List.map (fun l -> l.Range)))
                 .AddAttributeLists(
