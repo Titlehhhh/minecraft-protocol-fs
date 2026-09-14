@@ -22,9 +22,9 @@ module ChunkBlockEntity =
             ]
 
             wire (Since 764) [
-                read "packedXZ" U8               "PackedXZ"
-                read "y"        I16              "Y"
-                read "type"     VarInt           "Type"
-                read "nbtData"  (Option AnonNbt) "NbtData"
+                read "packedXZ" U8      "PackedXZ"
+                read "y"        I16     "Y"
+                read "type"     VarInt  "Type"
+                read "nbtData"  AnonNbt "NbtData"
             ]
         }
