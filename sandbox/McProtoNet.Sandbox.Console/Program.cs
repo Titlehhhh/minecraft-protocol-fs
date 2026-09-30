@@ -337,6 +337,28 @@ Console.WriteLine($"protocol version = {version}\n");
     Console.WriteLine();
 }
 
+{
+    var flags = new PositionUpdateRelatives(X: false, Y: false, Z: false, Yaw: true, Pitch: false,
+                                            Dx: false, Dy: false, Dz: false, YawDelta: false);
+    var pkt = new EntityTeleportPacket(42, 100.5, 64.0, -200.25, true,
+        VUntil767: new(64, -32), V768_Last: new(0.125, -0.0784, 0.0, 90f, -10f, flags));
+
+    var (old, oldBack) = RoundTrip(pkt, 767);
+    Assert(old.Length == 28 && oldBack.V768_Last is null);
+    Assert(oldBack.VUntil767!.Value.YawByte == 64 && oldBack.VUntil767!.Value.PitchByte == -32);
+
+    var (now, nowBack) = RoundTrip(pkt, 776);
+    var layer = nowBack.V768_Last!.Value;
+    Assert(now.Length == 62 && nowBack.VUntil767 is null && nowBack.OnGround);
+    Assert(layer.Dy == -0.0784 && layer.Yaw == 90f && layer.Pitch == -10f && layer.Flags.Yaw && !layer.Flags.X);
+    Assert(Hex(now[^5..]) == "0000000801");
+
+    Assert(EntityTeleportPacket.GetPacketId(767) == 0x70);
+    Assert(EntityTeleportPacket.GetPacketId(776) == 0x7D);
+    Console.WriteLine($"EntityTeleportPacket @767: {old.Length} bytes, @776: {now.Length} bytes, yaw={layer.Yaw}, flags.yaw={layer.Flags.Yaw}");
+    Console.WriteLine();
+}
+
 // --- SpawnPositionPacket: MULTIVERSION - position @754, +angle @755, RespawnData @773 ---
 {
     var loc = new Position(10, 64, -20);

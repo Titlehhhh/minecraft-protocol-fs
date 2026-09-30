@@ -36,10 +36,24 @@ static async Task<int> RunAsync(string[] args)
 
     try
     {
+        var command = args[0].ToLowerInvariant();
+        if (command == "entity-types")
+        {
+            var rawEntityPv = ReadOption(args, "--pv");
+            var entityPv = new ProtocolDataOptions().ToProtocol;
+            if (!string.IsNullOrEmpty(rawEntityPv) && !int.TryParse(rawEntityPv, out entityPv))
+            {
+                Console.Error.WriteLine($"Invalid --pv value '{rawEntityPv}'. Expected a protocol version number.");
+                return InvalidArgs;
+            }
+
+            Write(await EntityTypeLoader.LoadAsync(entityPv, ReadOption(args, "--filter")), format);
+            return Ok;
+        }
+
         var repository = await ProtocolDataLoader.LoadRepositoryAsync(new ProtocolDataOptions());
         var query = new ProtocolQueryService(repository);
         var usage = new ProtocolUsageQueries(repository);
-        var command = args[0].ToLowerInvariant();
 
         switch (command)
         {
@@ -270,6 +284,7 @@ mcproto-facts commands:
   chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
   stats [--format json|toon]
   versions [--format json|toon]              (protocol number -> Minecraft releases)
+  entity-types [--pv N] [--filter text] [--format json|toon]   (entity type id -> name, default pv 776)
   order [--format json|toon]                 (type build order, simple -> complex)
   graph [--ns play] [--direction toClient] [--include-types false] [--format json|toon]
 

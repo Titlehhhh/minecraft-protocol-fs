@@ -85,7 +85,7 @@ module Aggregates =
     /// types (fixpoint). A union is a candidate like any other type — it is generated now, so a
     /// union reference resolves as soon as every type its arms read does.
     let private resolvableTypes (s: RuntimeSurface) (protocol: ProtocolSpec) : Set<string> =
-        let runtimeProvided = Set.ofList [ "Position" ]
+        let runtimeProvided = Set.ofList [ "Position"; "LpVec3" ]
 
         let stubFreeEntries (entries: WireEntry list) =
             readEntriesLines s entries |> hasReadError |> not

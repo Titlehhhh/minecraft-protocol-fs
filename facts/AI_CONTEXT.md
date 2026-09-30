@@ -89,6 +89,7 @@ ids --pv <N> [--ns namespace] [--direction toClient|toServer] [--format json|too
 chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
 stats [--format json|toon]
 versions [--format json|toon]
+entity-types [--pv N] [--filter text] [--format json|toon]
 order [--format json|toon]
 graph [--ns play] [--direction toClient] [--include-types false] [--format json|toon]
 ```
