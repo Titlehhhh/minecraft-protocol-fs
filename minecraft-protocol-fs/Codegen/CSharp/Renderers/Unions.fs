@@ -260,7 +260,7 @@ module Unions =
             yield s.UsingUnion
             yield s.UsingAttributes
             yield s.UsingSerialization
-            yield s.UsingJson
+            yield! jsonUsings s
             if text.Contains s.NbtType then
                 yield s.UsingNbt
             if text.Contains s.UuidType then
@@ -336,15 +336,20 @@ module Unions =
         let discBody =
             versionedBody s spec.Name false [ for l in spec.Layouts -> l.Range, unionDiscriminatorLines s spec l ]
 
+        // The JSON model view is parked: `Json.emitJson` decides whether the method is
+        // emitted at all.
+        let jsonMembers =
+            if emitJson then [ writeJsonMethod s false (parseBody (unionJsonLines s spec cases)) ] else []
+
         let shell =
             (unionShell spec.Name)
                 .AddMembers(List.toArray caseDecls)
                 .AddMembers(
                     unionReadMethod s spec.Name (parseBody readBody),
                     writeMethod s false (parseBody writeBody),
-                    discriminatorMethod s (parseBody discBody),
-                    writeJsonMethod s false (parseBody (unionJsonLines s spec cases))
+                    discriminatorMethod s (parseBody discBody)
                 )
+                .AddMembers(List.toArray jsonMembers)
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
                 .AddAttributeLists(unionAttr s)
 

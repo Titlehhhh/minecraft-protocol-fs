@@ -59,13 +59,15 @@ module Bitflags =
         let jsonBody =
             objectLines s [ for f in apiFlags -> pascal f, JBool, pascal f ]
 
+        // The JSON model view is parked: `Json.emitJson` decides whether the method is
+        // emitted at all.
+        let jsonMembers =
+            if emitJson then [ writeJsonMethod s true (parseBody jsonBody) ] else []
+
         let shell =
             (recordStructShell s.ProtocolInterface name (apiFlags |> List.map (fun f -> "bool", pascal f)))
-                .AddMembers(
-                    readMethod s name (parseBody readBody),
-                    writeMethod s true (parseBody writeBody),
-                    writeJsonMethod s true (parseBody jsonBody)
-                )
+                .AddMembers(readMethod s name (parseBody readBody), writeMethod s true (parseBody writeBody))
+                .AddMembers(List.toArray jsonMembers)
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
 
-        renderUnit s s.Namespace name [ s.UsingAttributes; s.UsingSerialization; s.UsingJson ] shell
+        renderUnit s s.Namespace name ([ s.UsingAttributes; s.UsingSerialization ] @ jsonUsings s) shell

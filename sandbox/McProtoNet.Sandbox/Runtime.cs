@@ -71,7 +71,9 @@ namespace McProtoNet.Protocol
     public interface IPacket
     {
         PacketIdentity Identity { get; }
-        void WriteJson(Utf8JsonWriter writer);
+        // The JSON member is parked with the generator switch (`Json.emitJson`): while the JSON
+        // view is off, the generated types carry no `WriteJson`, so the interface must not ask
+        // for one. It comes back with the member when the switch goes on again.
     }
 
     // Sandbox mirror of the real IPacket: no class constraint, so it serves both the current
@@ -93,7 +95,7 @@ namespace McProtoNet.Protocol
     public static class MinecraftVersion
     {
         public const int StartProtocol = 735;   // 1.16
-        public const int LatestProtocol = 776;  // 26.2
+        public const int LatestProtocol = 777;  // 26.3
     }
 
     public static class ThrowHelper
@@ -357,7 +359,7 @@ namespace McProtoNet.Primitives
     {
         static abstract TSelf Read(ref MinecraftPrimitiveReader reader, int protocolVersion);
         void Write(MinecraftPrimitiveWriter writer, int protocolVersion);
-        void WriteJson(Utf8JsonWriter writer);
+        // `WriteJson` is parked with the generator switch (`Json.emitJson`) — see `IPacket`.
     }
 
     // Big-endian primitive reader over a byte buffer. A struct so the generated
@@ -826,23 +828,6 @@ namespace McProtoNet.Protocol
 
             writer.WriteVarInt(0);
             _value.Write(writer, protocolVersion);
-        }
-
-        public void WriteJson(Utf8JsonWriter writer)
-        {
-            if (_tag != 0)
-            {
-                writer.WriteNumberValue(_tag - 1);
-                return;
-            }
-
-            if (_value is null)
-            {
-                writer.WriteNullValue();
-                return;
-            }
-
-            _value.WriteJson(writer);
         }
     }
 }

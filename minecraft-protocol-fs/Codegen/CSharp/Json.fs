@@ -18,6 +18,18 @@ module Json =
     open Text
     open Structure
 
+    /// Whether the JSON model view is emitted at all. PARKED: the public JSON interface is
+    /// going to be redesigned — possibly to a custom abstraction instead of
+    /// `System.Text.Json`'s `Utf8JsonWriter` — so the emission is switched off until that
+    /// redesign lands. The renderer below stays in place: flipping this back to `true` puts
+    /// the `WriteJson` method on every generated type straight back.
+    let emitJson = false
+
+    /// The JSON using — but only while the JSON view is emitted. Without the method the
+    /// namespace is dead weight in every generated file.
+    let internal jsonUsings (s: RuntimeSurface) : string list =
+        if emitJson then [ s.UsingJson ] else []
+
     /// What a value looks like in JSON, independent of whether it came from an api or a wire type.
     type JsonShape =
         | JBool
@@ -146,7 +158,8 @@ module Json =
         @ (props |> List.collect (fun (n, sh, e) -> propertyLines s n sh e))
         @ [ sprintf "%s.WriteEndObject();" w ]
 
-    /// `public [readonly] void WriteJson(Utf8JsonWriter writer)`
+    /// `public [readonly] void WriteJson(Utf8JsonWriter writer)`. The builder is always here;
+    /// whether the method reaches a generated type is `emitJson`'s call.
     let internal writeJsonMethod (s: RuntimeSurface) (readonlyValue: bool) (body: BlockSyntax) : MemberDeclarationSyntax =
         let modifiers =
             if readonlyValue then

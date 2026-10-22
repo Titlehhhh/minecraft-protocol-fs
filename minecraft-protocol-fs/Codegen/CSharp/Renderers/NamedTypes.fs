@@ -23,7 +23,7 @@ module NamedTypes =
         [
             yield s.UsingAttributes
             yield s.UsingSerialization
-            yield s.UsingJson
+            yield! jsonUsings s
             if text.Contains s.NbtType then
                 yield s.UsingNbt
             if text.Contains s.UuidType then
@@ -64,6 +64,11 @@ module NamedTypes =
         let jsonBody =
             objectLines s [ for f in spec.ApiFields -> f.Name, shapeOfApi f.Type, f.Name ]
 
+        // The JSON model view is parked: `Json.emitJson` decides whether the method is
+        // emitted at all.
+        let jsonMembers =
+            if emitJson then [ writeJsonMethod s value (parseBody jsonBody) ] else []
+
         let shell =
             if value then
                 recordStructShell iface spec.Name fields
@@ -72,11 +77,8 @@ module NamedTypes =
 
         let shell =
             shell
-                .AddMembers(
-                    readMethod s spec.Name (parseBody readBody),
-                    writeMethod s value (parseBody writeBody),
-                    writeJsonMethod s value (parseBody jsonBody)
-                )
+                .AddMembers(readMethod s spec.Name (parseBody readBody), writeMethod s value (parseBody writeBody))
+                .AddMembers(List.toArray jsonMembers)
                 .AddMembers(List.toArray extraMembers)
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
                 .AddAttributeLists(List.toArray extraAttrs)

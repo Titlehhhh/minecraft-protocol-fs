@@ -166,14 +166,16 @@ module Enums =
         let jsonBody =
             [ sprintf "%s.WriteStringValue(ToString());" s.JsonWriterParam ]
 
+        // The JSON model view is parked: `Json.emitJson` decides whether the method is
+        // emitted at all.
+        let jsonMembers =
+            if emitJson then [ writeJsonMethod s true (parseBody jsonBody) ] else []
+
         let shell =
             (recordStructShell s.ProtocolInterface name [ "int", "Value" ])
                 .AddMembers(List.toArray (constants @ conversions))
-                .AddMembers(
-                    readMethod s name (parseBody readBody),
-                    writeMethod s true (parseBody writeBody),
-                    writeJsonMethod s true (parseBody jsonBody)
-                )
+                .AddMembers(readMethod s name (parseBody readBody), writeMethod s true (parseBody writeBody))
+                .AddMembers(List.toArray jsonMembers)
                 .AddMembers(List.toArray toStringMembers)
                 .AddAttributeLists(supportAttr s (spec.Layouts |> List.map (fun l -> l.Range)))
 
@@ -181,4 +183,4 @@ module Enums =
         // The named form is already the type's whole surface — `Value` reads the int out and the
         // primary constructor puts one back — so the analyzer would only buy duplicate spellings.
         "#pragma warning disable CA2225\n\n"
-        + renderUnit s s.Namespace name [ s.UsingAttributes; s.UsingSerialization; s.UsingJson ] shell
+        + renderUnit s s.Namespace name ([ s.UsingAttributes; s.UsingSerialization ] @ jsonUsings s) shell

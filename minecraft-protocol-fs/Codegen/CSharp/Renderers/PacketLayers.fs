@@ -117,6 +117,43 @@ module PacketLayers =
                 }
         ]
 
+    /// `using` directives a packet file needs. Not only the api field types: a `readBlock`
+    /// promotes a named type's fields into this file, so an NBT or UUID field *inside* the block
+    /// is named here too and its namespace has to be imported (the api alone would not mention it).
+    let private packetUsings (s: RuntimeSurface) (p: PacketSpec) =
+        let rec entryTypes (e: WireEntry) : WireType list =
+            match e with
+            | Read(_, w, _)
+            | Discard(_, w)
+            | ReadOpt(_, w, _, _, _) -> [ w ]
+            | ReadBlock(w, _, inner) -> w :: (inner |> List.collect entryTypes)
+            | IfNonZero(_, inner) -> inner |> List.collect entryTypes
+            | ReadUnion(_, _, _)
+            | InlineUnion(_, _) -> []
+
+        let text =
+            [
+                yield! p.ApiFields |> List.map (fun f -> csType s f.Type)
+                yield!
+                    p.Layouts
+                    |> List.collect (fun l -> l.Entries)
+                    |> List.collect entryTypes
+                    |> List.choose (wireCsType s)
+            ]
+            |> String.concat " "
+
+        [
+            yield s.UsingAttributes
+            yield s.UsingSerialization
+            yield! jsonUsings s
+
+            if text.Contains s.NbtType then
+                yield s.UsingNbt
+
+            if text.Contains s.UuidType then
+                yield s.UsingSystem
+        ]
+
     /// `public sealed partial record Name(TCommon A, V759Layer? V759 = null, ...) : IPacket<Name>, IPacket`
     /// with one nested `readonly record struct {G}Layer(...)` per group. The second, non-generic
     /// interface (`baseIface`) is what a decoded packet answers to once its static type is gone;
@@ -444,13 +481,15 @@ module PacketLayers =
             identityMember s e
             :: [ for i in Option.toList s.PacketBaseInterface -> identityBaseMember s i ]
 
+        // The JSON model view is parked: `Json.emitJson` decides whether the method is
+        // emitted at all.
+        let jsonMembers =
+            if emitJson then [ writeJsonMethod s false (parseBody jsonBody) ] else []
+
         let shell =
             (packetRecordShell s.PacketInterface s.PacketBaseInterface p.ClassName commonPos layers)
-                .AddMembers(
-                    readMethod s p.ClassName (parseBody readBody),
-                    writeMethod s false (parseBody writeBody),
-                    writeJsonMethod s false (parseBody jsonBody)
-                )
+                .AddMembers(readMethod s p.ClassName (parseBody readBody), writeMethod s false (parseBody writeBody))
+                .AddMembers(List.toArray jsonMembers)
                 .AddMembers(identityMembers @ packetIdMethods s |> List.toArray)
                 .AddAttributeLists(supportAttr s (p.Layouts |> List.map (fun l -> l.Range)))
                 .AddAttributeLists(
@@ -458,4 +497,4 @@ module PacketLayers =
                     |> List.toArray
                 )
 
-        renderUnit s (packetNamespace s p) p.ClassName (usingsFor s p.ApiFields) shell
+        renderUnit s (packetNamespace s p) p.ClassName (packetUsings s p) shell
