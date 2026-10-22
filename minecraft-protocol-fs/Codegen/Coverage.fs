@@ -11,7 +11,7 @@ open McProtocol.Dsl
 /// gaps / stubs / missing — per release protocol version. See `dotnet run -- coverage`.
 module Coverage =
 
-    /// Release protocol versions the library targets (735–776), with display names.
+    /// Release protocol versions the library targets (735–777), with display names.
     /// Mirrors McProtoNet's `MinecraftVersion` table; snapshot/pre/rc protocols
     /// (737–750, 752) are left out on purpose — nobody ships against them.
     let knownVersions =
@@ -43,6 +43,7 @@ module Coverage =
             774, "1.21.11"
             775, "26.1–26.1.2"
             776, "26.2"
+            777, "26.3"
         ]
 
     let private contains pv range =
@@ -122,7 +123,19 @@ module Coverage =
         let manifest = readManifest manifestPath
         let stats = statsPath |> Option.map readStats
         let stubs = readStubs allowlistPath
-        let specByKey = packets |> List.map (fun p -> PacketIds.key p, p) |> Map.ofList
+
+        // A spec answers to its primary manifest key and to every alias key (the same wire
+        // packet under another protodef name — an upstream rename). Aliases are registered
+        // first so a primary key always wins the lookup.
+        let specByKey =
+            let aliasEntries =
+                packets
+                |> List.collect (fun p -> PacketIds.aliasKeys p |> List.map (fun k -> k, p))
+
+            let primaryEntries = packets |> List.map (fun p -> PacketIds.key p, p)
+
+            (aliasEntries @ primaryEntries) |> Map.ofList
+
         let manifestKeys = manifest |> List.map (fun m -> m.Key) |> Set.ofList
         let pvs = knownVersions |> List.map fst
 
@@ -148,7 +161,8 @@ module Coverage =
             ]
 
         let orphanSpecs =
-            packets |> List.filter (fun p -> not (manifestKeys.Contains(PacketIds.key p)))
+            packets
+            |> List.filter (fun p -> not (PacketIds.keys p |> List.exists manifestKeys.Contains))
 
         let sb = StringBuilder()
         let line (s: string) = sb.AppendLine s |> ignore
@@ -286,8 +300,9 @@ module Coverage =
         if not (List.isEmpty orphanSpecs) then
             line "## Спеки без записи в манифесте"
             line ""
-            line "`PacketIds.key` спека не нашёлся в `Spec/protocol-ids.json` — опечатка в"
-            line "`protoId` или устаревший манифест (`scripts/generate-ids-manifest.ps1`)."
+            line "`PacketIds.key` спека (и его алиасы) не нашлись в `Spec/protocol-ids.json` —"
+            line "опечатка в `protoId`/`protoAlias` или устаревший манифест"
+            line "(`scripts/generate-ids-manifest.ps1`)."
             line ""
 
             for p in orphanSpecs do

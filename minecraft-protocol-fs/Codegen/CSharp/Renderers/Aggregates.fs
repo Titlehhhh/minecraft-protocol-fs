@@ -195,6 +195,10 @@ module Aggregates =
                 runs <- (runLo, maxPv, current) :: runs
                 runs |> List.rev |> List.filter (fun (_, _, m) -> not (List.isEmpty m))
 
+        // a `.g.cs` file is auto-generated as far as the compiler is concerned, so the project's
+        // `<Nullable>enable</Nullable>` does not reach it and every `?` here would be a CS8669
+        // warning (and a dead annotation)
+        line "#nullable enable"
         line "using System;"
         line "using System.Diagnostics.CodeAnalysis;"
         line ""

@@ -6,8 +6,11 @@ open McProtocol.Dsl
 module SpectateEntity =
 
     let spectateEntity =
-        packet "SpectateEntityPacket" Play Serverbound (Since 775) {
+        packet "SpectateEntityPacket" Play Serverbound (Between(775, 776)) {
+            protoId "spectate_entity"
+            protoAlias "spectator_action"
+
             api [ field "EntityId" TInt All ]
 
-            wire (Since 775) [ read "entityId" VarInt "EntityId" ]
+            wire (Between(775, 776)) [ read "entityId" VarInt "EntityId" ]
         }

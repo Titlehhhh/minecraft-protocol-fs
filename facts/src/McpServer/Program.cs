@@ -10,11 +10,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using McProtoFacts.Protocol.Loading;
 
-var start = 735;
-var end = 776;
+var options = new ProtocolDataOptions();
 
-Console.WriteLine($"[McpServer] Loading protocols {start}-{end}...");
-var repository = await ProtocolDataLoader.LoadRepositoryAsync(new ProtocolDataOptions(start, end));
+Console.WriteLine($"[McpServer] Loading protocols {options.FromProtocol}-{options.ToProtocol}...");
+var repository = await ProtocolDataLoader.LoadRepositoryAsync(options);
 Console.WriteLine($"[McpServer] Loaded repository for {repository.GetSupportedProtocols()}.");
 
 var builder = WebApplication.CreateBuilder(args);

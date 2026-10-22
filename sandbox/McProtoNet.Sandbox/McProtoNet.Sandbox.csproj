@@ -10,9 +10,9 @@
 
     <!-- Generated protocol types, linked from the F# generator's output (the `gen` run).
          What stays excluded references a C# type the sandbox has no model for (Slot, Particle,
-         the registry variants, MapIcon) or a still-stubbed wire shape. Unions compile here now, so
-         TeamAction and its packet are in; EntityMetadataValue is not, because its arms read
-         Slot and Particle. Its three risky shapes — keyword-named cases, a case carrying a
+         the registry variants, MapIcon, EntityDelta) or a still-stubbed wire shape. Unions compile
+         here now, so TeamAction and its packet are in; EntityMetadataValue is not, because its arms
+         read Slot and Particle. Its three risky shapes — keyword-named cases, a case carrying a
          same-named type, a case carrying an array of one — are compiled and round-tripped
          through Unions/UnionShapeProbe.cs until those types exist. -->
     <ItemGroup>
@@ -27,7 +27,9 @@
                           ..\..\generated-csharp\Packets\Play\Clientbound\MapPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\RespawnPacket.cs;
                           ..\..\generated-csharp\Packets\Play\Clientbound\LoginPacket.cs;
-                          ..\..\generated-csharp\Packets\Play\Serverbound\WindowClickPacket.cs"
+                          ..\..\generated-csharp\Packets\Play\Serverbound\WindowClickPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\EntityMoveLookPacket.cs;
+                          ..\..\generated-csharp\Packets\Play\Clientbound\RelEntityMovePacket.cs"
                  Link="Generated\%(RecursiveDir)%(Filename)%(Extension)" />
         <Compile Include="..\..\generated-csharp\Flow\PacketRegistry.g.cs"
                  Link="Generated\Flow\PacketRegistry.g.cs" />

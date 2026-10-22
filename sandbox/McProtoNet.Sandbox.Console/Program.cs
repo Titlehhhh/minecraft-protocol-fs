@@ -14,6 +14,14 @@ int version = MinecraftVersion.LatestProtocol;
 
 static string Hex(byte[] b) => Convert.ToHexString(b);
 
+static int FirstDiff(byte[] a, byte[] b)
+{
+    if (a.Length != b.Length) return -1;
+    for (int i = 0; i < a.Length; i++)
+        if (a[i] != b[i]) return i;
+    return -1;
+}
+
 static void Assert(bool condition, [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(condition))] string? expr = null)
 {
     if (!condition) throw new Exception($"assertion failed: {expr}");
@@ -502,7 +510,7 @@ Console.WriteLine($"protocol version = {version}\n");
         "C706861");
     var r6 = new MinecraftPrimitiveReader(wire776);
     var back6 = TeamsPacket.Read(ref r6, 776);
-    var created776 = back6.Action as TeamAction.CreatedV776_Last;
+    var created776 = back6.Action as TeamAction.CreatedV776;
     Assert(created776 is not null);
     Assert(((NbtCompound)created776!.Name).Items["text"] is NbtString { Value: "Alpha" });
     Assert(created776.Suffix is NbtString { Value: "" });
@@ -515,11 +523,62 @@ Console.WriteLine($"protocol version = {version}\n");
     Assert(Hex(w6.ToArray()) == Hex(wire776));
     Console.WriteLine($"TeamsPacket @776: {wire776.Length} captured bytes read as {back6.Action.GetType().Name}, re-write byte-identical");
 
+    // 26.3 (777) moves the flags back to the front, right after the name, and drops the optional
+    // colour again: the 777 wire is name, flags, visibility, collision, colour, prefix, suffix
+    var created777 = new TeamAction.CreatedV777_Last(
+        new NbtCompound().With("text", new NbtString("Alpha")), new TeamFlags(true, true), 0, 0, 7,
+        new NbtCompound().With("text", new NbtString("[")),
+        new NbtCompound().With("text", new NbtString("]")), new[] { "Alpha" });
+    var w7 = new MinecraftPrimitiveWriter();
+    new TeamsPacket("reds", created777).Write(w7, 777);
+    var bytes777 = w7.ToArray();
+    var r7 = new MinecraftPrimitiveReader(bytes777);
+    var back7 = TeamsPacket.Read(ref r7, 777);
+    Assert(back7.Action is TeamAction.CreatedV777_Last { Formatting: 7 });
+    var w8 = new MinecraftPrimitiveWriter();
+    back7.Write(w8, 777);
+    Assert(Hex(w8.ToArray()) == Hex(bytes777));
+    Console.WriteLine($"TeamsPacket @777: {bytes777.Length} bytes, re-write byte-identical, case={back7.Action.GetType().Name}");
+
+    // the flags byte precedes the colour byte on the 777 wire: clearing the flags and clearing the
+    // colour each move exactly one byte, and the flags one comes first
+    var flagsOff = new TeamAction.CreatedV777_Last(
+        new NbtCompound().With("text", new NbtString("Alpha")), new TeamFlags(false, false), 0, 0, 7,
+        new NbtCompound().With("text", new NbtString("[")),
+        new NbtCompound().With("text", new NbtString("]")), new[] { "Alpha" });
+    var colourOff = new TeamAction.CreatedV777_Last(
+        new NbtCompound().With("text", new NbtString("Alpha")), new TeamFlags(true, true), 0, 0, 0,
+        new NbtCompound().With("text", new NbtString("[")),
+        new NbtCompound().With("text", new NbtString("]")), new[] { "Alpha" });
+    var w9 = new MinecraftPrimitiveWriter();
+    new TeamsPacket("reds", flagsOff).Write(w9, 777);
+    var flagsBytes = w9.ToArray();
+    var w10 = new MinecraftPrimitiveWriter();
+    new TeamsPacket("reds", colourOff).Write(w10, 777);
+    var colourBytes = w10.ToArray();
+    var flagsAt = FirstDiff(bytes777, flagsBytes);
+    var colourAt = FirstDiff(bytes777, colourBytes);
+    Assert(flagsAt >= 0 && colourAt >= 0 && flagsAt < colourAt);
+    Console.WriteLine($"TeamsPacket @777: the flags byte at {flagsAt} precedes the colour byte at {colourAt}");
+
+    // a case whose layer does not cover the version must fail, not invent a shape
+    try
+    {
+        new TeamsPacket("reds", created777).Write(new MinecraftPrimitiveWriter(), 776);
+        Assert(false);
+    }
+    catch (NotSupportedException)
+    {
+    }
+
     var kind = back3.Action.Match(
         createdVUntil764: _ => "created", removed: _ => "removed", updatedVUntil764: _ => "updated",
         playersAdded: _ => "playersAdded", playersRemoved: _ => "playersRemoved",
+        createdV765_769: _ => "created", updatedV765_769: _ => "updated",
+        createdV770: _ => "created", updatedV770: _ => "updated",
         createdV771_775: _ => "created", updatedV771_775: _ => "updated",
-        createdV776_Last: _ => "created", updatedV776_Last: _ => "updated",
+        createdV776: _ => "created", updatedV776: _ => "updated",
+        createdV777_Last: _ => "created", updatedV777_Last: _ => "updated",
         playersChanged: _ => "playersChanged");
     Assert(kind == "created");
     Console.WriteLine($"TeamAction.Match -> {kind}\n");
@@ -1801,6 +1860,27 @@ Console.WriteLine($"protocol version = {version}\n");
     }
 
     Console.WriteLine($"EncryptionResponsePacket @759/@760: both inline-union arms round-trip, {total} bytes total; @758/@761 stay flat\n");
+}
+
+// --- TeleportConfirm: 26.3 (777) added the teleport target to the accept packet ---
+{
+    var teleport = new McProtoNet.Protocol.Packets.Play.Serverbound.TeleportConfirmPacket(7);
+
+    var (oldBytes, oldBack) = RoundTrip(teleport, 776);
+    Assert(oldBytes.Length == 1);
+    Assert(oldBack.TeleportId == 7);
+    Assert(oldBack.V777_Last is null);
+
+    var (newBytes, newBack) = RoundTrip(
+        teleport with { V777_Last = new McProtoNet.Protocol.Packets.Play.Serverbound.TeleportConfirmPacket.V777_LastLayer(
+            1.5d, 64.0d, -2.25d, 90f, -45f) },
+        777);
+    var layer = newBack.V777_Last!.Value;
+    Assert(layer.X == 1.5d && layer.Y == 64.0d && layer.Z == -2.25d);
+    Assert(layer.YRot == 90f && layer.XRot == -45f);
+    Assert(newBytes.Length == 1 + 8 + 8 + 8 + 4 + 4);
+
+    Console.WriteLine($"TeleportConfirmPacket @776/@777: {oldBytes.Length} bytes flat, {newBytes.Length} bytes with the teleport target\n");
 }
 
 // --- GetPacketId: numeric ids from the McProtoFacts manifest ---

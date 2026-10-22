@@ -284,7 +284,7 @@ mcproto-facts commands:
   chunks [--kind all|packet|type] [--filter text] [--max-chars N] [--format json|toon]
   stats [--format json|toon]
   versions [--format json|toon]              (protocol number -> Minecraft releases)
-  entity-types [--pv N] [--filter text] [--format json|toon]   (entity type id -> name, default pv 776)
+  entity-types [--pv N] [--filter text] [--format json|toon]   (entity type id -> name, default pv 777)
   order [--format json|toon]                 (type build order, simple -> complex)
   graph [--ns play] [--direction toClient] [--include-types false] [--format json|toon]
 

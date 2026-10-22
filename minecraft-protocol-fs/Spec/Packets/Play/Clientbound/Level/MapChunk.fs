@@ -8,25 +8,29 @@ module MapChunk =
     let mapChunk =
         packet "MapChunkPacket" Play Clientbound All {
             api [
-                field "X"                   TInt                                All
-                field "Z"                   TInt                                All
-                field "GroundUp"            TInt                                (Until 754)
-                field "IgnoreOldData"       TBool                               (Until 736)
-                field "BitMapLegacy"        TInt                                (Until 754)
-                field "BitMap"              (TArray TLong)                      (Between(755, 756))
-                field "HeightmapsLegacy"    TNbt                                (Until 769)
-                field "Heightmaps"          (TArray(TNamed "Heightmap"))        (Since 770)
-                field "Biomes"              (TOption(TArray TInt))              (Until 756)
-                field "ChunkData"           TBytes                              All
-                field "BlockEntitiesLegacy" (TArray TNbt)                       (Until 756)
-                field "BlockEntities"       (TArray(TNamed "ChunkBlockEntity")) (Since 757)
-                field "TrustEdges"          TBool                               (Between(757, 762))
-                field "SkyLightMask"        (TArray TLong)                      (Since 757)
-                field "BlockLightMask"      (TArray TLong)                      (Since 757)
-                field "EmptySkyLightMask"   (TArray TLong)                      (Since 757)
-                field "EmptyBlockLightMask" (TArray TLong)                      (Since 757)
-                field "SkyLight"            (TArray TBytes)                     (Since 757)
-                field "BlockLight"          (TArray TBytes)                     (Since 757)
+                field "X"                    TInt                                All
+                field "Z"                    TInt                                All
+                field "GroundUp"             TInt                                (Until 754)
+                field "IgnoreOldData"        TBool                               (Until 736)
+                field "BitMapLegacy"         TInt                                (Until 754)
+                field "BitMap"               (TArray TLong)                      (Between(755, 756))
+                field "HeightmapsLegacy"     TNbt                                (Until 769)
+                field "Heightmaps"           (TArray(TNamed "Heightmap"))        (Since 770)
+                field "Biomes"               (TOption(TArray TInt))              (Until 756)
+                field "ChunkData"            TBytes                              All
+                field "BlockEntitiesLegacy"  (TArray TNbt)                       (Until 756)
+                field "BlockEntities"        (TArray(TNamed "ChunkBlockEntity")) (Since 757)
+                field "TrustEdges"           TBool                               (Between(757, 762))
+                field "SkyLightMask"        (TArray TLong)                      (Between(757, 776))
+                field "BlockLightMask"      (TArray TLong)                      (Between(757, 776))
+                field "EmptySkyLightMask"   (TArray TLong)                      (Between(757, 776))
+                field "EmptyBlockLightMask" (TArray TLong)                      (Between(757, 776))
+                field "SkyLightMaskBytes"   TBytes                              (Since 777)
+                field "BlockLightMaskBytes" TBytes                              (Since 777)
+                field "EmptySkyLightMaskBytes" TBytes                           (Since 777)
+                field "EmptyBlockLightMaskBytes" TBytes                         (Since 777)
+                field "SkyLight"             (TArray TBytes)                     (Since 757)
+                field "BlockLight"           (TArray TBytes)                     (Since 757)
             ]
 
             wire (Until 736) [
@@ -113,7 +117,7 @@ module MapChunk =
                 read "blockLight"          (Array(Array(U8, VarIntCount), VarIntCount))   "BlockLight"
             ]
 
-            wire (Since 770) [
+            wire (Between(770, 776)) [
                 read "x"                   I32                                            "X"
                 read "z"                   I32                                            "Z"
                 read "heightmaps"          (Array(Named "Heightmap", VarIntCount))        "Heightmaps"
@@ -123,6 +127,20 @@ module MapChunk =
                 read "blockLightMask"      (Array(I64, VarIntCount))                      "BlockLightMask"
                 read "emptySkyLightMask"   (Array(I64, VarIntCount))                      "EmptySkyLightMask"
                 read "emptyBlockLightMask" (Array(I64, VarIntCount))                      "EmptyBlockLightMask"
+                read "skyLight"            (Array(Array(U8, VarIntCount), VarIntCount))   "SkyLight"
+                read "blockLight"          (Array(Array(U8, VarIntCount), VarIntCount))   "BlockLight"
+            ]
+
+            wire (Since 777) [
+                read "x"                   I32                                            "X"
+                read "z"                   I32                                            "Z"
+                read "heightmaps"          (Array(Named "Heightmap", VarIntCount))        "Heightmaps"
+                read "chunkData"           ByteArray                                      "ChunkData"
+                read "blockEntities"       (Array(Named "ChunkBlockEntity", VarIntCount)) "BlockEntities"
+                read "skyLightMask"        ByteArray                                      "SkyLightMaskBytes"
+                read "blockLightMask"      ByteArray                                      "BlockLightMaskBytes"
+                read "emptySkyLightMask"   ByteArray                                      "EmptySkyLightMaskBytes"
+                read "emptyBlockLightMask" ByteArray                                      "EmptyBlockLightMaskBytes"
                 read "skyLight"            (Array(Array(U8, VarIntCount), VarIntCount))   "SkyLight"
                 read "blockLight"          (Array(Array(U8, VarIntCount), VarIntCount))   "BlockLight"
             ]

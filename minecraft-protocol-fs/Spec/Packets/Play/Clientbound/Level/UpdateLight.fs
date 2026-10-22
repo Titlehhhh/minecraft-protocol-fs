@@ -16,10 +16,14 @@ module UpdateLight =
                 field "EmptySkyLightMaskLegacy"   TInt                  (Until 754)
                 field "EmptyBlockLightMaskLegacy" TInt                  (Until 754)
                 field "Data"                      TBytes                (Until 754)
-                field "SkyLightMask"              (TArray TLong)        (Since 755)
-                field "BlockLightMask"            (TArray TLong)        (Since 755)
-                field "EmptySkyLightMask"         (TArray TLong)        (Since 755)
-                field "EmptyBlockLightMask"       (TArray TLong)        (Since 755)
+                field "SkyLightMask"              (TArray TLong)        (Between(755, 776))
+                field "BlockLightMask"            (TArray TLong)        (Between(755, 776))
+                field "EmptySkyLightMask"         (TArray TLong)        (Between(755, 776))
+                field "EmptyBlockLightMask"       (TArray TLong)        (Between(755, 776))
+                field "SkyLightMaskBytes"         TBytes                (Since 777)
+                field "BlockLightMaskBytes"       TBytes                (Since 777)
+                field "EmptySkyLightMaskBytes"    TBytes                (Since 777)
+                field "EmptyBlockLightMaskBytes"  TBytes                (Since 777)
                 field "SkyLight"                  (TArray TBytes)       (Since 755)
                 field "BlockLight"                (TArray TBytes)       (Since 755)
             ]
@@ -47,13 +51,24 @@ module UpdateLight =
                 read "blockLight"          (Array(Array(U8, VarIntCount), VarIntCount)) "BlockLight"
             ]
 
-            wire (Since 763) [
+            wire (Between(763, 776)) [
                 read "chunkX"              VarInt                                       "ChunkX"
                 read "chunkZ"              VarInt                                       "ChunkZ"
                 read "skyLightMask"        (Array(I64, VarIntCount))                    "SkyLightMask"
                 read "blockLightMask"      (Array(I64, VarIntCount))                    "BlockLightMask"
                 read "emptySkyLightMask"   (Array(I64, VarIntCount))                    "EmptySkyLightMask"
                 read "emptyBlockLightMask" (Array(I64, VarIntCount))                    "EmptyBlockLightMask"
+                read "skyLight"            (Array(Array(U8, VarIntCount), VarIntCount)) "SkyLight"
+                read "blockLight"          (Array(Array(U8, VarIntCount), VarIntCount)) "BlockLight"
+            ]
+
+            wire (Since 777) [
+                read "chunkX"              VarInt                                       "ChunkX"
+                read "chunkZ"              VarInt                                       "ChunkZ"
+                read "skyLightMask"        ByteArray                                   "SkyLightMaskBytes"
+                read "blockLightMask"      ByteArray                                   "BlockLightMaskBytes"
+                read "emptySkyLightMask"   ByteArray                                   "EmptySkyLightMaskBytes"
+                read "emptyBlockLightMask" ByteArray                                   "EmptyBlockLightMaskBytes"
                 read "skyLight"            (Array(Array(U8, VarIntCount), VarIntCount)) "SkyLight"
                 read "blockLight"          (Array(Array(U8, VarIntCount), VarIntCount)) "BlockLight"
             ]

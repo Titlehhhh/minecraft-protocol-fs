@@ -33,11 +33,17 @@ $staging = Join-Path ([IO.Path]::GetTempPath()) "mcproto-gen-$([guid]::NewGuid()
 # and it stays held back for Particle, so the probe is what exercises the shape end to end.
 # EnumShapeProbe.cs is the fixture for enumType: it exercises both enum backings and a
 # multi-layout table in one type, and is never delivered.
+# EnumShapeProbe.cs is the fixture for enumType: it exercises both enum backings and a
+# multi-layout table in one type, and is never delivered.
+# EntityMoveLookPacket.cs and RelEntityMovePacket.cs carry the native `entityDelta` type
+# (protocol 777 onwards). No McProtoFacts surface exposes how that type is encoded, so the
+# runtime type cannot be written yet — both packets stay held back until it can.
 $exclude = @(
     'EntityMetadataPacket.cs', 'ExplosionPacket.cs', 'ExplosionParticleEntry.cs',
     'ExplosionParticleInfo.cs', 'MapPacket.cs', 'WindowClickPacket.cs',
     'EntityMetadataEntry.cs', 'EntityMetadataValue.cs', 'UnionShapeProbe.cs',
-    'ConditionalShapeProbe.cs', 'HolderShapeProbe.cs', 'EnumShapeProbe.cs'
+    'ConditionalShapeProbe.cs', 'HolderShapeProbe.cs', 'EnumShapeProbe.cs',
+    'EntityMoveLookPacket.cs', 'RelEntityMovePacket.cs'
 )
 
 # One generated file declares one type, named after the file, so an excluded file name is the

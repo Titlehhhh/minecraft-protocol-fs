@@ -208,6 +208,10 @@ module Ast =
             ApiFields: ApiField list
             Layouts: WireLayout list
             ProtoName: string option
+            /// Other protodef names the same wire packet carried under other protocol versions
+            /// (a rename upstream: e.g. `spectate_entity` at 775/777, `spectator_action` at 776).
+            /// The primary name stays the spec's identity; the aliases only widen its id coverage.
+            ProtoAliases: string list
             Ids: (int * int * int) list
         }
 

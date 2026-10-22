@@ -179,7 +179,7 @@ public class ProtocolRepository : IProtocolRepository
 
                 if (!packets.ContainsKey(p.Key))
                     packets[p.Key] = new PacketDefinition(ns, name, found);
-                else if (packets[p.Key].Name != found.Name)
+                else
                     packets[p.Key].Merge(found);
 
                 // Store hex ID for this version range

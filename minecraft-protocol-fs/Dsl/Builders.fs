@@ -9,6 +9,7 @@ module Builders =
         let mutable apiFields: ApiField list = []
         let mutable layouts: WireLayout list = []
         let mutable protoName = None
+        let mutable protoAliases: string list = []
 
         member _.Yield(()) = ()
         member _.Zero() = ()
@@ -25,6 +26,12 @@ module Builders =
         [<CustomOperation("protoId")>]
         member _.ProtoId((), name) = protoName <- Some name
 
+        /// An additional protodef name the same wire packet carried under another protocol
+        /// version (an upstream rename). Aliases never change the spec's identity — they only
+        /// widen the packet-id coverage taken from the manifest.
+        [<CustomOperation("protoAlias")>]
+        member _.ProtoAlias((), name) = protoAliases <- protoAliases @ [ name ]
+
         member _.Run(()) =
             {
                 ClassName = name
@@ -34,6 +41,7 @@ module Builders =
                 ApiFields = apiFields
                 Layouts = layouts
                 ProtoName = protoName
+                ProtoAliases = protoAliases
                 Ids = []
             }
 
